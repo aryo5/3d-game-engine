@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -221,22 +222,27 @@ fun EngineScreen(
                 val screenH = maxHeight.value
                 val isPortrait = screenW < screenH
 
-                // 2a. Global / Right-Side Camera Swipe Gesture Surface (Behind HUD Buttons)
-                // Usap bebas di mana saja di area kosong (khususnya sisi kanan layar) untuk menggeser sudut kamera AC Shadows
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                val sensitivity = 0.28f
-                                renderer.camera.rotate(
-                                    deltaYaw = dragAmount.x * sensitivity,
-                                    deltaPitch = -dragAmount.y * sensitivity
-                                )
-                            }
-                        }
-                )
+                 // 2a. Global / Right-Side Camera Swipe Gesture Surface (Behind HUD Buttons)
+                 // Usap bebas di mana saja di area kosong untuk menggeser kamera, serta cubit (pinch) untuk zoom in/out
+                 Box(
+                     modifier = Modifier
+                         .fillMaxSize()
+                         .pointerInput(Unit) {
+                             detectTransformGestures { centroid, pan, zoom, rotation ->
+                                 val sensitivity = 0.28f
+                                 // Rotasi kamera dengan arah usap standard (tidak terbalik lagi)
+                                 renderer.camera.rotate(
+                                     deltaYaw = pan.x * sensitivity,
+                                     deltaPitch = -pan.y * sensitivity
+                                 )
+                                 // Cubit (Pinch) untuk Zoom In / Out secara halus & responsif
+                                 if (zoom != 1f) {
+                                     val zoomSensitivity = 12.0f
+                                     renderer.camera.zoom((1f - zoom) * zoomSensitivity)
+                                 }
+                             }
+                         }
+                 )
 
                 hudConfigs.forEach { (id, cfg) ->
                     if (!cfg.isEnabled) return@forEach
@@ -320,27 +326,30 @@ fun EngineScreen(
                             }
                         }
 
-                        HudControlId.LOOK_PAD -> {
-                            Box(
-                                modifier = Modifier
-                                    .offset { IntOffset(posX.dp.roundToPx(), posY.dp.roundToPx()) }
-                                    .size(currentSize)
-                                    .alpha(cfg.alpha)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Color(0x22FFFFFF))
-                                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(16.dp))
-                                    .pointerInput(Unit) {
-                                        detectDragGestures { change, dragAmount ->
-                                            change.consume()
-                                            val sensitivity = 0.35f
-                                            renderer.camera.rotate(
-                                                deltaYaw = dragAmount.x * sensitivity,
-                                                deltaPitch = -dragAmount.y * sensitivity
-                                            )
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
+                         HudControlId.LOOK_PAD -> {
+                             Box(
+                                 modifier = Modifier
+                                     .offset { IntOffset(posX.dp.roundToPx(), posY.dp.roundToPx()) }
+                                     .size(currentSize)
+                                     .alpha(cfg.alpha)
+                                     .clip(RoundedCornerShape(16.dp))
+                                     .background(Color(0x22FFFFFF))
+                                     .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(16.dp))
+                                     .pointerInput(Unit) {
+                                         detectTransformGestures { centroid, pan, zoom, rotation ->
+                                             val sensitivity = 0.35f
+                                             renderer.camera.rotate(
+                                                 deltaYaw = pan.x * sensitivity,
+                                                 deltaPitch = -pan.y * sensitivity
+                                             )
+                                             if (zoom != 1f) {
+                                                 val zoomSensitivity = 12.0f
+                                                 renderer.camera.zoom((1f - zoom) * zoomSensitivity)
+                                             }
+                                         }
+                                     },
+                                 contentAlignment = Alignment.Center
+                             ) {
                                 Text(
                                     text = "Usap Kamera",
                                     color = Color(0x77FFFFFF),
@@ -689,14 +698,14 @@ fun EngineScreen(
                         }
                     }
                 }
-            } else if (statusMsg != null || nearbyObject != null || nearbyNpc != null || physicsEngine.barrierManager.activeTriggerMessage != null) {
-                // 5. Proximity & Barrier Banner
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 120.dp),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
+             } else if (statusMsg != null || nearbyObject != null || nearbyNpc != null || physicsEngine.barrierManager.activeTriggerMessage != null) {
+                 // 5. Proximity & Barrier Banner (Move to bottom-center out of the character's way)
+                 Box(
+                     modifier = Modifier
+                         .fillMaxSize()
+                         .padding(bottom = 28.dp),
+                     contentAlignment = Alignment.BottomCenter
+                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp),

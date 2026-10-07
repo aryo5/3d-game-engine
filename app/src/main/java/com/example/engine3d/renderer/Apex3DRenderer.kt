@@ -240,8 +240,10 @@ class Apex3DRenderer(
         GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
         GLES20.glUniform1f(shader.uSpecularStrengthLocation, 0.15f)
         GLES20.glUniform1f(shader.uShininessLocation, 16f)
+        GLES20.glUniform1i(shader.uUseVertexColorLocation, if (activeTerrain.colors != null) 1 else 0)
 
         activeTerrain.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset to uncolored default for procedural objects
         triCount += activeTerrain.triangleCount
         drawCallCount++
 
@@ -358,7 +360,9 @@ class Apex3DRenderer(
                 GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
                 GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, npcMat.data, 0)
                 GLES20.glUniform4f(shader.uBaseColorLocation, npc.tintColor[0], npc.tintColor[1], npc.tintColor[2], 1f)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (npc.customMesh!!.colors != null) 1 else 0)
                 npc.customMesh!!.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset
                 triCount += npc.customMesh!!.triangleCount
                 drawCallCount++
             } else {
@@ -415,7 +419,9 @@ class Apex3DRenderer(
                     GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, charMvp.data, 0)
                     GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, charMat.data, 0)
                     GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
+                    GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customChar.colors != null) 1 else 0)
                     customChar.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+                    GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset
                     triCount += customChar.triangleCount
                     drawCallCount++
                 }
@@ -621,6 +627,13 @@ class Apex3DRenderer(
             clipName.contains(c.name, ignoreCase = true)
         }
 
+        // Loop the animation time cleanly modulo duration to prevent it from freezing at the last frame
+        val clipTime = if (clip != null && clip.duration > 0f) {
+            time % clip.duration
+        } else {
+            time
+        }
+
         // Interpolate node local matrices
         for (node in nodes) {
             var tx = 0f; var ty = 0f; var tz = 0f
@@ -635,7 +648,7 @@ class Apex3DRenderer(
                 // Find translation channel for this node
                 val tChannel = clip.channels.firstOrNull { it.nodeIndex == node.index && it.path == "translation" }
                 if (tChannel != null && tChannel.times.isNotEmpty()) {
-                    val val3 = interpolateVec3Keyframes(tChannel.times, tChannel.values, time)
+                    val val3 = interpolateVec3Keyframes(tChannel.times, tChannel.values, clipTime)
                     tx = val3[0]; ty = val3[1]; tz = val3[2]
                     hasTranslation = true
                 }
@@ -643,7 +656,7 @@ class Apex3DRenderer(
                 // Find rotation channel (quaternion VEC4) for this node
                 val rChannel = clip.channels.firstOrNull { it.nodeIndex == node.index && it.path == "rotation" }
                 if (rChannel != null && rChannel.times.isNotEmpty()) {
-                    val val4 = interpolateVec4Keyframes(rChannel.times, rChannel.values, time)
+                    val val4 = interpolateVec4Keyframes(rChannel.times, rChannel.values, clipTime)
                     rx = val4[0]; ry = val4[1]; rz = val4[2]; rw = val4[3]
                     hasRotation = true
                 }
@@ -651,7 +664,7 @@ class Apex3DRenderer(
                 // Find scale channel for this node
                 val sChannel = clip.channels.firstOrNull { it.nodeIndex == node.index && it.path == "scale" }
                 if (sChannel != null && sChannel.times.isNotEmpty()) {
-                    val val3 = interpolateVec3Keyframes(sChannel.times, sChannel.values, time)
+                    val val3 = interpolateVec3Keyframes(sChannel.times, sChannel.values, clipTime)
                     sx = val3[0]; sy = val3[1]; sz = val3[2]
                     hasScale = true
                 }
@@ -798,10 +811,12 @@ class Apex3DRenderer(
             GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, nodeMvp.data, 0)
             GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, nodeModelMatrix.data, 0)
             GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
+            GLES20.glUniform1i(shader.uUseVertexColorLocation, if (subMesh.colors != null) 1 else 0)
             
             subMesh.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, wireframe)
             submeshTriangles += subMesh.triangleCount
         }
+        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset after drawing submeshes
         return submeshTriangles
     }
 }

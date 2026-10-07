@@ -30,6 +30,7 @@ class Shader {
     var uPointLightPosLocation: Int = -1
     var uPointLightColorLocation: Int = -1
     var uPointLightRadiusLocation: Int = -1
+    var uUseVertexColorLocation: Int = -1
 
     init {
         compileAndLink()
@@ -78,6 +79,7 @@ class Shader {
             uniform int uFogEnabled;
             uniform int uUseLighting;
             uniform int uShadingQuality; // 0=Unlit, 1=Fast Gouraud-like, 2=Blinn-Phong
+            uniform int uUseVertexColor;
             
             uniform vec3 uPointLightPos;
             uniform vec3 uPointLightColor;
@@ -90,7 +92,7 @@ class Shader {
             
             void main() {
                 vec4 base = uBaseColor;
-                if (vColor.a > 0.01) {
+                if (uUseVertexColor == 1) {
                     base = vColor * uBaseColor;
                 }
                 
@@ -190,6 +192,7 @@ class Shader {
         uPointLightPosLocation = GLES20.glGetUniformLocation(programId, "uPointLightPos")
         uPointLightColorLocation = GLES20.glGetUniformLocation(programId, "uPointLightColor")
         uPointLightRadiusLocation = GLES20.glGetUniformLocation(programId, "uPointLightRadius")
+        uUseVertexColorLocation = GLES20.glGetUniformLocation(programId, "uUseVertexColor")
     }
 
     private fun loadShader(type: Int, shaderCode: String): Int {

@@ -80,10 +80,12 @@ fun GlbConfigPatcherSheet(
     var runBind by remember { mutableStateOf("") }
     var jumpBind by remember { mutableStateOf("") }
     var slashBind by remember { mutableStateOf("") }
+    var manualModelTypeOverride by remember { mutableStateOf<ModelTarget?>(null) }
 
     // Update bindings when selected model changes
     LaunchedEffect(selectedModel) {
         selectedModel?.let { model ->
+            manualModelTypeOverride = model.target
             val clips = model.mesh.animationClips
             idleBind = clips.firstOrNull { it.name.contains("idle", ignoreCase = true) }?.name ?: ""
             walkBind = clips.firstOrNull { it.name.contains("walk", ignoreCase = true) || it.name.contains("move", ignoreCase = true) }?.name ?: ""
@@ -208,10 +210,7 @@ fun GlbConfigPatcherSheet(
                 // 2. MODEL TYPE ANALYSIS & OPTIONS PANEL
                 selectedModel?.let { model ->
                     val hasAnimations = model.mesh.animationClips.isNotEmpty()
-                    val isMapModel = model.fileName.lowercase().contains("terrain") || 
-                                     model.fileName.lowercase().contains("map") || 
-                                     model.fileName.lowercase().contains("land") ||
-                                     model.target == ModelTarget.TERRAIN
+                    val isMapModel = (manualModelTypeOverride ?: model.target) == ModelTarget.TERRAIN
 
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF101726)),
@@ -249,6 +248,45 @@ fun GlbConfigPatcherSheet(
                                 fontSize = 11.sp,
                                 color = Color(0xFF90A4AE)
                             )
+
+                            Text(
+                                text = "Pilih Peran Model Ini Secara Manual (Sangat Penting):",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(
+                                    ModelTarget.CHARACTER to "🧍 Karakter / Hero",
+                                    ModelTarget.TERRAIN to "🗺️ Permukaan / Terrain"
+                                ).forEach { (targetType, label) ->
+                                    val isCurrent = (manualModelTypeOverride ?: model.target) == targetType
+                                    FilterChip(
+                                        selected = isCurrent,
+                                        onClick = {
+                                            manualModelTypeOverride = targetType
+                                            if (targetType == ModelTarget.TERRAIN) {
+                                                customModelManager.activeCustomTerrainMesh = model.mesh
+                                                terrainMesh.setCustomMesh(model.mesh)
+                                            } else {
+                                                customModelManager.activeCustomCharacterMesh = model.mesh
+                                            }
+                                        },
+                                        label = { Text(label, fontSize = 11.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = if (targetType == ModelTarget.TERRAIN) Color(0xFF76FF03) else Color(0xFF00E5FF),
+                                            selectedLabelColor = Color.Black,
+                                            containerColor = Color(0xFF1E2B47),
+                                            labelColor = Color.White
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
 
                             Divider(color = Color(0xFF1F2B45))
 
@@ -386,15 +424,90 @@ fun GlbConfigPatcherSheet(
                                             }
                                         }
                                         PatcherTool.ADD_PORTAL -> {
-                                            OutlinedTextField(
-                                                value = customPortalTargetGbl,
-                                                onValueChange = { customPortalTargetGbl = it },
-                                                label = { Text("Nama File GLB Target Teleportasi", fontSize = 11.sp) },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                singleLine = true
-                                            )
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Text("Pilih Target Pintu / Portal Teleportasi:", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                                
+                                                var portalExpanded by remember { mutableStateOf(false) }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .background(Color(0xFF1E2B45), RoundedCornerShape(6.dp))
+                                                        .border(1.dp, Color(0xFF37474F), RoundedCornerShape(6.dp))
+                                                        .clickable { portalExpanded = true }
+                                                        .padding(10.dp)
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = if (customPortalTargetGbl == "null") "❌ Datar Null (Hanya trigger rintangan/flat)" else "🗺️ $customPortalTargetGbl",
+                                                            fontSize = 11.sp,
+                                                            color = if (customPortalTargetGbl == "null") Color(0xFFFF5252) else Color(0xFF00E5FF)
+                                                        )
+                                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.White)
+                                                    }
+                                                    
+                                                    DropdownMenu(
+                                                        expanded = portalExpanded,
+                                                        onDismissRequest = { portalExpanded = false },
+                                                        modifier = Modifier.background(Color(0xFF101726))
+                                                    ) {
+                                                        DropdownMenuItem(
+                                                            text = { Text("❌ Datar Null (Tanpa Teleport)", color = Color.White, fontSize = 11.sp) },
+                                                            onClick = {
+                                                                customPortalTargetGbl = "null"
+                                                                portalExpanded = false
+                                                            }
+                                                        )
+                                                        customModelManager.importedModels.forEach { m ->
+                                                            DropdownMenuItem(
+                                                                text = { Text("🗺️ ${m.fileName}", color = Color.White, fontSize = 11.sp) },
+                                                                onClick = {
+                                                                    customPortalTargetGbl = m.fileName
+                                                                    portalExpanded = false
+                                                                }
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
-                                        else -> {}
+                                        PatcherTool.SET_SPAWN -> {
+                                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Text("Posisikan Spawn Player Secara Cepat:", fontSize = 11.sp, color = Color.White)
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Button(
+                                                        onClick = {
+                                                            playerPos.set(0f, terrainMesh.heightQuery.sampleSurface(0f, 0f).height + 1f, 0f)
+                                                            mapUpdateTrigger++
+                                                            Toast.makeText(context, "📍 Spawn diset ke Pusat Peta (0, 0)", Toast.LENGTH_SHORT).show()
+                                                        },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2B45)),
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Text("Spawn Tengah (0,0)", fontSize = 10.sp)
+                                                    }
+                                                    
+                                                    Button(
+                                                        onClick = {
+                                                            val maxB = 110f
+                                                            playerPos.set(maxB, terrainMesh.heightQuery.sampleSurface(maxB, maxB).height + 1f, maxB)
+                                                            mapUpdateTrigger++
+                                                            Toast.makeText(context, "📍 Spawn diset ke Batas Maksimal (110, 110)", Toast.LENGTH_SHORT).show()
+                                                        },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2B45)),
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Text("Batas Maksimal (110,110)", fontSize = 10.sp)
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
 
                                     // VISUAL RADAR CANVAS (ORBIT VIEW FROM ABOVE)
@@ -453,6 +566,33 @@ fun GlbConfigPatcherSheet(
                                     ) {
                                         Canvas(modifier = Modifier.fillMaxSize()) {
                                             val canvasSize = size
+                                            val cx = canvasSize.width / 2f
+                                            val cy = canvasSize.height / 2f
+
+                                            // Draw concentric radar range circles
+                                            val rings = listOf(0.2f, 0.4f, 0.6f, 0.8f, 0.95f)
+                                            rings.forEach { r ->
+                                                drawCircle(
+                                                    color = Color(0x2200E5FF),
+                                                    radius = cx * r,
+                                                    center = Offset(cx, cy),
+                                                    style = Stroke(width = 1f)
+                                                )
+                                            }
+
+                                            // Draw horizontal and vertical radar crosshair lines
+                                            drawLine(
+                                                color = Color(0x2200E5FF),
+                                                start = Offset(0f, cy),
+                                                end = Offset(canvasSize.width, cy),
+                                                strokeWidth = 1f
+                                            )
+                                            drawLine(
+                                                color = Color(0x2200E5FF),
+                                                start = Offset(cx, 0f),
+                                                end = Offset(cx, canvasSize.height),
+                                                strokeWidth = 1f
+                                            )
 
                                             // Draw topographic topographic dots outline of terrain mesh!
                                             // Downsample to prevent canvas lag

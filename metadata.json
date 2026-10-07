@@ -1,0 +1,8 @@
+{
+  "name": "Remix 3D Engine ultra costumizable game",
+  "description": "Mobile 3D Game Engine with real-time lighting, physics, GLB custom mesh \u0026 terrain import, customizable PUBG-style controller editor, and action system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

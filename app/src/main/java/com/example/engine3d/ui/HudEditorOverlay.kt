@@ -1,5 +1,7 @@
 package com.example.engine3d.ui
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,6 +65,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,6 +76,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
@@ -97,6 +101,18 @@ fun HudEditorOverlay(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+
+    // Wajib Landscape selama berada di Editor Kontroler HUD, lalu pulihkan orientasi sebelumnya saat keluar
+    DisposableEffect(Unit) {
+        val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        onDispose {
+            activity?.requestedOrientation = originalOrientation
+        }
+    }
+
     var localConfigs by remember { mutableStateOf(configs.mapValues { it.value.copy() }) }
     var localExpandedConfig by remember { mutableStateOf(expandedConfig.copy()) }
     var selectedControlId by remember { mutableStateOf<HudControlId?>(HudControlId.JOYSTICK) }
@@ -106,20 +122,20 @@ fun HudEditorOverlay(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0x1F0A0E17)) // Clean semi-transparent dark overlay to view character/world perfectly
+            .background(Color.White) // Background Putih Bersih sesuai permintaan
     ) {
         val screenW = maxWidth.value
         val screenH = maxHeight.value
         val isPortrait = screenW < screenH
 
-        // Subtle tech grid background for layout alignment
+        // Grid Blueprint / Pola Tata Letak Lembar Putih untuk memudahkan alignment tombol
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .border(0.5.dp, Color(0x1100E5FF))
+                .border(1.dp, Color(0xFFE2E8F0))
         )
 
-        // 1. Draggable HUD Elements (Modeled exactly like their real in-game counterparts!)
+        // 1. Draggable HUD Elements (Di atas Background Putih)
         localConfigs.forEach { (id, cfg) ->
             val isSelected = selectedControlId == id
             val baseScale = if (isPortrait) 0.88f else 1.0f
@@ -153,31 +169,31 @@ fun HudEditorOverlay(
                 modifier = Modifier
                     .offset { IntOffset(posX.dp.roundToPx(), posY.dp.roundToPx()) }
                     .size(scaledSize)
-                    .alpha(if (cfg.isEnabled) cfg.alpha else 0.35f)
+                    .alpha(if (cfg.isEnabled) cfg.alpha else 0.40f)
                     .clip(elementShape)
                     .background(
-                        if (isSelected) Color(0x9900E5FF) // Cyan glow when selected
+                        if (isSelected) Color(0xFF00E5FF) // Cyan jelas saat terpilih
                         else when (id) {
-                            HudControlId.JOYSTICK -> Color(0x55000000)
-                            HudControlId.LOOK_PAD -> Color(0x22FFFFFF)
-                            HudControlId.STATUS_BAR -> Color(0xDD0D1524)
-                            HudControlId.PERF_MONITOR -> Color(0xDD0F172A)
-                            HudControlId.MINIMAP_RADAR -> Color(0xCC06101E)
-                            HudControlId.TOP_BAR_ACTIONS -> Color(0xD0101726)
-                            HudControlId.CROSSHAIR -> Color(0x1100E5FF)
-                            HudControlId.ATTACK -> Color(0xDDFF3D00)
-                            HudControlId.JUMP -> Color(0x8800E5FF)
-                            HudControlId.CROUCH -> Color(0x7737474F)
-                            HudControlId.ACTION_SLAM -> Color(0xCCFF9100)
-                            HudControlId.ACTION_DASH -> Color(0xCC76FF03)
-                            HudControlId.INTERACT -> Color(0x55455A64)
-                            HudControlId.EXPANDED_MENU -> Color(0xAAFF9100)
-                            else -> Color(0x77263238)
+                            HudControlId.JOYSTICK -> Color(0xFF1E293B)
+                            HudControlId.LOOK_PAD -> Color(0xFFE2E8F0)
+                            HudControlId.STATUS_BAR -> Color(0xFF0F172A)
+                            HudControlId.PERF_MONITOR -> Color(0xFF1E293B)
+                            HudControlId.MINIMAP_RADAR -> Color(0xFF0F172A)
+                            HudControlId.TOP_BAR_ACTIONS -> Color(0xFF1E293B)
+                            HudControlId.CROSSHAIR -> Color(0xFFE0F7FA)
+                            HudControlId.ATTACK -> Color(0xFFFF3D00)
+                            HudControlId.JUMP -> Color(0xFF0288D1)
+                            HudControlId.CROUCH -> Color(0xFF455A64)
+                            HudControlId.ACTION_SLAM -> Color(0xFFEF6C00)
+                            HudControlId.ACTION_DASH -> Color(0xFF2E7D32)
+                            HudControlId.INTERACT -> Color(0xFF37474F)
+                            HudControlId.EXPANDED_MENU -> Color(0xFFE65100)
+                            else -> Color(0xFF37474F)
                         }
                     )
                     .border(
-                        width = if (isSelected) 3.dp else 1.5.dp,
-                        color = if (isSelected) Color(0xFF00E5FF) else Color(0x66FFFFFF),
+                        width = if (isSelected) 3.5.dp else 1.5.dp,
+                        color = if (isSelected) Color(0xFF0091EA) else Color(0x660F172A),
                         shape = elementShape
                     )
                     .pointerInput(id, screenW, screenH) {
@@ -208,14 +224,14 @@ fun HudEditorOverlay(
                             modifier = Modifier
                                 .size(scaledSize * 0.42f)
                                 .clip(CircleShape)
-                                .background(Color(0xCC00E5FF))
+                                .background(Color(0xFF00E5FF))
                                 .border(1.5.dp, Color.White, CircleShape)
                         )
                     }
                     HudControlId.LOOK_PAD -> {
                         Text(
                             text = "Usap Kamera",
-                            color = if (isSelected) Color.Black else Color(0xAAFFFFFF),
+                            color = if (isSelected) Color.Black else Color(0xFF334155),
                             fontSize = (10f * cfg.scale).coerceIn(7f, 12f).sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -239,7 +255,7 @@ fun HudEditorOverlay(
                     HudControlId.PERF_MONITOR -> {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("60 FPS", color = Color(0xFF76FF03), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            Text("Apex3D • 16ms", color = Color(0xFF90A4AE), fontSize = 7.sp)
+                            Text("Apex3D • 16ms", color = Color(0xFF94A3B8), fontSize = 7.sp)
                         }
                     }
                     HudControlId.MINIMAP_RADAR -> {
@@ -258,7 +274,7 @@ fun HudEditorOverlay(
                     }
                     HudControlId.CROSSHAIR -> {
                         Box(modifier = Modifier.size(10.dp), contentAlignment = Alignment.Center) {
-                            Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(Color(0xFF00E5FF)))
+                            Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(Color(0xFF0091EA)))
                         }
                     }
                     else -> {
@@ -314,16 +330,15 @@ fun HudEditorOverlay(
             }
         }
 
-        // 2. Sleek, Compact, Non-Obstructive Top Header Bar (Height = 58.dp)
-        // Solves "HUD blocking character/view" completely!
+        // 2. Sleek, Compact Top Header Bar (Height = 56.dp)
         Surface(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .height(58.dp),
-            color = Color(0xF20F172A),
-            shadowElevation = 4.dp,
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B))
+                .height(56.dp),
+            color = Color(0xFF0F172A),
+            shadowElevation = 6.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
         ) {
             Row(
                 modifier = Modifier
@@ -335,11 +350,11 @@ fun HudEditorOverlay(
                 // Header Label & Presets Button
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(20.dp))
                     Text(
-                        text = "Edit HUD & Kontrol",
+                        text = "Editor Kontroler HUD (Landscape)",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
@@ -469,24 +484,24 @@ fun HudEditorOverlay(
             }
         }
 
-        // 3. Compact Slider Control Drawer (At the bottom, semi-transparent & highly non-obstructive)
+        // 3. Compact Slider Control Drawer (Di bagian bawah, rapi dan kontras tinggi)
         val selectedCfg = selectedControlId?.let { localConfigs[it] }
         if (selectedCfg != null && isSlidersVisible) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 12.dp)
-                    .fillMaxWidth(if (isPortrait) 0.94f else 0.75f)
-                    .heightIn(max = if (isPortrait) 160.dp else 125.dp),
+                    .padding(bottom = 8.dp)
+                    .fillMaxWidth(0.85f)
+                    .heightIn(max = 135.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xDD0F172A), // High transparency to keep the 3D character fully visible behind it
-                shadowElevation = 8.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x5500E5FF))
+                color = Color(0xF20F172A),
+                shadowElevation = 10.dp,
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF00E5FF))
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     // horizontal list of buttons for easy quick selection
@@ -660,3 +675,4 @@ fun HudEditorOverlay(
         }
     }
 }
+

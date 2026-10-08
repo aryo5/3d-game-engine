@@ -36,14 +36,19 @@ class GlbNode(
 
 class Mesh(
     val name: String = "Mesh",
-    val vertices: FloatArray,   // x, y, z
-    val normals: FloatArray? = null,    // nx, ny, nz
-    val colors: FloatArray? = null,     // r, g, b, a
-    val texCoords: FloatArray? = null,  // u, v
+    val vertices: FloatArray,
+    val normals: FloatArray? = null,
+    val colors: FloatArray? = null,
+    val texCoords: FloatArray? = null,
     val indices: ShortArray? = null,
     var animationClips: List<GlbAnimationClip> = emptyList(),
     var nodes: List<GlbNode> = emptyList(),
-    var rootNodes: List<Int> = emptyList()
+    var rootNodes: List<Int> = emptyList(),
+    var bindVertices: FloatArray? = null,
+    var vertexJoints: IntArray? = null,
+    var vertexWeights: FloatArray? = null,
+    var skinJointNodes: IntArray? = null,
+    var inverseBindMatrices: Array<Mat4>? = null
 ) {
     val vertexCount: Int = vertices.size / 3
     val triangleCount: Int = if (indices != null) indices.size / 3 else vertexCount / 3
@@ -54,14 +59,15 @@ class Mesh(
     private var colorBuffer: FloatBuffer? = null
     private var indexBuffer: ShortBuffer? = null
 
+    private var skinnedVertices: FloatArray? = null
+    private var cachedSkinMatrices: Array<Mat4>? = null
+
     init {
-        // Calculate AABB
         for (i in 0 until vertexCount) {
             val idx = i * 3
             aabb.encircle(Vec3(vertices[idx], vertices[idx + 1], vertices[idx + 2]))
         }
 
-        // Setup vertex buffer
         vertexBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
             .order(ByteOrder.nativeOrder())
             .asFloatBuffer().apply {
@@ -69,7 +75,6 @@ class Mesh(
                 position(0)
             }
 
-        // Setup normals
         if (normals != null) {
             normalBuffer = ByteBuffer.allocateDirect(normals.size * 4)
                 .order(ByteOrder.nativeOrder())
@@ -79,7 +84,6 @@ class Mesh(
                 }
         }
 
-        // Setup colors
         if (colors != null) {
             colorBuffer = ByteBuffer.allocateDirect(colors.size * 4)
                 .order(ByteOrder.nativeOrder())
@@ -89,7 +93,6 @@ class Mesh(
                 }
         }
 
-        // Setup indices
         if (indices != null) {
             indexBuffer = ByteBuffer.allocateDirect(indices.size * 2)
                 .order(ByteOrder.nativeOrder())
@@ -98,6 +101,76 @@ class Mesh(
                     position(0)
                 }
         }
+    }
+
+    fun updateVertices(newVertices: FloatArray) {
+        vertexBuffer.position(0)
+        vertexBuffer.put(newVertices)
+        vertexBuffer.position(0)
+    }
+
+    fun applySkinning() {
+        val bVerts = bindVertices ?: return
+        val joints = vertexJoints ?: return
+        val weights = vertexWeights ?: return
+        val skinNodes = skinJointNodes ?: return
+        val ibmList = inverseBindMatrices ?: return
+        if (nodes.isEmpty()) return
+
+        val skinCount = skinNodes.size
+        if (cachedSkinMatrices == null || cachedSkinMatrices!!.size != skinCount) {
+            cachedSkinMatrices = Array(skinCount) { Mat4() }
+        }
+
+        val sMatrices = cachedSkinMatrices!!
+        for (k in 0 until skinCount) {
+            val nodeIdx = skinNodes[k]
+            val jointNode = nodes.getOrNull(nodeIdx)
+            if (jointNode != null && k < ibmList.size) {
+                sMatrices[k].set(jointNode.animatedWorldMatrix).multiply(ibmList[k])
+            } else {
+                sMatrices[k].identity()
+            }
+        }
+
+        if (skinnedVertices == null || skinnedVertices!!.size != bVerts.size) {
+            skinnedVertices = FloatArray(bVerts.size)
+        }
+        val outVerts = skinnedVertices!!
+
+        val totalVerts = vertexCount
+        for (v in 0 until totalVerts) {
+            val v3 = v * 3
+            val vx = bVerts[v3]
+            val vy = bVerts[v3 + 1]
+            val vz = bVerts[v3 + 2]
+
+            val v4 = v * 4
+            var ox = 0f
+            var oy = 0f
+            var oz = 0f
+
+            for (k in 0 until 4) {
+                val w = weights[v4 + k]
+                if (w > 0.0001f) {
+                    val jointIdx = joints[v4 + k]
+                    if (jointIdx in 0 until skinCount) {
+                        val m = sMatrices[jointIdx].data
+                        val tx = m[0] * vx + m[4] * vy + m[8] * vz + m[12]
+                        val ty = m[1] * vx + m[5] * vy + m[9] * vz + m[13]
+                        val tz = m[2] * vx + m[6] * vy + m[10] * vz + m[14]
+                        ox += tx * w
+                        oy += ty * w
+                        oz += tz * w
+                    }
+                }
+            }
+            outVerts[v3] = ox
+            outVerts[v3 + 1] = oy
+            outVerts[v3 + 2] = oz
+        }
+
+        updateVertices(outVerts)
     }
 
     fun render(

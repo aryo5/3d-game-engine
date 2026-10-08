@@ -14,9 +14,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 object GlbParser {
-    private const val GLB_MAGIC = 0x46546C67 // "glTF"
-    private const val CHUNK_TYPE_JSON = 0x4E4F534A // "JSON"
-    private const val CHUNK_TYPE_BIN = 0x004E4942 // "BIN\0"
+    private const val GLB_MAGIC = 0x46546C67
+    private const val CHUNK_TYPE_JSON = 0x4E4F534A
+    private const val CHUNK_TYPE_BIN = 0x004E4942
 
     private data class NodeInfo(
         val index: Int,
@@ -97,7 +97,6 @@ object GlbParser {
         val nodesArray = json.optJSONArray("nodes")
         val scenesArray = json.optJSONArray("scenes")
 
-        // 1. Parse node hierarchy
         val nodeList = mutableListOf<NodeInfo>()
         val nodeParents = mutableMapOf<Int, Int>()
 
@@ -121,7 +120,6 @@ object GlbParser {
             }
         }
 
-        // 2. Determine root nodes
         val rootNodeIndices = mutableListOf<Int>()
         if (scenesArray != null && scenesArray.length() > 0) {
             val scene0 = scenesArray.getJSONObject(0)
@@ -140,7 +138,6 @@ object GlbParser {
             }
         }
 
-        // 3. Compute initial world matrices for all nodes
         val nodeWorldMatrices = mutableMapOf<Int, Mat4>()
         fun traverseNode(nodeIdx: Int, parentWorld: Mat4) {
             if (nodeIdx < 0 || nodeIdx >= nodeList.size) return
@@ -156,7 +153,6 @@ object GlbParser {
             traverseNode(rootIdx, Mat4().identity())
         }
 
-        // 4. Parse Skins Data (42 joints & Inverse Bind Matrices)
         val skinsArray = json.optJSONArray("skins")
         val skinObj = if (skinsArray != null && skinsArray.length() > 0) skinsArray.optJSONObject(0) else null
         val skinJointsJson = skinObj?.optJSONArray("joints")
@@ -177,7 +173,6 @@ object GlbParser {
             } else null
         } else null
 
-        // 5. Gabungkan seluruh primitive & ambil data JOINTS_0 dan WEIGHTS_0
         val allPositions = mutableListOf<Float>()
         val allNormals = mutableListOf<Float>()
         val allColors = mutableListOf<Float>()
@@ -233,7 +228,6 @@ object GlbParser {
 
         val animationClips = extractAnimationClips(json, accessors, bufferViews, binBuffer)
 
-        // 6. Simpan node hierarchy untuk evaluasi animasi
         val glbNodes = mutableListOf<GlbNode>()
         for (node in nodeList) {
             val parentIdx = nodeParents[node.index] ?: -1
@@ -313,7 +307,6 @@ object GlbParser {
                 rawNormals = computeNormals(rawPositions, indices)
             }
 
-            // Ekstrak JOINTS_0 dan WEIGHTS_0
             val jointAccessorIdx = attributes.optInt("JOINTS_0", -1)
             val rawJoints = if (jointAccessorIdx >= 0) {
                 extractJointIndices(jointAccessorIdx, accessors, bufferViews, binBuffer, primitiveVertexCount)
@@ -379,7 +372,6 @@ object GlbParser {
                 allNormals.add(tny)
                 allNormals.add(tnz)
 
-                // Simpan joints dan weights
                 val i4 = i * 4
                 if (rawJoints != null && rawJoints.size >= i4 + 4) {
                     allJoints.add(rawJoints[i4])
@@ -399,7 +391,6 @@ object GlbParser {
                     allWeights.add(1f); allWeights.add(0f); allWeights.add(0f); allWeights.add(0f)
                 }
 
-                // Color
                 if (extractedColors != null && extractedColors.size >= i4 + 4) {
                     var r = extractedColors[i4]
                     var g = extractedColors[i4 + 1]

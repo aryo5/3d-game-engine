@@ -2,11 +2,13 @@ package com.example.engine3d.ui
 
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +47,14 @@ import com.example.engine3d.physics.BarrierType
 import com.example.engine3d.physics.WorldBarrier
 import com.example.engine3d.terrain.TerrainMesh
 
+enum class CharacterAnimSlot(val key: String, val title: String, val icon: String, val description: String) {
+    IDLE("idle", "Berdiri Diam (IDLE)", "🧍", "Saat pemain diam tanpa bergerak"),
+    WALK("walk", "Berjalan (WALK)", "🚶", "Saat joystick digerakkan pelan"),
+    RUN("run", "Berlari Cepat (RUN)", "🏃", "Saat tombol sprint aktif / lari cepat"),
+    JUMP("jump", "Melompat (JUMP)", "🦘", "Saat tombol lompat ditekan / di udara"),
+    SLASH("slash", "Menyerang (SLASH / ATTACK)", "⚔️", "Saat tombol serang ditekan")
+}
+
 enum class PatcherTool {
     SET_SPAWN,
     ADD_SOLID_BLOCK,
@@ -82,16 +92,43 @@ fun GlbConfigPatcherSheet(
     var slashBind by remember { mutableStateOf("") }
     var manualModelTypeOverride by remember { mutableStateOf<ModelTarget?>(null) }
 
+    var activePickingSlot by remember { mutableStateOf<CharacterAnimSlot?>(null) }
+    var clipForQuickAssign by remember { mutableStateOf<String?>(null) }
+
+    fun cleanClipDisplayName(raw: String): String {
+        val clean = raw.substringAfterLast("|").substringAfterLast(":")
+        return clean.ifEmpty { raw }
+    }
+
+    fun runAutoDetect(clips: List<String>) {
+        val detectedIdle = clips.firstOrNull { it.contains("idle", true) || it.contains("stand", true) || it.contains("breath", true) }
+        val detectedWalk = clips.firstOrNull { it.contains("walk", true) || it.contains("move", true) || it.contains("jalan", true) }
+        val detectedRun = clips.firstOrNull { it.contains("run", true) || it.contains("sprint", true) || it.contains("lari", true) || it.contains("dash", true) }
+        val detectedJump = clips.firstOrNull { it.contains("jump", true) || it.contains("leap", true) || it.contains("lompat", true) || it.contains("fall", true) }
+        val detectedSlash = clips.firstOrNull { it.contains("slash", true) || it.contains("attack", true) || it.contains("serang", true) || it.contains("hit", true) || it.contains("punch", true) || it.contains("sword", true) || it.contains("clap", true) }
+
+        if (detectedIdle != null) idleBind = detectedIdle
+        if (detectedWalk != null) walkBind = detectedWalk
+        if (detectedRun != null) runBind = detectedRun
+        if (detectedJump != null) jumpBind = detectedJump
+        if (detectedSlash != null) slashBind = detectedSlash
+    }
+
     // Update bindings when selected model changes
     LaunchedEffect(selectedModel) {
         selectedModel?.let { model ->
             manualModelTypeOverride = model.target
-            val clips = model.mesh.animationClips
-            idleBind = clips.firstOrNull { it.name.contains("idle", ignoreCase = true) }?.name ?: ""
-            walkBind = clips.firstOrNull { it.name.contains("walk", ignoreCase = true) || it.name.contains("move", ignoreCase = true) }?.name ?: ""
-            runBind = clips.firstOrNull { it.name.contains("run", ignoreCase = true) || it.name.contains("sprint", ignoreCase = true) }?.name ?: ""
-            jumpBind = clips.firstOrNull { it.name.contains("jump", ignoreCase = true) }?.name ?: ""
-            slashBind = clips.firstOrNull { it.name.contains("slash", ignoreCase = true) || it.name.contains("attack", ignoreCase = true) }?.name ?: ""
+            val clips = model.mesh.animationClips.map { it.name }
+            val currentPConfig = customModelManager.playerConfig
+            if (currentPConfig.modelFile.equals(model.fileName, ignoreCase = true) && currentPConfig.animIdleName.isNotEmpty()) {
+                idleBind = currentPConfig.animIdleName
+                walkBind = currentPConfig.animWalkName
+                runBind = currentPConfig.animRunName
+                jumpBind = currentPConfig.animJumpName
+                slashBind = currentPConfig.animSlashName
+            } else if (clips.isNotEmpty()) {
+                runAutoDetect(clips)
+            }
         }
     }
 
@@ -270,10 +307,9 @@ fun GlbConfigPatcherSheet(
                                         onClick = {
                                             manualModelTypeOverride = targetType
                                             if (targetType == ModelTarget.TERRAIN) {
-                                                customModelManager.activeCustomTerrainMesh = model.mesh
-                                                terrainMesh.setCustomMesh(model.mesh)
+                                                customModelManager.setActiveTerrain(model, terrainMesh)
                                             } else {
-                                                customModelManager.activeCustomCharacterMesh = model.mesh
+                                                customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
                                             }
                                         },
                                         label = { Text(label, fontSize = 11.sp) },
@@ -288,22 +324,128 @@ fun GlbConfigPatcherSheet(
                                 }
                             }
 
+                            // Dedicated Overwrite Default Controls
+                            val isPrimaryChar = customModelManager.activeCharacterFileName.equals(model.fileName, ignoreCase = true)
+                            val isPrimaryTerrain = customModelManager.activeTerrainFileName.equals(model.fileName, ignoreCase = true)
+
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1220)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFFFD600).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = "⚡ Kontrol Overwrite Penuh (Hilangkan Konflik Aset Bawaan):",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFFD600)
+                                    )
+                                    Text(
+                                        text = "Tombol ini mengganti total hero atau permukaan bukit bawaan dengan aset import Anda secara permanen.",
+                                        fontSize = 9.sp,
+                                        color = Color(0xFFB0BEC5)
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
+                                                customModelManager.activeCustomCharacterMesh = model.mesh
+                                                Toast.makeText(context, "👑 Model '${model.fileName}' kini aktif menggantikan Karakter Hero Default!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (isPrimaryChar) Color(0xFF00E5FF) else Color(0xFF1E2B47)
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = if (isPrimaryChar) "👑 Hero Utama (Aktif)" else "⭐ Overwrite Hero Default",
+                                                color = if (isPrimaryChar) Color.Black else Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                customModelManager.setActiveTerrain(model, terrainMesh)
+                                                terrainMesh.setCustomMesh(model.mesh)
+                                                Toast.makeText(context, "🗺️ Model '${model.fileName}' kini aktif menggantikan Permukaan/Terrain Default!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (isPrimaryTerrain) Color(0xFF76FF03) else Color(0xFF1E2B47)
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = if (isPrimaryTerrain) "🗺️ Map Utama (Aktif)" else "⭐ Overwrite Map Default",
+                                                color = if (isPrimaryTerrain) Color.Black else Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
                             Divider(color = Color(0xFF1F2B45))
 
                             // 2A. CHARACTER ANIMATION BINDER PANEL
                             if (!isMapModel || hasAnimations) {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text(
-                                        text = "🏃 Pemetaan & Penyambungan Animasi Karakter",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = Color(0xFF76FF03)
-                                    )
-                                    Text(
-                                        text = "Hubungkan secara manual klip animasi internal yang diekstrak dari GLB ini ke status gerakan fisik game.",
-                                        fontSize = 10.sp,
-                                        color = Color(0xFFB0BEC5)
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "🏃 Pemetaan & Penyambungan Animasi Karakter",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                color = Color(0xFF76FF03)
+                                            )
+                                            Text(
+                                                text = "Hubungkan klip animasi GLB ke status gerakan fisik game.",
+                                                fontSize = 10.sp,
+                                                color = Color(0xFFB0BEC5)
+                                            )
+                                        }
+
+                                        if (model.mesh.animationClips.isNotEmpty()) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Button(
+                                                    onClick = {
+                                                        runAutoDetect(model.mesh.animationClips.map { it.name })
+                                                        Toast.makeText(context, "⚡ Deteksi otomatis klip berhasil diterapkan!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                    modifier = Modifier.height(34.dp)
+                                                ) {
+                                                    Text("⚡ Auto-Match", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                                }
+
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        idleBind = ""
+                                                        walkBind = ""
+                                                        runBind = ""
+                                                        jumpBind = ""
+                                                        slashBind = ""
+                                                        clipForQuickAssign = null
+                                                        Toast.makeText(context, "Binding animasi direset", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                                    modifier = Modifier.height(34.dp)
+                                                ) {
+                                                    Text("Reset", color = Color(0xFFFF5252), fontSize = 10.sp)
+                                                }
+                                            }
+                                        }
+                                    }
 
                                     if (model.mesh.animationClips.isEmpty()) {
                                         Text(
@@ -313,32 +455,241 @@ fun GlbConfigPatcherSheet(
                                         )
                                     } else {
                                         val clipNames = model.mesh.animationClips.map { it.name }
-                                        
-                                        // Display visual chips of extracted clips
-                                        Text(text = "Klip Animasi Internal GLB (${clipNames.size} clips):", fontSize = 10.sp, color = Color.White)
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            clipNames.forEach { name ->
-                                                Box(
+
+                                        // Horizontal scrollable chips for all clips
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "Klip Animasi Internal GLB (${clipNames.size} klip - Ketuk klip untuk pasang cepat):",
+                                                    fontSize = 10.sp,
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    text = "Geser ke samping →",
+                                                    fontSize = 9.sp,
+                                                    color = Color(0xFF80D8FF)
+                                                )
+                                            }
+
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .horizontalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                clipNames.forEach { name ->
+                                                    val cleanName = cleanClipDisplayName(name)
+                                                    val assignedBadge = when (name) {
+                                                        idleBind -> "IDLE"
+                                                        walkBind -> "WALK"
+                                                        runBind -> "RUN"
+                                                        jumpBind -> "JUMP"
+                                                        slashBind -> "SLASH"
+                                                        else -> null
+                                                    }
+
+                                                    Surface(
+                                                        onClick = {
+                                                            clipForQuickAssign = if (clipForQuickAssign == name) null else name
+                                                        },
+                                                        color = if (assignedBadge != null) Color(0xFF1B5E20) else if (clipForQuickAssign == name) Color(0xFF006064) else Color(0xFF1E2B47),
+                                                        border = BorderStroke(
+                                                            1.dp,
+                                                            if (clipForQuickAssign == name) Color(0xFF00E5FF) else if (assignedBadge != null) Color(0xFF76FF03) else Color(0xFF37474F)
+                                                        ),
+                                                        shape = RoundedCornerShape(6.dp)
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                        ) {
+                                                            Icon(
+                                                                Icons.Default.PlayArrow,
+                                                                contentDescription = null,
+                                                                tint = if (assignedBadge != null) Color(0xFF76FF03) else Color(0xFF00E5FF),
+                                                                modifier = Modifier.size(12.dp)
+                                                            )
+                                                            Column {
+                                                                Text(
+                                                                    text = cleanName,
+                                                                    fontSize = 11.sp,
+                                                                    color = Color.White,
+                                                                    fontWeight = FontWeight.Bold
+                                                                )
+                                                                if (cleanName != name) {
+                                                                    Text(
+                                                                        text = name,
+                                                                        fontSize = 8.sp,
+                                                                        color = Color(0xFF80D8FF).copy(alpha = 0.6f),
+                                                                        fontFamily = FontFamily.Monospace,
+                                                                        maxLines = 1
+                                                                    )
+                                                                }
+                                                            }
+                                                            if (assignedBadge != null) {
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .background(Color(0xFF76FF03), RoundedCornerShape(3.dp))
+                                                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        text = assignedBadge,
+                                                                        fontSize = 8.sp,
+                                                                        color = Color.Black,
+                                                                        fontWeight = FontWeight.Bold
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // INLINE Quick Assign Bar (Never uses popup AlertDialog!)
+                                            if (clipForQuickAssign != null) {
+                                                val qClip = clipForQuickAssign!!
+                                                val qClean = cleanClipDisplayName(qClip)
+                                                Card(
+                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF162A45)),
+                                                    shape = RoundedCornerShape(8.dp),
                                                     modifier = Modifier
-                                                        .background(Color(0xFF263238), RoundedCornerShape(4.dp))
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        .fillMaxWidth()
+                                                        .border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(8.dp))
+                                                        .padding(vertical = 4.dp)
                                                 ) {
-                                                    Text(name, fontSize = 9.sp, color = Color(0xFF80D8FF), fontFamily = FontFamily.Monospace)
+                                                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Text(
+                                                                text = "⚡ Pasang Klip '$qClean' ke Status:",
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color(0xFF00E5FF)
+                                                            )
+                                                            IconButton(
+                                                                onClick = { clipForQuickAssign = null },
+                                                                modifier = Modifier.size(24.dp)
+                                                            ) {
+                                                                Icon(Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                            }
+                                                        }
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .horizontalScroll(rememberScrollState()),
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                        ) {
+                                                            CharacterAnimSlot.values().forEach { slot ->
+                                                                val isSlotSet = when (slot) {
+                                                                    CharacterAnimSlot.IDLE -> idleBind == qClip
+                                                                    CharacterAnimSlot.WALK -> walkBind == qClip
+                                                                    CharacterAnimSlot.RUN -> runBind == qClip
+                                                                    CharacterAnimSlot.JUMP -> jumpBind == qClip
+                                                                    CharacterAnimSlot.SLASH -> slashBind == qClip
+                                                                }
+                                                                Button(
+                                                                    onClick = {
+                                                                        when (slot) {
+                                                                            CharacterAnimSlot.IDLE -> idleBind = qClip
+                                                                            CharacterAnimSlot.WALK -> walkBind = qClip
+                                                                            CharacterAnimSlot.RUN -> runBind = qClip
+                                                                            CharacterAnimSlot.JUMP -> jumpBind = qClip
+                                                                            CharacterAnimSlot.SLASH -> slashBind = qClip
+                                                                        }
+                                                                        clipForQuickAssign = null
+                                                                        Toast.makeText(context, "✓ Klip '$qClean' dipasang ke ${slot.title}", Toast.LENGTH_SHORT).show()
+                                                                    },
+                                                                    colors = ButtonDefaults.buttonColors(
+                                                                        containerColor = if (isSlotSet) Color(0xFF2E7D32) else Color(0xFF00E5FF)
+                                                                    ),
+                                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                                    modifier = Modifier.height(30.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        "${slot.icon} ${slot.key.uppercase()}",
+                                                                        color = if (isSlotSet) Color.White else Color.Black,
+                                                                        fontSize = 9.sp,
+                                                                        fontWeight = FontWeight.Bold
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
 
                                         Spacer(Modifier.height(4.dp))
 
-                                        // Dropdown bindings select
-                                        AnimationBindSelector("Klip Berdiri Diam (IDLE)", idleBind, clipNames) { idleBind = it }
-                                        AnimationBindSelector("Klip Berjalan (WALK)", walkBind, clipNames) { walkBind = it }
-                                        AnimationBindSelector("Klip Berlari cepat (RUN)", runBind, clipNames) { runBind = it }
-                                        AnimationBindSelector("Klip Melompat (JUMP)", jumpBind, clipNames) { jumpBind = it }
-                                        AnimationBindSelector("Klip Menyerang/Jurus (SLASH)", slashBind, clipNames) { slashBind = it }
+                                        // Action Slots Bind Cards (Inline Selection - No Dialogs)
+                                        Text(
+                                            text = "Slot Status Gerakan Karakter (Ketuk 'Pilih Klip' untuk memilih):",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            AnimationBindCard(
+                                                slotTitle = "Berdiri Diam (IDLE)",
+                                                slotIcon = "🧍",
+                                                slotDescription = "Saat pemain diam tanpa input",
+                                                currentValue = idleBind,
+                                                availableClips = clipNames,
+                                                cleanClipDisplayName = ::cleanClipDisplayName,
+                                                onSelectClip = { idleBind = it },
+                                                onClearClick = { idleBind = "" }
+                                            )
+                                            AnimationBindCard(
+                                                slotTitle = "Berjalan (WALK)",
+                                                slotIcon = "🚶",
+                                                slotDescription = "Saat joystick digerakkan santai",
+                                                currentValue = walkBind,
+                                                availableClips = clipNames,
+                                                cleanClipDisplayName = ::cleanClipDisplayName,
+                                                onSelectClip = { walkBind = it },
+                                                onClearClick = { walkBind = "" }
+                                            )
+                                            AnimationBindCard(
+                                                slotTitle = "Berlari Cepat (RUN)",
+                                                slotIcon = "🏃",
+                                                slotDescription = "Saat tombol sprint aktif / lari cepat",
+                                                currentValue = runBind,
+                                                availableClips = clipNames,
+                                                cleanClipDisplayName = ::cleanClipDisplayName,
+                                                onSelectClip = { runBind = it },
+                                                onClearClick = { runBind = "" }
+                                            )
+                                            AnimationBindCard(
+                                                slotTitle = "Melompat (JUMP)",
+                                                slotIcon = "🦘",
+                                                slotDescription = "Saat tombol lompat ditekan / melayang",
+                                                currentValue = jumpBind,
+                                                availableClips = clipNames,
+                                                cleanClipDisplayName = ::cleanClipDisplayName,
+                                                onSelectClip = { jumpBind = it },
+                                                onClearClick = { jumpBind = "" }
+                                            )
+                                            AnimationBindCard(
+                                                slotTitle = "Menyerang (SLASH / ATTACK)",
+                                                slotIcon = "⚔️",
+                                                slotDescription = "Saat tombol aksi serang ditekan",
+                                                currentValue = slashBind,
+                                                availableClips = clipNames,
+                                                cleanClipDisplayName = ::cleanClipDisplayName,
+                                                onSelectClip = { slashBind = it },
+                                                onClearClick = { slashBind = "" }
+                                            )
+                                        }
 
                                         Button(
                                             onClick = {
@@ -351,14 +702,23 @@ fun GlbConfigPatcherSheet(
                                                     animJumpName = jumpBind,
                                                     animSlashName = slashBind
                                                 )
-                                                customModelManager.playerConfig = config
+                                                customModelManager.savePlayerConfig(config)
+                                                customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
                                                 customModelManager.activeCustomCharacterMesh = model.mesh
-                                                Toast.makeText(context, "✓ Sukses Memetakan & Menyambungkan Animasi Karakter!", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, "✓ Berhasil Menyimpan & Menghubungkan Animasi Karakter!", Toast.LENGTH_SHORT).show()
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
-                                            modifier = Modifier.fillMaxWidth().testTag("apply_animations_patch_button")
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(46.dp)
+                                                .testTag("apply_animations_patch_button")
                                         ) {
-                                            Text("Apply & Hubungkan Animasi Karakter", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                            Text(
+                                                "✓ Simpan & Hubungkan Animasi Karakter",
+                                                color = Color.Black,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp
+                                            )
                                         }
                                     }
                                 }
@@ -676,32 +1036,32 @@ fun GlbConfigPatcherSheet(
                                     }
 
                                     Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Button(
                                             onClick = {
                                                 barrierManager.barriers.removeAll { !it.id.startsWith("world_limit") }
-                                                interactionSystem.interactables.removeAll { !it.id.startsWith("beacon_") && !it.id.startsWith("crate_") && !it.id.startsWith("hoverboard_") && !it.id.startsWith("portal_") }
+                                                interactionSystem.interactables.removeAll { !it.id.startsWith("portal_") && !it.id.startsWith("house_") }
                                                 mapUpdateTrigger++
-                                                Toast.makeText(context, "🗑️ Semua blok kustom berhasil dibersihkan!", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, "🧹 Objek & rintangan bukit bawaan dibersihkan untuk peta kustom!", Toast.LENGTH_SHORT).show()
                                             },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
                                             modifier = Modifier.weight(1f)
                                         ) {
-                                            Text("Reset Blok Kustom", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Text("🧹 Bersihkan Objek Bawaan", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                         }
 
                                         Button(
                                             onClick = {
-                                                customModelManager.activeCustomTerrainMesh = model.mesh
+                                                customModelManager.setActiveTerrain(model, terrainMesh)
                                                 terrainMesh.setCustomMesh(model.mesh)
                                                 Toast.makeText(context, "✓ Sukses Mempatch & Menyimpan Config Map ke Game!", Toast.LENGTH_SHORT).show()
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                                            modifier = Modifier.weight(1.5f).testTag("save_map_patch_button")
+                                            modifier = Modifier.weight(1.3f).testTag("save_map_patch_button")
                                         ) {
-                                            Text("Patch & Simpan Config Map", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                            Text("Patch & Simpan Map", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                                         }
                                     }
                                 }
@@ -715,58 +1075,249 @@ fun GlbConfigPatcherSheet(
 }
 
 @Composable
-fun AnimationBindSelector(
-    label: String,
+fun AnimationBindCard(
+    slotTitle: String,
+    slotIcon: String,
+    slotDescription: String,
     currentValue: String,
-    clips: List<String>,
-    onSelect: (String) -> Unit
+    availableClips: List<String>,
+    cleanClipDisplayName: (String) -> String,
+    onSelectClip: (String) -> Unit,
+    onClearClick: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var isExpanded by remember { mutableStateOf(false) }
+    var customTextInput by remember { mutableStateOf("") }
+    var showCustomInput by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF1E2B45), RoundedCornerShape(6.dp))
-                .border(1.dp, Color(0xFF37474F), RoundedCornerShape(6.dp))
-                .clickable { expanded = true }
-                .padding(10.dp)
-        ) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF162035)),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                1.dp,
+                if (currentValue.isNotEmpty()) Color(0xFF00E5FF).copy(alpha = 0.6f) else Color(0xFF263238),
+                RoundedCornerShape(8.dp)
+            )
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = currentValue.ifEmpty { "(Belum dipetakan, Klik untuk pilih)" },
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = if (currentValue.isEmpty()) Color(0xFFFFB74D) else Color(0xFF76FF03)
-                )
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.White)
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(slotIcon, fontSize = 20.sp)
+                    Column {
+                        Text(
+                            text = slotTitle,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        if (currentValue.isNotEmpty()) {
+                            val clean = cleanClipDisplayName(currentValue)
+                            Text(
+                                text = "✓ $clean",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF76FF03)
+                            )
+                            if (clean != currentValue) {
+                                Text(
+                                    text = currentValue,
+                                    fontSize = 8.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = Color(0xFF80D8FF).copy(alpha = 0.7f),
+                                    maxLines = 1
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "(Belum dipilih - Animasi Prosedural)",
+                                fontSize = 10.sp,
+                                color = Color(0xFFFFB74D)
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (currentValue.isNotEmpty()) {
+                        IconButton(
+                            onClick = onClearClick,
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Hapus binding",
+                                tint = Color(0xFFFF5252),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = { isExpanded = !isExpanded },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isExpanded) Color(0xFF006064) else if (currentValue.isEmpty()) Color(0xFF00E5FF) else Color(0xFF1E2B45)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Text(
+                            text = if (isExpanded) "Tutup ▴" else if (currentValue.isEmpty()) "Pilih Klip ▾" else "Ganti ▾",
+                            color = if (!isExpanded && currentValue.isEmpty()) Color.Black else Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.background(Color(0xFF101726))
-            ) {
-                DropdownMenuItem(
-                    text = { Text("(Nihil / Null)", color = Color.White, fontSize = 11.sp) },
-                    onClick = {
-                        onSelect("")
-                        expanded = false
-                    }
-                )
-                clips.forEach { name ->
-                    DropdownMenuItem(
-                        text = { Text(name, color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace) },
-                        onClick = {
-                            onSelect(name)
-                            expanded = false
-                        }
+            // Inline Expansion Drawer - Lists all clips without opening any popup window!
+            if (isExpanded) {
+                Divider(color = Color(0xFF263238))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Daftar Klip Model (Ketuk klip untuk memilih langsung):",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF00E5FF)
                     )
+
+                    if (availableClips.isEmpty()) {
+                        Text(
+                            text = "Tidak ada klip terdeteksi di file GLB ini.",
+                            fontSize = 10.sp,
+                            color = Color(0xFF90A4AE)
+                        )
+                    } else {
+                        // Chips/Buttons for each available clip
+                        availableClips.forEach { clip ->
+                            val cleanName = cleanClipDisplayName(clip)
+                            val isSelected = currentValue == clip
+                            Surface(
+                                onClick = {
+                                    onSelectClip(clip)
+                                    isExpanded = false
+                                },
+                                color = if (isSelected) Color(0xFF1B5E20) else Color(0xFF0D1826),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) Color(0xFF76FF03) else Color(0xFF263238)
+                                ),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.PlayArrow,
+                                            contentDescription = null,
+                                            tint = if (isSelected) Color(0xFF76FF03) else Color(0xFF00E5FF),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Column {
+                                            Text(
+                                                text = cleanName,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) Color(0xFF76FF03) else Color.White
+                                            )
+                                            if (cleanName != clip) {
+                                                Text(
+                                                    text = clip,
+                                                    fontSize = 8.sp,
+                                                    color = Color(0xFF80D8FF).copy(alpha = 0.6f),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (isSelected) {
+                                        Text("✓ Terpilih", color = Color(0xFF76FF03), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    } else {
+                                        Text("Pilih", color = Color(0xFF00E5FF), fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Clear / Disable option
+                    Surface(
+                        onClick = {
+                            onClearClick()
+                            isExpanded = false
+                        },
+                        color = Color(0xFF261214),
+                        border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("❌", fontSize = 11.sp)
+                            Text("Kosongkan / Nonaktifkan Animasi Slot Ini", color = Color(0xFFFF8A80), fontSize = 10.sp)
+                        }
+                    }
+
+                    // Optional manual custom text field
+                    if (!showCustomInput) {
+                        TextButton(
+                            onClick = { showCustomInput = true },
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("✏️ Ketik nama klip manual...", fontSize = 10.sp, color = Color(0xFF80D8FF))
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = customTextInput,
+                                onValueChange = { customTextInput = it },
+                                label = { Text("Nama Klip Kustom", fontSize = 10.sp) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                            Button(
+                                onClick = {
+                                    if (customTextInput.isNotBlank()) {
+                                        onSelectClip(customTextInput.trim())
+                                        isExpanded = false
+                                        showCustomInput = false
+                                        customTextInput = ""
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF))
+                            ) {
+                                Text("Terapkan", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
         }

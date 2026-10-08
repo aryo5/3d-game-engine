@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.engine3d.actions.ActionManager
@@ -86,7 +89,7 @@ fun LobbyScreen(
     var activePresetName by remember { mutableStateOf(hudPreferences.getActivePresetName()) }
     var hudConfigs by remember { mutableStateOf(hudPreferences.loadLayout(activePresetName)) }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(
@@ -99,12 +102,18 @@ fun LobbyScreen(
                 )
             )
     ) {
+        val screenWidth = maxWidth
+        val isNarrow = screenWidth < 360.dp
+        val horizontalPadding = if (isNarrow) 12.dp else if (screenWidth > 600.dp) 28.dp else 18.dp
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 24.dp)
+                .widthIn(max = 640.dp)
+                .align(Alignment.TopCenter)
+                .padding(horizontal = horizontalPadding, vertical = 20.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(if (isNarrow) 14.dp else 18.dp)
         ) {
             // Header Bar
             Row(
@@ -347,16 +356,17 @@ fun StatusTile(
         modifier = modifier
             .background(Color(0xFF131C2E), RoundedCornerShape(10.dp))
             .border(1.dp, Color(0xFF263238), RoundedCornerShape(10.dp))
-            .padding(10.dp),
+            .padding(horizontal = 8.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        Text(title, fontSize = 10.sp, color = Color(0xFF90A4AE))
+        Text(title, fontSize = 10.sp, color = Color(0xFF90A4AE), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
             text = value,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = color,
-            maxLines = 1
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

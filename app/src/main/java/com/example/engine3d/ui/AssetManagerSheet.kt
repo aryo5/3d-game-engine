@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -137,6 +138,18 @@ fun AssetManagerSheet(
             val report = batchImportManager.importFolderFromTreeUri(treeUri)
             lastBatchReport = report
             onTerrainChanged()
+        }
+    }
+
+    // SAF Folder Tree Picker Launcher for Export Target
+    val exportFolderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { treeUri: Uri? ->
+        if (treeUri != null) {
+            val msg = sampleExportManager.exportToDocumentTree(treeUri)
+            lastExportMessage = msg
+            fileAccessConfig.lastWriteSummary = msg
+            Toast.makeText(context, "✓ Berhasil mengekspor ke folder pilihan!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -438,26 +451,32 @@ fun AssetManagerSheet(
                             color = Color(0xFFFFD600)
                         )
 
+                        Text(
+                            text = "💡 Folder 'Download/Apex3D' otomatis dibuat di Pengelola File / Aplikasi Files HP Anda. Semua file dapat langsung diakses & diedit.",
+                            fontSize = 10.sp,
+                            color = Color(0xFFB0BEC5)
+                        )
+
                         OutlinedTextField(
                             value = writePathInput,
                             onValueChange = {
                                 writePathInput = it
                                 fileAccessConfig.writeFolderPath = it
                             },
-                            label = { Text("Path Target Tulis / Ekspor (ZIP, OBB, Script Python)", fontSize = 11.sp) },
+                            label = { Text("Path Target Tulis / Ekspor", fontSize = 11.sp) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
 
-                        // Quick Presets
+                        // Quick Presets & SAF Picker Button
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             listOf(
-                                "/sdcard/Download/Apex3D" to "Apex3D",
+                                "/sdcard/Download/Apex3D" to "Download/Apex3D",
                                 "/sdcard/Download/Termux_GLB" to "Termux",
-                                "/sdcard/Download" to "Download",
                                 "${context.filesDir.absolutePath}/ApexExports" to "Internal"
                             ).forEach { (presetPath, label) ->
                                 FilterChip(
@@ -468,6 +487,19 @@ fun AssetManagerSheet(
                                     },
                                     label = { Text(label, fontSize = 9.sp) }
                                 )
+                            }
+
+                            Spacer(Modifier.weight(1f))
+
+                            Button(
+                                onClick = { exportFolderPickerLauncher.launch(null) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color.Black, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Pilih Folder (SAF)", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 9.sp)
                             }
                         }
 
@@ -480,7 +512,8 @@ fun AssetManagerSheet(
                                 onClick = {
                                     val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = false)
                                     lastExportMessage = msg
-                                    fileAccessConfig.lastWriteSummary = "Paket Sampel & Guide diekspor ke '$writePathInput'"
+                                    fileAccessConfig.lastWriteSummary = msg
+                                    Toast.makeText(context, "✓ Berhasil mengekspor ke folder Download/Apex3D!", Toast.LENGTH_SHORT).show()
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD600)),
                                 modifier = Modifier.weight(1f)
@@ -494,7 +527,8 @@ fun AssetManagerSheet(
                                 onClick = {
                                     val msg = sampleExportManager.exportPythonScriptOnly(writePathInput)
                                     lastExportMessage = msg
-                                    fileAccessConfig.lastWriteSummary = "Script Python generate_terrain.py diekspor ke '$writePathInput'"
+                                    fileAccessConfig.lastWriteSummary = msg
+                                    Toast.makeText(context, "✓ Script Python berhasil diekspor!", Toast.LENGTH_SHORT).show()
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
                                 modifier = Modifier.weight(1f)
@@ -601,11 +635,12 @@ fun AssetManagerSheet(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        // Set Karakter Player
+                                        // Set Karakter Player (Overwrite Default)
                                         Button(
                                             onClick = {
+                                                customModelManager.setActiveCharacter(entry, updatePlayerConfig = true)
                                                 customModelManager.activeCustomCharacterMesh = entry.mesh
-                                                lastExportMessage = "✓ '${entry.fileName}' diaktifkan sebagai Karakter Pemain Utama!"
+                                                lastExportMessage = "✓ '${entry.fileName}' diaktifkan & menggantikan Karakter Pemain Utama!"
                                             },
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = if (isCharActive) Color(0xFF00E5FF) else Color(0xFF263238)
@@ -620,13 +655,13 @@ fun AssetManagerSheet(
                                             )
                                         }
 
-                                        // Set Terrain Map
+                                        // Set Terrain Map (Overwrite Default)
                                         Button(
                                             onClick = {
-                                                customModelManager.activeCustomTerrainMesh = entry.mesh
+                                                customModelManager.setActiveTerrain(entry, terrainMesh)
                                                 terrainMesh.setCustomMesh(entry.mesh)
                                                 onTerrainChanged()
-                                                lastExportMessage = "✓ '${entry.fileName}' diaktifkan sebagai Map Terrain Utama!"
+                                                lastExportMessage = "✓ '${entry.fileName}' diaktifkan & menggantikan Map Terrain Utama!"
                                             },
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = if (isTerrainActive) Color(0xFF76FF03) else Color(0xFF263238)
@@ -741,6 +776,7 @@ fun AssetManagerSheet(
                                 val file = sampleExportManager.exportPackage(isObb = false)
                                 sampleExportManager.shareExportPackage(file, isObb = false)
                                 lastExportMessage = "✓ File 'area_config.json' & paket ZIP berhasil dibuat & disimpan di Download/Apex3D!"
+                                Toast.makeText(context, "✓ Berhasil mengekspor ke folder Download/Apex3D!", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
                             modifier = Modifier.weight(1f)
@@ -794,6 +830,7 @@ fun AssetManagerSheet(
                                 val rep = batchImportManager.scanLocalAssetFolder()
                                 lastBatchReport = rep
                                 onTerrainChanged()
+                                Toast.makeText(context, "✓ Berhasil mengekspor paket .ZIP ke Download/Apex3D!", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD600)),
                             modifier = Modifier.weight(1f).testTag("export_sample_zip_button")
@@ -811,6 +848,7 @@ fun AssetManagerSheet(
                                 val rep = batchImportManager.scanLocalAssetFolder()
                                 lastBatchReport = rep
                                 onTerrainChanged()
+                                Toast.makeText(context, "✓ Berhasil mengekspor paket .OBB ke Download/Apex3D!", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
                             modifier = Modifier.weight(1f).testTag("export_sample_obb_button")

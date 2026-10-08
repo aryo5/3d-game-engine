@@ -199,6 +199,10 @@ class BarrierManager {
         barriers.add(barrier)
     }
 
+    fun removeBarrier(id: String) {
+        barriers.removeAll { it.id == id }
+    }
+
     fun serializeBarriers(): String {
         val array = JSONArray()
         for (b in barriers) {

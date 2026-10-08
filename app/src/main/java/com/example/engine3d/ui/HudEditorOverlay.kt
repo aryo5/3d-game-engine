@@ -126,6 +126,11 @@ fun HudEditorOverlay(
             val baseSize = when (id) {
                 HudControlId.JOYSTICK -> 118.dp * baseScale
                 HudControlId.LOOK_PAD -> if (isPortrait) 130.dp else 160.dp
+                HudControlId.STATUS_BAR -> 132.dp * baseScale
+                HudControlId.PERF_MONITOR -> 115.dp * baseScale
+                HudControlId.MINIMAP_RADAR -> 62.dp * baseScale
+                HudControlId.TOP_BAR_ACTIONS -> 96.dp * baseScale
+                HudControlId.CROSSHAIR -> 38.dp * baseScale
                 HudControlId.ATTACK -> 70.dp * baseScale
                 HudControlId.JUMP -> 62.dp * baseScale
                 HudControlId.CROUCH, HudControlId.ACTION_SLAM, HudControlId.ACTION_DASH -> 56.dp * baseScale
@@ -138,17 +143,28 @@ fun HudEditorOverlay(
             val posX = (cfg.xPercent * screenW - scaledSize.value / 2f).coerceIn(0f, screenW - scaledSize.value)
             val posY = (cfg.yPercent * screenH - scaledSize.value / 2f).coerceIn(0f, screenH - scaledSize.value)
 
+            val elementShape = when (id) {
+                HudControlId.LOOK_PAD -> RoundedCornerShape(16.dp)
+                HudControlId.STATUS_BAR, HudControlId.PERF_MONITOR, HudControlId.TOP_BAR_ACTIONS -> RoundedCornerShape(10.dp)
+                else -> CircleShape
+            }
+
             Box(
                 modifier = Modifier
                     .offset { IntOffset(posX.dp.roundToPx(), posY.dp.roundToPx()) }
                     .size(scaledSize)
                     .alpha(if (cfg.isEnabled) cfg.alpha else 0.35f)
-                    .clip(if (id == HudControlId.LOOK_PAD) RoundedCornerShape(16.dp) else CircleShape)
+                    .clip(elementShape)
                     .background(
                         if (isSelected) Color(0x9900E5FF) // Cyan glow when selected
                         else when (id) {
                             HudControlId.JOYSTICK -> Color(0x55000000)
                             HudControlId.LOOK_PAD -> Color(0x22FFFFFF)
+                            HudControlId.STATUS_BAR -> Color(0xDD0D1524)
+                            HudControlId.PERF_MONITOR -> Color(0xDD0F172A)
+                            HudControlId.MINIMAP_RADAR -> Color(0xCC06101E)
+                            HudControlId.TOP_BAR_ACTIONS -> Color(0xD0101726)
+                            HudControlId.CROSSHAIR -> Color(0x1100E5FF)
                             HudControlId.ATTACK -> Color(0xDDFF3D00)
                             HudControlId.JUMP -> Color(0x8800E5FF)
                             HudControlId.CROUCH -> Color(0x7737474F)
@@ -162,7 +178,7 @@ fun HudEditorOverlay(
                     .border(
                         width = if (isSelected) 3.dp else 1.5.dp,
                         color = if (isSelected) Color(0xFF00E5FF) else Color(0x66FFFFFF),
-                        shape = if (id == HudControlId.LOOK_PAD) RoundedCornerShape(16.dp) else CircleShape
+                        shape = elementShape
                     )
                     .pointerInput(id, screenW, screenH) {
                         detectDragGestures(
@@ -203,6 +219,47 @@ fun HudEditorOverlay(
                             fontSize = (10f * cfg.scale).coerceIn(7f, 12f).sp,
                             fontWeight = FontWeight.Bold
                         )
+                    }
+                    HudControlId.STATUS_BAR -> {
+                        Column(
+                            modifier = Modifier.padding(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("HP", fontSize = 8.sp, color = Color(0xFF76FF03), fontWeight = FontWeight.Bold)
+                                Box(modifier = Modifier.fillMaxWidth(0.85f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF76FF03)))
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("SP", fontSize = 8.sp, color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold)
+                                Box(modifier = Modifier.fillMaxWidth(0.85f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF00E5FF)))
+                            }
+                        }
+                    }
+                    HudControlId.PERF_MONITOR -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("60 FPS", color = Color(0xFF76FF03), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("Apex3D • 16ms", color = Color(0xFF90A4AE), fontSize = 7.sp)
+                        }
+                    }
+                    HudControlId.MINIMAP_RADAR -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Terrain, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(16.dp))
+                            Text("RADAR (N)", color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    HudControlId.TOP_BAR_ACTIONS -> {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(Color(0xFF00E5FF)), contentAlignment = Alignment.Center) {
+                                Text("🏠", fontSize = 9.sp)
+                            }
+                            Text("Menu", color = Color(0xFF00E5FF), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    HudControlId.CROSSHAIR -> {
+                        Box(modifier = Modifier.size(10.dp), contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(Color(0xFF00E5FF)))
+                        }
                     }
                     else -> {
                         val icon = when (id) {

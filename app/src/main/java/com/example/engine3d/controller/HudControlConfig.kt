@@ -16,7 +16,12 @@ enum class HudControlId(val displayName: String, val iconName: String) {
     CAMERA_SWITCH("Ganti Mode Kamera", "switch_video"),
     FLASHLIGHT("Senter Dunia", "highlight"),
     RESET_POS("Reset Lokasi", "restart_alt"),
-    EXPANDED_MENU("Menu Expanded", "apps")
+    EXPANDED_MENU("Menu Expanded", "apps"),
+    STATUS_BAR("Bar Nyawa & Stamina", "favorite"),
+    PERF_MONITOR("Monitor FPS & Sistem", "monitor_heart"),
+    MINIMAP_RADAR("Mini Radar Kompas", "radar"),
+    TOP_BAR_ACTIONS("Tombol Menu & Home", "home"),
+    CROSSHAIR("Reticle Titik Bidik", "filter_center_focus")
 }
 
 data class HudElementConfig(
@@ -123,6 +128,24 @@ object HudPresets {
                 map[HudControlId.LOOK_PAD] = HudElementConfig(HudControlId.LOOK_PAD, 0.55f, 0.45f, 1.0f, 0.15f, isEnabled = false)
             }
         }
+
+        // Common defaults for system HUD elements across all presets if not explicitly defined
+        if (!map.containsKey(HudControlId.STATUS_BAR)) {
+            map[HudControlId.STATUS_BAR] = HudElementConfig(HudControlId.STATUS_BAR, 0.16f, 0.08f, 1.0f, 0.90f)
+        }
+        if (!map.containsKey(HudControlId.PERF_MONITOR)) {
+            map[HudControlId.PERF_MONITOR] = HudElementConfig(HudControlId.PERF_MONITOR, 0.16f, 0.17f, 1.0f, 0.85f)
+        }
+        if (!map.containsKey(HudControlId.MINIMAP_RADAR)) {
+            map[HudControlId.MINIMAP_RADAR] = HudElementConfig(HudControlId.MINIMAP_RADAR, 0.50f, 0.08f, 0.90f, 0.80f)
+        }
+        if (!map.containsKey(HudControlId.TOP_BAR_ACTIONS)) {
+            map[HudControlId.TOP_BAR_ACTIONS] = HudElementConfig(HudControlId.TOP_BAR_ACTIONS, 0.88f, 0.08f, 1.0f, 0.90f)
+        }
+        if (!map.containsKey(HudControlId.CROSSHAIR)) {
+            map[HudControlId.CROSSHAIR] = HudElementConfig(HudControlId.CROSSHAIR, 0.50f, 0.50f, 1.0f, 0.65f)
+        }
+
         return map
     }
 
@@ -148,17 +171,28 @@ object HudPresets {
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val idStr = obj.getString("id")
-                val id = HudControlId.valueOf(idStr)
-                val cfg = HudElementConfig(
-                    id = id,
-                    xPercent = obj.getDouble("x").toFloat(),
-                    yPercent = obj.getDouble("y").toFloat(),
-                    scale = obj.getDouble("scale").toFloat(),
-                    alpha = obj.getDouble("alpha").toFloat(),
-                    isEnabled = obj.optBoolean("enabled", true)
-                )
-                map[id] = cfg
+                val id = try { HudControlId.valueOf(idStr) } catch (e: Exception) { null }
+                if (id != null) {
+                    val cfg = HudElementConfig(
+                        id = id,
+                        xPercent = obj.getDouble("x").toFloat(),
+                        yPercent = obj.getDouble("y").toFloat(),
+                        scale = obj.getDouble("scale").toFloat(),
+                        alpha = obj.getDouble("alpha").toFloat(),
+                        isEnabled = obj.optBoolean("enabled", true)
+                    )
+                    map[id] = cfg
+                }
             }
+
+            // Fill in missing default HUD elements if older preset format was saved
+            val defaults = getPreset("DEFAULT_2_FINGER")
+            defaults.forEach { (id, defCfg) ->
+                if (!map.containsKey(id)) {
+                    map[id] = defCfg.copy()
+                }
+            }
+
             map
         } catch (e: Exception) {
             null

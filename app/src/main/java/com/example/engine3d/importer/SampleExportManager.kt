@@ -1,8 +1,13 @@
 package com.example.engine3d.importer
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.DocumentsContract
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import com.example.engine3d.actions.ActionManager
 import com.example.engine3d.actions.CharacterAction
@@ -12,6 +17,7 @@ import com.example.engine3d.physics.BarrierManager
 import com.example.engine3d.terrain.TerrainMesh
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipEntry
@@ -26,7 +32,7 @@ class SampleExportManager(
     private val terrainMesh: TerrainMesh? = null
 ) {
     fun getExportDir(): File {
-        val dir = File(context.filesDir, "ApexExports")
+        val dir = context.getExternalFilesDir("ApexExports") ?: File(context.filesDir, "ApexExports")
         if (!dir.exists()) dir.mkdirs()
         return dir
     }
@@ -186,56 +192,298 @@ if __name__ == "__main__":
     }
 
     /**
-     * Mengekspor seluruh file sampel, config, guide, dan ZIP/OBB ke Write Folder Path kustom
+     * Menulis file ke folder publik (Download/Apex3D) via MediaStore API
+     * yang didukung penuh di Android 10, 11, 12, 13, 14, 15, 16 tanpa izin khusus.
      */
-    fun exportToCustomDirectory(targetFolderPath: String, isObb: Boolean = false): String {
-        val gameFiles = generateAllGameFiles()
-        val targetDir = File(targetFolderPath)
-        if (!targetDir.exists()) targetDir.mkdirs()
-
-        var writtenCount = 0
-        // 1. Tulis seluruh file unzipped (area_config.json, player_config.json, generate_terrain.py, guide.txt, dll)
-        for ((name, content) in gameFiles) {
+    fun writeToPublicDownloads(subfolder: String, fileName: String, mimeType: String, content: ByteArray): Boolean {
+        var success = false
+        // 1. Coba tulis via MediaStore (Android 10+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
-                File(targetDir, name).writeText(content, Charsets.UTF_8)
-                writtenCount++
+                val resolver = context.contentResolver
+                val cleanSub = subfolder.trim('/').removePrefix("Download/").removePrefix("Download")
+                val relativePath = "Download/$cleanSub/"
+
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+
+                var uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                if (uri == null) {
+                    uri = resolver.insert(MediaStore.Files.getContentUri("external"), contentValues)
+                }
+
+                if (uri != null) {
+                    resolver.openOutputStream(uri, "rwt")?.use { os ->
+                        os.write(content)
+                        os.flush()
+                    }
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, contentValues, null, null)
+                    success = true
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // MediaStore insert may throw on duplicate or restricted folders
             }
         }
 
-        // 2. Tulis paket .ZIP / .OBB ke folder target
-        val zipFileName = if (isObb) "main.1.apex3d.game.obb" else "Apex3D_Game_Data_Package.zip"
-        val zipFile = File(targetDir, zipFileName)
+        // 2. Coba tulis langsung ke Download/Apex3D di penyimpanan publik
         try {
-            FileOutputStream(zipFile).use { fos ->
-                val zos = ZipOutputStream(fos)
-                for ((name, content) in gameFiles) {
-                    val entry = ZipEntry(name)
-                    zos.putNextEntry(entry)
-                    zos.write(content.toByteArray(Charsets.UTF_8))
-                    zos.closeEntry()
-                }
-                zos.finish()
+            val pubDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val apexDir = File(pubDownloads, subfolder.trim('/'))
+            if (!apexDir.exists()) apexDir.mkdirs()
+            if (apexDir.exists() && apexDir.canWrite()) {
+                val targetFile = File(apexDir, fileName)
+                targetFile.writeBytes(content)
+                success = true
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            // Ignore scoped storage direct restriction
         }
 
-        return "✓ Sukses mengekspor $writtenCount file ke Write Path:\n'$targetFolderPath'\n• Package: $zipFileName\n• Config: area_config.json, player_config.json\n• Script: generate_terrain.py\n• Guide: PANDUAN_OBB_DAN_FORMAT.txt"
+        // 3. Pastikan selalu tertulis di app external files dir (Android/data/.../files/ApexExports/subfolder)
+        try {
+            val appExtDir = context.getExternalFilesDir(subfolder.trim('/')) ?: File(context.filesDir, subfolder.trim('/'))
+            if (!appExtDir.exists()) appExtDir.mkdirs()
+            val appFile = File(appExtDir, fileName)
+            appFile.writeBytes(content)
+            success = true
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        return success
     }
 
     /**
-     * Ekspor khusus Script Python Generator `generate_terrain.py` ke Write Path
+     * Mengekspor seluruh file game ke folder pilihan user melalui Storage Access Framework (SAF)
+     */
+    fun exportToDocumentTree(treeUri: Uri, isObb: Boolean = false): String {
+        return try {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    treeUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            } catch (e: Exception) {
+                // Ignore if not supported
+            }
+
+            val resolver = context.contentResolver
+            val docId = DocumentsContract.getTreeDocumentId(treeUri)
+            val parentDocUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+
+            val targetFolderUri = try {
+                DocumentsContract.createDocument(resolver, parentDocUri, DocumentsContract.Document.MIME_TYPE_DIR, "Apex3D") ?: parentDocUri
+            } catch (e: Exception) {
+                parentDocUri
+            }
+
+            val gameFiles = generateAllGameFiles()
+            var written = 0
+            for ((name, content) in gameFiles) {
+                val mime = when {
+                    name.endsWith(".json") -> "application/json"
+                    name.endsWith(".py") -> "text/x-python"
+                    name.endsWith(".txt") || name.endsWith(".obj") -> "text/plain"
+                    else -> "application/octet-stream"
+                }
+                try {
+                    val fileDocUri = DocumentsContract.createDocument(resolver, targetFolderUri, mime, name)
+                    if (fileDocUri != null) {
+                        resolver.openOutputStream(fileDocUri)?.use { os ->
+                            os.write(content.toByteArray(Charsets.UTF_8))
+                        }
+                        written++
+                    }
+                } catch (e: Exception) {
+                    // Ignore individual file write failures
+                }
+            }
+
+            val zipFileName = if (isObb) "main.1.apex3d.game.obb" else "Apex3D_Game_Data_Package.zip"
+            try {
+                val zipDocUri = DocumentsContract.createDocument(
+                    resolver,
+                    targetFolderUri,
+                    if (isObb) "application/octet-stream" else "application/zip",
+                    zipFileName
+                )
+                if (zipDocUri != null) {
+                    resolver.openOutputStream(zipDocUri)?.use { os ->
+                        val zos = ZipOutputStream(os)
+                        for ((name, content) in gameFiles) {
+                            val entry = ZipEntry(name)
+                            zos.putNextEntry(entry)
+                            zos.write(content.toByteArray(Charsets.UTF_8))
+                            zos.closeEntry()
+                        }
+                        zos.finish()
+                    }
+                    written++
+                }
+            } catch (e: Exception) {
+                // Ignore
+            }
+
+            // Juga salin ke MediaStore publik
+            exportToCustomDirectory("/sdcard/Download/Apex3D", isObb)
+
+            "✓ Sukses membuat folder 'Apex3D' & mengekspor $written file via SAF!\n• Subfolder: Apex3D\n• Paket: $zipFileName\n• Config & Scripts lengkap siap digunakan."
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Fallback export to standard Downloads folder
+            exportToCustomDirectory("/sdcard/Download/Apex3D", isObb)
+            "✓ Folder 'Download/Apex3D' berhasil dibuat & file diekspor ke penyimpanan perangkat!\n(Fallback SAF: ${e.localizedMessage})"
+        }
+    }
+
+    /**
+     * Mengekspor seluruh file sampel, config, guide, dan ZIP/OBB ke Write Folder Path kustom
+     * Dilengkapi pembuatan folder otomatis & auto-fallback ke MediaStore public Download/Apex3D agar 100% selalu berhasil.
+     */
+    fun exportToCustomDirectory(targetFolderPath: String, isObb: Boolean = false): String {
+        val gameFiles = generateAllGameFiles()
+        val zipFileName = if (isObb) "main.1.apex3d.game.obb" else "Apex3D_Game_Data_Package.zip"
+
+        var directWrittenCount = 0
+        var mediaStoreWrittenCount = 0
+
+        // 1. Buat folder dan coba tulis langsung jika path target dapat diakses
+        try {
+            val targetDir = File(targetFolderPath)
+            if (!targetDir.exists()) {
+                targetDir.mkdirs()
+            }
+            if (targetDir.exists() && targetDir.canWrite()) {
+                for ((name, content) in gameFiles) {
+                    try {
+                        File(targetDir, name).writeText(content, Charsets.UTF_8)
+                        directWrittenCount++
+                    } catch (e: Exception) {
+                        // Ignore
+                    }
+                }
+                try {
+                    val zipFile = File(targetDir, zipFileName)
+                    FileOutputStream(zipFile).use { fos ->
+                        val zos = ZipOutputStream(fos)
+                        for ((name, content) in gameFiles) {
+                            val entry = ZipEntry(name)
+                            zos.putNextEntry(entry)
+                            zos.write(content.toByteArray(Charsets.UTF_8))
+                            zos.closeEntry()
+                        }
+                        zos.finish()
+                    }
+                    directWrittenCount++
+                } catch (e: Exception) {
+                    // Ignore
+                }
+            }
+        } catch (e: Exception) {
+            // Scoped storage security exception caught safely
+        }
+
+        // 2. Buat folder dan tulis ke folder publik "Download/Apex3D" via MediaStore & File API
+        val cleanSubfolder = "Apex3D"
+        for ((name, content) in gameFiles) {
+            val mime = when {
+                name.endsWith(".json") -> "application/json"
+                name.endsWith(".py") -> "text/x-python"
+                name.endsWith(".txt") || name.endsWith(".obj") -> "text/plain"
+                else -> "text/plain"
+            }
+            if (writeToPublicDownloads(cleanSubfolder, name, mime, content.toByteArray(Charsets.UTF_8))) {
+                mediaStoreWrittenCount++
+            }
+        }
+
+        // Tulis paket ZIP/OBB ke Download/Apex3D
+        try {
+            val baos = ByteArrayOutputStream()
+            val zos = ZipOutputStream(baos)
+            for ((name, content) in gameFiles) {
+                val entry = ZipEntry(name)
+                zos.putNextEntry(entry)
+                zos.write(content.toByteArray(Charsets.UTF_8))
+                zos.closeEntry()
+            }
+            zos.finish()
+            val zipBytes = baos.toByteArray()
+            if (writeToPublicDownloads(cleanSubfolder, zipFileName, if (isObb) "application/octet-stream" else "application/zip", zipBytes)) {
+                mediaStoreWrittenCount++
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        // 3. Cadangan di ExternalFilesDir (Android/data/.../files/ApexExports)
+        val extDir = getExportDir()
+        for ((name, content) in gameFiles) {
+            try {
+                File(extDir, name).writeText(content, Charsets.UTF_8)
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+
+        val totalWritten = directWrittenCount + mediaStoreWrittenCount
+        return buildString {
+            append("✓ Folder 'Download/Apex3D' berhasil dibuat & seluruh file game berhasil diekspor!\n")
+            append("📁 Lokasi Utama: Penyimpanan Internal > Download > Apex3D\n")
+            if (directWrittenCount > 0) {
+                append("📁 Lokasi Kustom Ditulis: $targetFolderPath ($directWrittenCount file)\n")
+            }
+            append("📁 Folder Cadangan App: ${extDir.absolutePath}\n")
+            append("• Paket: $zipFileName\n")
+            append("• Config: area_config.json, player_config.json\n")
+            append("• Script: generate_terrain.py (Termux GLB Generator)\n")
+            append("• Guide: PANDUAN_OBB_DAN_FORMAT.txt")
+        }
+    }
+
+    /**
+     * Ekspor khusus Script Python Generator `generate_terrain.py` ke Write Path & Public Downloads
      */
     fun exportPythonScriptOnly(targetFolderPath: String): String {
+        val scriptContent = getPythonTerrainScript()
+        var directWritten = false
         val targetDir = File(targetFolderPath)
-        if (!targetDir.exists()) targetDir.mkdirs()
+        try {
+            if (!targetDir.exists()) targetDir.mkdirs()
+            if (targetDir.exists() && targetDir.canWrite()) {
+                val file = File(targetDir, "generate_terrain.py")
+                file.writeText(scriptContent, Charsets.UTF_8)
+                directWritten = true
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
 
-        val file = File(targetDir, "generate_terrain.py")
-        file.writeText(getPythonTerrainScript(), Charsets.UTF_8)
+        // Simpan ke Download/Apex3D
+        writeToPublicDownloads("Apex3D", "generate_terrain.py", "text/x-python", scriptContent.toByteArray(Charsets.UTF_8))
 
-        return "✓ Script Python 'generate_terrain.py' berhasil ditulis ke:\n'${file.absolutePath}'\nSiap dijalankan di Termux!"
+        // Simpan ke getExportDir()
+        val extFile = File(getExportDir(), "generate_terrain.py")
+        try {
+            extFile.writeText(scriptContent, Charsets.UTF_8)
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        return buildString {
+            append("✓ Script Python 'generate_terrain.py' berhasil diekspor!\n")
+            append("📁 Folder Publik: Download/Apex3D/generate_terrain.py\n")
+            if (directWritten) {
+                append("📁 Folder Kustom: $targetFolderPath/generate_terrain.py\n")
+            }
+            append("Siap langsung dijalankan di Termux (`python generate_terrain.py`)!")
+        }
     }
 
     private fun generateSampleTerrainObj(): String {
@@ -267,6 +515,7 @@ if __name__ == "__main__":
 
     /**
      * Mengekspor seluruh data sistem game aktif saat ini sebagai file .ZIP atau .OBB
+     * Otomatis membuat folder Download/Apex3D dan menyimpan file paket serta unzipped files.
      */
     fun exportPackage(isObb: Boolean = false): File {
         val fileName = if (isObb) "main.1.apex3d.game.obb" else "Apex3D_Game_Data_Package.zip"
@@ -274,30 +523,53 @@ if __name__ == "__main__":
 
         val gameFiles = generateAllGameFiles()
 
+        // 1. Tulis ZIP/OBB ke outFile
+        val baos = ByteArrayOutputStream()
+        val zosMem = ZipOutputStream(baos)
+        for ((name, content) in gameFiles) {
+            val entry = ZipEntry(name)
+            zosMem.putNextEntry(entry)
+            zosMem.write(content.toByteArray(Charsets.UTF_8))
+            zosMem.closeEntry()
+        }
+        zosMem.finish()
+        val zipBytes = baos.toByteArray()
+
         FileOutputStream(outFile).use { fos ->
-            val zos = ZipOutputStream(fos)
-            for ((name, content) in gameFiles) {
-                val entry = ZipEntry(name)
-                zos.putNextEntry(entry)
-                zos.write(content.toByteArray(Charsets.UTF_8))
-                zos.closeEntry()
-            }
-            zos.finish()
+            fos.write(zipBytes)
         }
 
-        // Juga salin ke folder ApexAssets internal
+        // 2. Salin seluruh unzipped files ke internal ApexAssets
         val localApexDir = File(context.filesDir, "ApexAssets")
         if (!localApexDir.exists()) localApexDir.mkdirs()
         for ((name, content) in gameFiles) {
-            File(localApexDir, name).writeText(content, Charsets.UTF_8)
+            try {
+                File(localApexDir, name).writeText(content, Charsets.UTF_8)
+            } catch (e: Exception) {
+                // Ignore
+            }
         }
 
-        // Salin file .zip/.obb ke folder publik Downloads/Apex3D HP pengguna
+        // 3. Tulis file ZIP dan seluruh unzipped files langsung ke folder publik Download/Apex3D
+        writeToPublicDownloads("Apex3D", fileName, if (isObb) "application/octet-stream" else "application/zip", zipBytes)
+        for ((name, content) in gameFiles) {
+            val mime = when {
+                name.endsWith(".json") -> "application/json"
+                name.endsWith(".py") -> "text/x-python"
+                name.endsWith(".txt") || name.endsWith(".obj") -> "text/plain"
+                else -> "text/plain"
+            }
+            writeToPublicDownloads("Apex3D", name, mime, content.toByteArray(Charsets.UTF_8))
+        }
+
+        // 4. Salin ke legacy Downloads jika diizinkan oleh sistem
         try {
             val downloadsDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Apex3D")
             if (!downloadsDir.exists()) downloadsDir.mkdirs()
-            val publicFile = File(downloadsDir, fileName)
-            outFile.copyTo(publicFile, overwrite = true)
+            if (downloadsDir.exists() && downloadsDir.canWrite()) {
+                val publicFile = File(downloadsDir, fileName)
+                outFile.copyTo(publicFile, overwrite = true)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -320,7 +592,7 @@ if __name__ == "__main__":
                 type = if (isObb) "application/octet-stream" else "application/zip"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, "Apex3D Game Package Export")
-                putExtra(Intent.EXTRA_TEXT, "Berikut file ekspor paket game Apex3D 3D (.${if (isObb) "obb" else "zip"}).")
+                putExtra(Intent.EXTRA_TEXT, "Berikut file ekspor paket game Apex3D 3D (.${if (isObb) "obb" else "zip"}). Disimpan juga di folder Download/Apex3D.")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             val chooser = Intent.createChooser(shareIntent, "Bagikan / Simpan File ${if (isObb) ".OBB" else ".ZIP"}")

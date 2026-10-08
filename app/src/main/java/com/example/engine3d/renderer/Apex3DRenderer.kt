@@ -82,7 +82,8 @@ class Apex3DRenderer(
     private var lastFrameTimeNs: Long = 0L
     private var frameCount: Int = 0
     private var fpsTimerNs: Long = 0L
-    private var currentFps: Int = 60
+    var currentFps: Int = 60
+    val fps: Int get() = currentFps
     private var currentFrameTimeMs: Float = 16.6f
     private var lastTriangles: Int = 0
     private var lastDrawCalls: Int = 0

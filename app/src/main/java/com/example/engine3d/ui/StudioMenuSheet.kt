@@ -107,6 +107,7 @@ fun StudioMenuSheet(
     activePresetName: String,
     onPresetChanged: (String, Map<HudControlId, HudElementConfig>) -> Unit,
     onOpenHudEditor: () -> Unit,
+    onOpenGameplayEditor: () -> Unit = {},
     onOpenAssetSheet: () -> Unit,
     onSettingsChanged: () -> Unit,
     onDismiss: () -> Unit
@@ -198,7 +199,24 @@ fun StudioMenuSheet(
             ) {
                 when (selectedTab) {
                     StudioMenuTab.CONTROLS -> {
-                        // 1. Action to Open Drag & Drop HUD Editor
+                        // 1. Action to Open In-Game Gameplay Editor
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onOpenGameplayEditor()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("menu_open_gameplay_editor")
+                        ) {
+                            Icon(Icons.Default.Tune, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("🛠️ Buka Mode Editor Gameplay (Edit Dunia & Objek)", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+
+                        // 1b. Action to Open Drag & Drop HUD Editor
                         Button(
                             onClick = {
                                 onDismiss()

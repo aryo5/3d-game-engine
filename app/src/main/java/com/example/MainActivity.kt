@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,7 +45,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         enableEdgeToEdge()
         hideSystemBars()
         setContent {
@@ -56,10 +57,25 @@ class MainActivity : ComponentActivity() {
                     val context = LocalContext.current
                     var currentScreen by remember { mutableStateOf(AppNavigationScreen.LOBBY) }
 
+                    // Dynamically set screen orientation: Portrait in Lobby, Sensor Landscape in Gameplay
+                    DisposableEffect(currentScreen) {
+                        requestedOrientation = when (currentScreen) {
+                            AppNavigationScreen.LOBBY -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            AppNavigationScreen.ENGINE_WORLD -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        }
+                        onDispose {}
+                    }
+
                     // Shared Engine Singletons across Lobby & In-Game World
                     val settings = remember { EngineSettings() }
                     val terrainMesh = remember { TerrainMesh() }
-                    val customModelManager = remember { CustomModelManager(context) }
+                    val customModelManager = remember {
+                        CustomModelManager(context).also { mgr ->
+                            mgr.activeCustomTerrainMesh?.let { mesh ->
+                                terrainMesh.setCustomMesh(mesh)
+                            }
+                        }
+                    }
                     val physicsEngine = remember { PhysicsEngine(terrainMesh.heightQuery) }
                     val actionManager = remember { ActionManager(physicsEngine) }
                     val npcManager = remember { NpcManager(terrainMesh.heightQuery) }

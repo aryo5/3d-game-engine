@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.North
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SwitchVideo
@@ -52,6 +53,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -181,10 +183,26 @@ fun EngineScreen(
 
     // UI Sheets & Modes
     var isEditHudMode by remember { mutableStateOf(false) }
+    var isGameplayEditorMode by remember { mutableStateOf(false) }
     var showStudioMenuSheet by remember { mutableStateOf(false) }
     var showGraphicsSheet by remember { mutableStateOf(false) }
     var showAssetManagerSheet by remember { mutableStateOf(false) }
     var isExpandedMenuOpen by remember { mutableStateOf(false) }
+
+    val sceneManager = remember { GameplaySceneManager(context) }
+
+    // Automatically load saved scene on game entry
+    DisposableEffect(Unit) {
+        sceneManager.loadSavedScene(
+            physicsEngine = physicsEngine,
+            barrierManager = physicsEngine.barrierManager,
+            npcManager = npcManager,
+            interactionSystem = interactionSystem,
+            renderer = renderer,
+            settings = settings
+        )
+        onDispose { }
+    }
 
     // HUD Config State
     var activePresetName by remember { mutableStateOf(hudPreferences.getActivePresetName()) }
@@ -553,6 +571,9 @@ fun EngineScreen(
                                 onClick = { physicsEngine.resetCharacterPosition() }
                             )
                         }
+                        else -> {
+                            // Non-button system HUD elements handled below
+                        }
                     }
                 }
 
@@ -572,47 +593,192 @@ fun EngineScreen(
                         onClose = { isExpandedMenuOpen = false }
                     )
                 }
+
+            // 3. Top Header Bar & Configurable System HUD Elements
+            // 3a. Health & Stamina Bar (STATUS_BAR)
+            val statusCfg = hudConfigs[HudControlId.STATUS_BAR]
+            if (statusCfg != null && statusCfg.isEnabled) {
+                val barW = 132.dp * statusCfg.scale
+                val barH = 34.dp * statusCfg.scale
+                val bX = (statusCfg.xPercent * screenW - barW.value / 2f).coerceIn(4f, screenW - barW.value - 4f)
+                val bY = (statusCfg.yPercent * screenH - barH.value / 2f).coerceIn(4f, screenH - barH.value - 4f)
+
+                Surface(
+                    modifier = Modifier
+                        .offset { IntOffset(bX.dp.roundToPx(), bY.dp.roundToPx()) }
+                        .size(width = barW, height = barH)
+                        .alpha(statusCfg.alpha),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xD90A101C),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x6600E5FF))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("HP", color = Color(0xFF76FF03), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(5.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(Color(0xFF263238))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(1f)
+                                        .height(5.dp)
+                                        .background(Color(0xFF76FF03))
+                                )
+                            }
+                            Text("100", color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("SP", color = Color(0xFF00E5FF), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(Color(0xFF263238))
+                            ) {
+                                val staminaFrac = if (physicsEngine.isSprinting) 0.65f else 1.0f
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(staminaFrac)
+                                        .height(4.dp)
+                                        .background(Color(0xFF00E5FF))
+                                )
+                            }
+                            Text("100%", color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
 
-            // 3. Top Header Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Back to Lobby button
-                    IconButton(
-                        onClick = onBackToLobby,
-                        modifier = Modifier
-                            .background(Color(0xD0101726), CircleShape)
-                            .border(1.dp, Color(0xFF00E5FF), CircleShape)
-                            .testTag("back_to_lobby_button")
-                    ) {
-                        Icon(Icons.Default.Home, contentDescription = "Kembali ke Lobby", tint = Color(0xFF00E5FF))
+            // 3b. Tactical Crosshair (CROSSHAIR)
+            val crosshairCfg = hudConfigs[HudControlId.CROSSHAIR]
+            if (crosshairCfg != null && crosshairCfg.isEnabled) {
+                val cSize = 24.dp * crosshairCfg.scale
+                val cX = (crosshairCfg.xPercent * screenW - cSize.value / 2f).coerceIn(0f, screenW - cSize.value)
+                val cY = (crosshairCfg.yPercent * screenH - cSize.value / 2f).coerceIn(0f, screenH - cSize.value)
+
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(cX.dp.roundToPx(), cY.dp.roundToPx()) }
+                        .size(cSize)
+                        .alpha(crosshairCfg.alpha),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(Color(0xDD00E5FF)))
+                    Box(modifier = Modifier.width(16.dp).height(1.dp).background(Color(0x88FFFFFF)))
+                    Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color(0x88FFFFFF)))
+                }
+            }
+
+            // 3c. Mini Radar / Coordinates (MINIMAP_RADAR)
+            val radarCfg = hudConfigs[HudControlId.MINIMAP_RADAR]
+            if (radarCfg != null && radarCfg.isEnabled) {
+                val rSize = 56.dp * radarCfg.scale
+                val rX = (radarCfg.xPercent * screenW - rSize.value / 2f).coerceIn(4f, screenW - rSize.value - 4f)
+                val rY = (radarCfg.yPercent * screenH - rSize.value / 2f).coerceIn(4f, screenH - rSize.value - 4f)
+
+                Surface(
+                    modifier = Modifier
+                        .offset { IntOffset(rX.dp.roundToPx(), rY.dp.roundToPx()) }
+                        .size(rSize)
+                        .alpha(radarCfg.alpha),
+                    shape = CircleShape,
+                    color = Color(0xD9060E1A),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "N",
+                            color = Color(0xFFFF5252),
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 2.dp)
+                        )
+                        Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(Color(0xFF76FF03)))
+                    }
+                }
+            }
+
+            // 3d. Top Navigation Header & Action Buttons
+            val topActionsCfg = hudConfigs[HudControlId.TOP_BAR_ACTIONS]
+            if (topActionsCfg == null || topActionsCfg.isEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Back to Lobby button
+                        IconButton(
+                            onClick = onBackToLobby,
+                            modifier = Modifier
+                                .background(Color(0xD0101726), CircleShape)
+                                .border(1.dp, Color(0xFF00E5FF), CircleShape)
+                                .testTag("back_to_lobby_button")
+                        ) {
+                            Icon(Icons.Default.Home, contentDescription = "Kembali ke Lobby", tint = Color(0xFF00E5FF))
+                        }
+
+                        // Performance stats widget
+                        val perfCfg = hudConfigs[HudControlId.PERF_MONITOR]
+                        if (perfCfg == null || perfCfg.isEnabled) {
+                            PerformanceHud(
+                                stats = stats,
+                                presetName = settings.activePreset.name.take(7)
+                            )
+                        }
                     }
 
-                    // Performance stats widget
-                    PerformanceHud(
-                        stats = stats,
-                        presetName = settings.activePreset.name.take(7)
-                    )
-                }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // In-Game Live Gameplay Editor Mode Toggle!
+                        Button(
+                            onClick = { isGameplayEditorMode = !isGameplayEditorMode },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isGameplayEditorMode) Color(0xFF00E5FF) else Color(0xD0101726)
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("toggle_gameplay_editor_button")
+                        ) {
+                            Icon(
+                                imageVector = if (isGameplayEditorMode) Icons.Default.PlayArrow else Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = if (isGameplayEditorMode) Color.Black else Color(0xFF00E5FF),
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = if (isGameplayEditorMode) "Main (Play)" else "🛠️ Mode Editor",
+                                color = if (isGameplayEditorMode) Color.Black else Color(0xFF00E5FF),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
 
-                // Engine Unified Settings & Studio Menu Button
-                Button(
-                    onClick = { showStudioMenuSheet = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
-                    shape = RoundedCornerShape(20.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.testTag("open_studio_menu_button")
-                ) {
-                    Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Menu Apex3D", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        // Engine Unified Settings & Studio Menu Button
+                        Button(
+                            onClick = { showStudioMenuSheet = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
+                            shape = RoundedCornerShape(20.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("open_studio_menu_button")
+                        ) {
+                            Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Menu Apex3D", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
                 }
             }
 
@@ -758,6 +924,31 @@ fun EngineScreen(
                 }
             }
         }
+    }
+
+        // 5b. Live In-Game Gameplay & World Editor Overlay (When in editor mode)
+        if (isGameplayEditorMode && !isEditHudMode) {
+            GameplayEditorOverlay(
+                physicsEngine = physicsEngine,
+                barrierManager = physicsEngine.barrierManager,
+                npcManager = npcManager,
+                interactionSystem = interactionSystem,
+                renderer = renderer,
+                settings = settings,
+                hudConfigs = hudConfigs,
+                hudPreferences = hudPreferences,
+                activePresetName = activePresetName,
+                onHudConfigsUpdated = { updated ->
+                    hudConfigs = updated
+                },
+                onOpenFullHudEditor = {
+                    isEditHudMode = true
+                },
+                onExitEditorMode = {
+                    isGameplayEditorMode = false
+                }
+            )
+        }
 
         // 6. Full Screen Live HUD Editor (When in edit mode)
         if (isEditHudMode) {
@@ -803,6 +994,10 @@ fun EngineScreen(
                 onOpenHudEditor = {
                     showStudioMenuSheet = false
                     isEditHudMode = true
+                },
+                onOpenGameplayEditor = {
+                    showStudioMenuSheet = false
+                    isGameplayEditorMode = true
                 },
                 onOpenAssetSheet = {
                     showStudioMenuSheet = false

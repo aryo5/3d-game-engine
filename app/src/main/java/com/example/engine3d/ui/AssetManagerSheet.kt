@@ -125,6 +125,8 @@ fun AssetManagerSheet(
     var showNpcCreator by remember { mutableStateOf(false) }
     var showBarrierCreator by remember { mutableStateOf(false) }
     var showCustomFileSelector by remember { mutableStateOf(false) }
+    var showInAppFocusFolderPicker by remember { mutableStateOf(false) }
+    var showInAppWriteFolderPicker by remember { mutableStateOf(false) }
     var lastExportMessage by remember { mutableStateOf<String?>(null) }
     var lastBatchReport by remember { mutableStateOf<BatchImportReport?>(null) }
 
@@ -416,13 +418,13 @@ fun AssetManagerSheet(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Button(
-                                onClick = { folderPickerLauncher.launch(null) },
+                                onClick = { showInAppFocusFolderPicker = true },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF263238)),
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Icon(Icons.Default.Folder, contentDescription = null, tint = Color(0xFF00E5FF))
                                 Spacer(Modifier.width(4.dp))
-                                Text("SAF Tree Picker", color = Color.White, fontSize = 10.sp)
+                                Text("Pilih Folder", color = Color.White, fontSize = 10.sp)
                             }
 
                             Button(
@@ -509,14 +511,14 @@ fun AssetManagerSheet(
                             Spacer(Modifier.weight(1f))
 
                             Button(
-                                onClick = { exportFolderPickerLauncher.launch(null) },
+                                onClick = { showInAppWriteFolderPicker = true },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                 modifier = Modifier.height(32.dp)
                             ) {
                                 Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color.Black, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("Pilih Folder (SAF)", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                                Text("Pilih Folder", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 9.sp)
                             }
                         }
 
@@ -790,10 +792,13 @@ fun AssetManagerSheet(
 
                         Button(
                             onClick = {
-                                val file = sampleExportManager.exportPackage(isObb = false)
-                                sampleExportManager.shareExportPackage(file, isObb = false)
-                                lastExportMessage = "✓ File 'area_config.json' & paket ZIP berhasil dibuat & disimpan di Download/Apex3D!"
-                                Toast.makeText(context, "✓ Berhasil mengekspor ke folder Download/Apex3D!", Toast.LENGTH_SHORT).show()
+                                if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
+                                    storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                } else {
+                                    val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = false)
+                                    lastExportMessage = msg
+                                    Toast.makeText(context, "✓ Berhasil mengekspor!", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
                             modifier = Modifier.weight(1f)
@@ -841,13 +846,16 @@ fun AssetManagerSheet(
                     ) {
                         Button(
                             onClick = {
-                                val file = sampleExportManager.exportPackage(isObb = false)
-                                sampleExportManager.shareExportPackage(file, isObb = false)
-                                lastExportMessage = "✓ Paket .ZIP dibuat & disimpan di: Download/Apex3D/${file.name}\nMenu 'Bagikan / Simpan File' Android telah dibuka!"
-                                val rep = batchImportManager.scanLocalAssetFolder()
-                                lastBatchReport = rep
-                                onTerrainChanged()
-                                Toast.makeText(context, "✓ Berhasil mengekspor paket .ZIP ke Download/Apex3D!", Toast.LENGTH_SHORT).show()
+                                if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
+                                    storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                } else {
+                                    val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = false)
+                                    lastExportMessage = msg
+                                    val rep = batchImportManager.scanLocalAssetFolder()
+                                    lastBatchReport = rep
+                                    onTerrainChanged()
+                                    Toast.makeText(context, "✓ Berhasil mengekspor paket .ZIP!", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD600)),
                             modifier = Modifier.weight(1f).testTag("export_sample_zip_button")
@@ -859,13 +867,16 @@ fun AssetManagerSheet(
 
                         Button(
                             onClick = {
-                                val file = sampleExportManager.exportPackage(isObb = true)
-                                sampleExportManager.shareExportPackage(file, isObb = true)
-                                lastExportMessage = "✓ Paket .OBB dibuat & disimpan di: Download/Apex3D/${file.name}\nMenu 'Bagikan / Simpan File' Android telah dibuka!"
-                                val rep = batchImportManager.scanLocalAssetFolder()
-                                lastBatchReport = rep
-                                onTerrainChanged()
-                                Toast.makeText(context, "✓ Berhasil mengekspor paket .OBB ke Download/Apex3D!", Toast.LENGTH_SHORT).show()
+                                if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
+                                    storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                } else {
+                                    val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = true)
+                                    lastExportMessage = msg
+                                    val rep = batchImportManager.scanLocalAssetFolder()
+                                    lastBatchReport = rep
+                                    onTerrainChanged()
+                                    Toast.makeText(context, "✓ Berhasil mengekspor paket .OBB!", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
                             modifier = Modifier.weight(1f).testTag("export_sample_obb_button")
@@ -965,7 +976,7 @@ fun AssetManagerSheet(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Button(
-                            onClick = { folderPickerLauncher.launch(null) },
+                            onClick = { showInAppFocusFolderPicker = true },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
                             modifier = Modifier.weight(1f)
                         ) {
@@ -1356,6 +1367,33 @@ fun AssetManagerSheet(
                     Text("Selesai")
                 }
             }
+        )
+    }
+
+    if (showInAppFocusFolderPicker) {
+        InAppFolderPickerDialog(
+            initialPath = focusPathInput,
+            onFolderSelected = { selectedPath ->
+                focusPathInput = selectedPath
+                fileAccessConfig.focusFolderPath = selectedPath
+                showInAppFocusFolderPicker = false
+                val rep = batchImportManager.scanDirectFolderPath(selectedPath)
+                lastBatchReport = rep
+                onTerrainChanged()
+            },
+            onDismiss = { showInAppFocusFolderPicker = false }
+        )
+    }
+
+    if (showInAppWriteFolderPicker) {
+        InAppFolderPickerDialog(
+            initialPath = writePathInput,
+            onFolderSelected = { selectedPath ->
+                writePathInput = selectedPath
+                fileAccessConfig.writeFolderPath = selectedPath
+                showInAppWriteFolderPicker = false
+            },
+            onDismiss = { showInAppWriteFolderPicker = false }
         )
     }
 }

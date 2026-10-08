@@ -251,6 +251,32 @@ class Apex3DRenderer(
         // 2. Render World Interactables
         val box = boxMesh ?: return
         for (item in interactionSystem.interactables) {
+            // Check if item has custom 3D mesh attached (e.g. GLB/OBJ door or portal object)
+            val customMesh = if (!item.meshFileName.isNullOrBlank()) {
+                customModelManager.importedModels.firstOrNull { it.fileName.equals(item.meshFileName, ignoreCase = true) }?.mesh
+            } else null
+
+            if (customMesh != null) {
+                val boundMat = Mat4()
+                    .translate(
+                        item.position.x + item.visualOffset.x,
+                        item.position.y + item.visualOffset.y,
+                        item.position.z + item.visualOffset.z
+                    )
+                    .rotate(item.rotationY, 0f, 1f, 0f)
+                    .scale(item.visualScale, item.visualScale, item.visualScale)
+                val mvp = Mat4().set(camera.viewProjMatrix).multiply(boundMat)
+                GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
+                GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, boundMat.data, 0)
+                GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customMesh.colors != null) 1 else 0)
+                customMesh.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
+                triCount += customMesh.triangleCount
+                drawCallCount++
+                continue
+            }
+
             val itemMat = Mat4().translate(item.position.x, item.position.y + 0.5f, item.position.z)
 
             when (item.type) {
@@ -411,13 +437,14 @@ class Apex3DRenderer(
                     dt = deltaTime
                 )
 
+                val facingOffset = if (settings.invertCharacterFacing) 180f else 0f
                 val charMat = Mat4()
                     .translate(
                         physicsEngine.characterPos.x + animPose.offsetX,
                         physicsEngine.characterPos.y + pConfig.heightOffset + animPose.offsetY,
                         physicsEngine.characterPos.z + animPose.offsetZ
                     )
-                    .rotate(-physicsEngine.characterYawDeg + pConfig.rotationOffsetYDeg + animPose.rotationYDeg, 0f, 1f, 0f)
+                    .rotate(-physicsEngine.characterYawDeg + pConfig.rotationOffsetYDeg + animPose.rotationYDeg + facingOffset, 0f, 1f, 0f)
                     .rotate(animPose.pitchXDeg, 1f, 0f, 0f)
                     .rotate(animPose.rollZDeg, 0f, 0f, 1f)
                     .scale(
@@ -534,7 +561,8 @@ class Apex3DRenderer(
         val posX = physicsEngine.characterPos.x
         val posY = physicsEngine.characterPos.y
         val posZ = physicsEngine.characterPos.z
-        val yaw = -physicsEngine.characterYawDeg
+        val facingOffset = if (settings.invertCharacterFacing) 180f else 0f
+        val yaw = -physicsEngine.characterYawDeg + facingOffset
 
         val crouchScaleY = if (physicsEngine.isCrouched) 0.65f else 1.0f
         val legSwing = sin(walkAnimPhase.toDouble()).toFloat() * 25f

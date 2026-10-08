@@ -20,7 +20,11 @@ data class WorldInteractable(
     val targetTeleportPos: Vec3? = null,
     val interactionRadius: Float = 3.0f,
     var isActivated: Boolean = false,
-    val promptText: String = "Tekan Interaksi"
+    val promptText: String = "Tekan Interaksi",
+    var meshFileName: String? = null,
+    var visualScale: Float = 1.0f,
+    var rotationY: Float = 0f,
+    var visualOffset: Vec3 = Vec3(0f, 0f, 0f)
 )
 
 class InteractionSystem {

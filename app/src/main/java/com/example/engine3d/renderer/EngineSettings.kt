@@ -23,6 +23,13 @@ class EngineSettings {
     var sunElevation: Float = 55f
     var cameraDistance: Float = 6.0f
 
+    // Camera & Character Movement Controls (PUBG-Style & Invert Settings)
+    var invertCameraX: Boolean = false
+    var invertCameraY: Boolean = false
+    var cameraSensitivity: Float = 0.28f
+    var invertCharacterMovementX: Boolean = false // Membalikkan gerak strafe/belok tanpa membalikkan maju-mundur
+    var invertCharacterFacing: Boolean = false    // Memutar hadap model GLB 180° bila model terbalik
+
     fun applyPreset(preset: GraphicPreset) {
         activePreset = preset
         when (preset) {

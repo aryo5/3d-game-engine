@@ -187,10 +187,7 @@ fun EngineScreen(
 
     // UI Sheets & Modes
     var isEditHudMode by remember { mutableStateOf(false) }
-    var isGameplayEditorMode by remember { mutableStateOf(false) }
-    var showStudioMenuSheet by remember { mutableStateOf(false) }
     var showGraphicsSheet by remember { mutableStateOf(false) }
-    var showAssetManagerSheet by remember { mutableStateOf(false) }
     var showWorldMapDialog by remember { mutableStateOf(false) }
     var isExpandedMenuOpen by remember { mutableStateOf(false) }
 
@@ -245,22 +242,26 @@ fun EngineScreen(
                 val screenH = maxHeight.value
                 val isPortrait = screenW < screenH
 
-                 // 2a. Global / Right-Side Camera Swipe Gesture Surface (Behind HUD Buttons)
-                 // Usap bebas di mana saja di area kosong untuk menggeser kamera, serta cubit (pinch) untuk zoom in/out
+                 // 2a. Direct Touch Camera & Zoom Surface (Gaya PUBG - Bebas Kontainer)
+                 // Usap langsung di mana saja di area kosong layar tanpa kotak kontainer pembatas.
+                 // Cubit (pinch) 2 jari untuk zoom out/in seperti memperbesar foto di galeri.
                  Box(
                      modifier = Modifier
                          .fillMaxSize()
-                         .pointerInput(Unit) {
+                         .pointerInput(settings.invertCameraX, settings.invertCameraY, settings.cameraSensitivity) {
                              detectTransformGestures { centroid, pan, zoom, rotation ->
-                                 val sensitivity = 0.28f
-                                 // Rotasi kamera dengan arah usap standard (tidak terbalik lagi)
+                                 val sensitivity = settings.cameraSensitivity
+                                 val signX = if (settings.invertCameraX) 1.0f else -1.0f
+                                 val signY = if (settings.invertCameraY) -1.0f else 1.0f
+
+                                 // Rotasi kamera standar PUBG (usap kanan -> belok kanan, usap atas -> lihat langit)
                                  renderer.camera.rotate(
-                                     deltaYaw = pan.x * sensitivity,
-                                     deltaPitch = -pan.y * sensitivity
+                                     deltaYaw = pan.x * sensitivity * signX,
+                                     deltaPitch = pan.y * sensitivity * signY
                                  )
-                                 // Cubit (Pinch) untuk Zoom In / Out secara halus & responsif
+                                 // Cubit (Pinch) untuk Zoom In / Out halus ala galeri foto
                                  if (zoom != 1f) {
-                                     val zoomSensitivity = 12.0f
+                                     val zoomSensitivity = 14.0f
                                      renderer.camera.zoom((1f - zoom) * zoomSensitivity)
                                  }
                              }
@@ -327,8 +328,10 @@ fun EngineScreen(
 
                                                 val inX = (clamped.x / maxRadius).coerceIn(-1f, 1f)
                                                 val inY = (-clamped.y / maxRadius).coerceIn(-1f, 1f)
-                                                renderer.inputStickX = inX
-                                                renderer.inputStickY = inY
+                                                val effectiveX = if (settings.invertCharacterMovementX) -inX else inX
+                                                val effectiveY = inY // Maju-mundur tetap normal sesuai permintaan
+                                                renderer.inputStickX = effectiveX
+                                                renderer.inputStickY = effectiveY
 
                                                 if (inY > 0.85f && !isSprintLocked) {
                                                     physicsEngine.isSprinting = true
@@ -349,37 +352,9 @@ fun EngineScreen(
                             }
                         }
 
-                         HudControlId.LOOK_PAD -> {
-                             Box(
-                                 modifier = Modifier
-                                     .offset { IntOffset(posX.dp.roundToPx(), posY.dp.roundToPx()) }
-                                     .size(currentSize)
-                                     .alpha(cfg.alpha)
-                                     .clip(RoundedCornerShape(16.dp))
-                                     .background(Color(0x22FFFFFF))
-                                     .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(16.dp))
-                                     .pointerInput(Unit) {
-                                         detectTransformGestures { centroid, pan, zoom, rotation ->
-                                             val sensitivity = 0.35f
-                                             renderer.camera.rotate(
-                                                 deltaYaw = pan.x * sensitivity,
-                                                 deltaPitch = -pan.y * sensitivity
-                                             )
-                                             if (zoom != 1f) {
-                                                 val zoomSensitivity = 12.0f
-                                                 renderer.camera.zoom((1f - zoom) * zoomSensitivity)
-                                             }
-                                         }
-                                     },
-                                 contentAlignment = Alignment.Center
-                             ) {
-                                Text(
-                                    text = "Usap Kamera",
-                                    color = Color(0x77FFFFFF),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                        HudControlId.LOOK_PAD -> {
+                            // Gaya PUBG: Kamera diusap langsung bebas di area kosong layar tanpa kotak kontainer pembatas.
+                            // Tidak merender kotak atau label teks agar layar bersih & bebas sentuh langsung.
                         }
 
                         HudControlId.SPRINT_LOCK -> {
@@ -807,30 +782,32 @@ fun EngineScreen(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        // In-Game Live Gameplay Editor Mode Toggle!
+                        // HUD Control Editor Button
                         Button(
-                            onClick = { isGameplayEditorMode = !isGameplayEditorMode },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isGameplayEditorMode) Color(0xFF00E5FF) else Color(0xD0101726)
-                            ),
+                            onClick = { isEditHudMode = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
                             shape = RoundedCornerShape(20.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                            modifier = Modifier.testTag("toggle_gameplay_editor_button")
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("open_hud_editor_button")
                         ) {
-                            Icon(
-                                imageVector = if (isGameplayEditorMode) Icons.Default.PlayArrow else Icons.Default.Tune,
-                                contentDescription = null,
-                                tint = if (isGameplayEditorMode) Color.Black else Color(0xFF00E5FF),
-                                modifier = Modifier.size(15.dp)
-                            )
+                            Icon(Icons.Default.VideogameAsset, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(15.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = if (isGameplayEditorMode) "Main (Play)" else "🛠️ Mode Editor",
-                                color = if (isGameplayEditorMode) Color.Black else Color(0xFF00E5FF),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
+                            Text("Editor HUD", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+
+                        // Graphics Settings Button
+                        Button(
+                            onClick = { showGraphicsSheet = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
+                            shape = RoundedCornerShape(20.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD600)),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("open_graphics_sheet_button")
+                        ) {
+                            Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFFFFD600), modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Grafis", color = Color(0xFFFFD600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
 
                         // World Map Button
@@ -844,25 +821,11 @@ fun EngineScreen(
                             onClick = { showWorldMapDialog = true },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
                             shape = RoundedCornerShape(20.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF76FF03)),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
                             modifier = Modifier.testTag("open_world_map_button")
                         ) {
-                            Text("🗺️ Peta ($portalCount)", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-
-                        // Engine Unified Settings & Studio Menu Button
-                        Button(
-                            onClick = { showStudioMenuSheet = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
-                            shape = RoundedCornerShape(20.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                            modifier = Modifier.testTag("open_studio_menu_button")
-                        ) {
-                            Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Menu Apex3D", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            Text("🗺️ Peta ($portalCount)", color = Color(0xFF76FF03), fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
                     }
                 }
@@ -1012,31 +975,7 @@ fun EngineScreen(
         }
     }
 
-        // 5b. Live In-Game Gameplay & World Editor Overlay (When in editor mode)
-        if (isGameplayEditorMode && !isEditHudMode) {
-            GameplayEditorOverlay(
-                physicsEngine = physicsEngine,
-                barrierManager = physicsEngine.barrierManager,
-                npcManager = npcManager,
-                interactionSystem = interactionSystem,
-                renderer = renderer,
-                settings = settings,
-                hudConfigs = hudConfigs,
-                hudPreferences = hudPreferences,
-                activePresetName = activePresetName,
-                onHudConfigsUpdated = { updated ->
-                    hudConfigs = updated
-                },
-                onOpenFullHudEditor = {
-                    isEditHudMode = true
-                },
-                onExitEditorMode = {
-                    isGameplayEditorMode = false
-                }
-            )
-        }
-
-        // 6. Full Screen Live HUD Editor (When in edit mode)
+        // 5. Full Screen Live HUD Editor (When in edit mode)
         if (isEditHudMode) {
             HudEditorOverlay(
                 configs = hudConfigs,
@@ -1058,45 +997,7 @@ fun EngineScreen(
             )
         }
 
-        // 7. Studio Unified Menu Bottom Sheet
-        if (showStudioMenuSheet) {
-            StudioMenuSheet(
-                settings = settings,
-                renderer = renderer,
-                physicsEngine = physicsEngine,
-                actionManager = actionManager,
-                interactionSystem = interactionSystem,
-                customModelManager = customModelManager,
-                batchImportManager = batchImportManager,
-                terrainMesh = terrainMesh,
-                npcManager = npcManager,
-                barrierManager = physicsEngine.barrierManager,
-                hudPreferences = hudPreferences,
-                activePresetName = activePresetName,
-                onPresetChanged = { name, configs ->
-                    activePresetName = name
-                    hudConfigs = configs
-                },
-                onOpenHudEditor = {
-                    showStudioMenuSheet = false
-                    isEditHudMode = true
-                },
-                onOpenGameplayEditor = {
-                    showStudioMenuSheet = false
-                    isGameplayEditorMode = true
-                },
-                onOpenAssetSheet = {
-                    showStudioMenuSheet = false
-                    showAssetManagerSheet = true
-                },
-                onSettingsChanged = {
-                    glSurfaceView?.requestRender()
-                },
-                onDismiss = { showStudioMenuSheet = false }
-            )
-        }
-
-        // 8. Graphics Settings Bottom Sheet
+        // 6. Graphics Settings Bottom Sheet
         if (showGraphicsSheet) {
             GraphicsSettingsSheet(
                 settings = settings,
@@ -1110,26 +1011,7 @@ fun EngineScreen(
             )
         }
 
-        // 9. Batch Folder & Asset Manager Bottom Sheet
-        if (showAssetManagerSheet) {
-            AssetManagerSheet(
-                customModelManager = customModelManager,
-                batchImportManager = batchImportManager,
-                terrainMesh = terrainMesh,
-                actionManager = actionManager,
-                npcManager = npcManager,
-                barrierManager = physicsEngine.barrierManager,
-                onModelImported = { entry ->
-                    glSurfaceView?.requestRender()
-                },
-                onTerrainChanged = {
-                    glSurfaceView?.requestRender()
-                },
-                onDismiss = { showAssetManagerSheet = false }
-            )
-        }
-
-        // 10. Full World Map & Teleportation Hub Dialog
+        // 7. Full World Map & Teleportation Hub Dialog
         if (showWorldMapDialog) {
             WorldMapDialog(
                 physicsEngine = physicsEngine,

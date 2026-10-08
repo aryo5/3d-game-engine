@@ -71,6 +71,13 @@ fun GraphicsSettingsSheet(
     var sunElevation by remember { mutableFloatStateOf(settings.sunElevation) }
     var sunAzimuth by remember { mutableFloatStateOf(settings.sunAzimuth) }
 
+    // Camera & Character Movement Control states
+    var invertCameraX by remember { mutableStateOf(settings.invertCameraX) }
+    var invertCameraY by remember { mutableStateOf(settings.invertCameraY) }
+    var camSensitivity by remember { mutableFloatStateOf(settings.cameraSensitivity) }
+    var invertMovementX by remember { mutableStateOf(settings.invertCharacterMovementX) }
+    var invertFacing by remember { mutableStateOf(settings.invertCharacterFacing) }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -320,6 +327,162 @@ fun GraphicsSettingsSheet(
                     valueRange = 0f..360f,
                     colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
                 )
+            }
+
+            // Section: Kontrol Kamera & Arah Karakter (Gaya PUBG & Anti-Terbalik)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF162032), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(12.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Bolt, contentDescription = null, tint = Color(0xFF00E5FF))
+                    Text(
+                        text = "Kontrol Kamera & Arah Gerak (Gaya PUBG)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color(0xFF00E5FF)
+                    )
+                }
+
+                Text(
+                    text = "Kamera dapat diusap bebas di area kosong mana saja tanpa kotak kontainer, serta cubit (pinch) 2 jari untuk zoom out/in seperti di galeri foto.",
+                    fontSize = 11.sp,
+                    color = Color(0xFFB0BEC5),
+                    lineHeight = 15.sp
+                )
+
+                // Slider Sensitivitas Kamera
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Sensitivitas Usap Kamera & Zoom:", fontSize = 12.sp)
+                        Text(
+                            "${(camSensitivity * 100f).toInt()}%",
+                            color = Color(0xFF00E5FF),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Slider(
+                        value = camSensitivity,
+                        onValueChange = {
+                            camSensitivity = it
+                            settings.cameraSensitivity = it
+                            onSettingsChanged()
+                        },
+                        valueRange = 0.10f..0.80f,
+                        colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
+                    )
+                }
+
+                // Invert Camera Horizontal
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Invert Usap Kamera Horisontal (X)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Balikkan usap kiri/kanan (Default: OFF / Geser kanan belok kanan)",
+                            fontSize = 11.sp,
+                            color = Color(0xFF90A4AE)
+                        )
+                    }
+                    Switch(
+                        checked = invertCameraX,
+                        onCheckedChange = {
+                            invertCameraX = it
+                            settings.invertCameraX = it
+                            onSettingsChanged()
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF00E5FF), checkedTrackColor = Color(0x6600E5FF))
+                    )
+                }
+
+                // Invert Camera Vertical
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Invert Usap Kamera Vertikal (Y)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Balikkan usap atas/bawah (Default: OFF / Geser atas lihat langit)",
+                            fontSize = 11.sp,
+                            color = Color(0xFF90A4AE)
+                        )
+                    }
+                    Switch(
+                        checked = invertCameraY,
+                        onCheckedChange = {
+                            invertCameraY = it
+                            settings.invertCameraY = it
+                            onSettingsChanged()
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF00E5FF), checkedTrackColor = Color(0x6600E5FF))
+                    )
+                }
+
+                // Invert Character Movement X (Strafe / Turning Left-Right without inverting forward/backward)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Invert Gerak Karakter (Kiri / Kanan)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFFFD600))
+                        Text(
+                            "Membalikkan arah belok/strafe samping bila kontrol terbalik. Maju-mundur tetap normal!",
+                            fontSize = 11.sp,
+                            color = Color(0xFFB0BEC5)
+                        )
+                    }
+                    Switch(
+                        checked = invertMovementX,
+                        onCheckedChange = {
+                            invertMovementX = it
+                            settings.invertCharacterMovementX = it
+                            onSettingsChanged()
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFFD600), checkedTrackColor = Color(0x66FFD600))
+                    )
+                }
+
+                // Invert GLB Character Model Facing (180° Flip)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Invert Hadap Model GLB (Putar 180°)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF76FF03))
+                        Text(
+                            "Putar orientasi 3D model bila mesh GLB menghadap ke belakang",
+                            fontSize = 11.sp,
+                            color = Color(0xFFB0BEC5)
+                        )
+                    }
+                    Switch(
+                        checked = invertFacing,
+                        onCheckedChange = {
+                            invertFacing = it
+                            settings.invertCharacterFacing = it
+                            onSettingsChanged()
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF76FF03), checkedTrackColor = Color(0x6676FF03))
+                    )
+                }
             }
 
             // Toggles: Fog & Wireframe

@@ -210,7 +210,76 @@ if __name__ == "__main__":
      * yang didukung penuh di Android 10, 11, 12, 13, 14, 15, 16 tanpa izin khusus.
      */
     fun writeToPublicDownloads(subfolder: String, fileName: String, mimeType: String, content: ByteArray): Boolean {
-        return false
+        return try {
+            val resolver = context.contentResolver
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val relativePath = if (subfolder.isEmpty()) {
+                        Environment.DIRECTORY_DOWNLOADS + "/Apex3D"
+                    } else {
+                        Environment.DIRECTORY_DOWNLOADS + "/Apex3D/" + subfolder.trim('/')
+                    }
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+            }
+
+            val collectionUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            } else {
+                // Pre-Q: Fallback to direct file write in Downloads folder
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val targetDir = if (subfolder.isEmpty()) {
+                    File(downloadsDir, "Apex3D")
+                } else {
+                    File(File(downloadsDir, "Apex3D"), subfolder.trim('/'))
+                }
+                if (!targetDir.exists()) targetDir.mkdirs()
+                val outFile = File(targetDir, fileName)
+                outFile.writeBytes(content)
+                return true
+            }
+
+            // On Android 10+, query if the file already exists in MediaStore to avoid duplicate copies
+            var existingUri: Uri? = null
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val relativePath = if (subfolder.isEmpty()) {
+                    Environment.DIRECTORY_DOWNLOADS + "/Apex3D/"
+                } else {
+                    Environment.DIRECTORY_DOWNLOADS + "/Apex3D/" + subfolder.trim('/') + "/"
+                }
+                val projection = arrayOf(MediaStore.MediaColumns._ID)
+                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?"
+                val selectionArgs = arrayOf(fileName, relativePath)
+                resolver.query(collectionUri, projection, selection, selectionArgs, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                        val id = cursor.getLong(idColumn)
+                        existingUri = Uri.withAppendedPath(collectionUri, id.toString())
+                    }
+                }
+            }
+
+            val fileUri = existingUri ?: resolver.insert(collectionUri, contentValues)
+            if (fileUri != null) {
+                resolver.openOutputStream(fileUri, "wt")?.use { os ->
+                    os.write(content)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(fileUri, contentValues, null, null)
+                }
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 
     /**
@@ -219,57 +288,43 @@ if __name__ == "__main__":
     fun exportToDocumentTree(treeUri: Uri, isObb: Boolean = false): String {
         return try {
             val gameFiles = generateAllGameFiles()
-            val targetDir = File(context.filesDir, "ApexExports/SAF")
-            if (!targetDir.exists()) targetDir.mkdirs()
-            for ((name, content) in gameFiles) {
-                File(targetDir, name).writeText(content, Charsets.UTF_8)
+            val resolver = context.contentResolver
+            
+            // On SAF, let's get DocumentFile of the selected folder
+            val pickedDir = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri)
+            if (pickedDir == null || !pickedDir.canWrite()) {
+                return "❌ Gagal ekspor: Folder pilihan tidak dapat ditulis atau tidak memiliki izin."
             }
+
+            // Write all files
+            var writeCount = 0
+            for ((name, content) in gameFiles) {
+                val existingFile = pickedDir.findFile(name)
+                val file = existingFile ?: pickedDir.createFile(
+                    if (name.endsWith(".json")) "application/json"
+                    else if (name.endsWith(".obj")) "text/plain"
+                    else if (name.endsWith(".py")) "text/x-python"
+                    else "text/plain",
+                    name
+                )
+                if (file != null) {
+                    resolver.openOutputStream(file.uri, "wt")?.use { os ->
+                        os.write(content.toByteArray(Charsets.UTF_8))
+                    }
+                    writeCount++
+                }
+            }
+
+            // Create ZIP or OBB in SAF
             val zipFileName = if (isObb) "main.1.apex3d.game.obb" else "Apex3D_Game_Data_Package.zip"
-            val zipFile = File(targetDir, zipFileName)
-            val baos = ByteArrayOutputStream()
-            val zos = ZipOutputStream(baos)
-            for ((name, content) in gameFiles) {
-                val entry = ZipEntry(name)
-                zos.putNextEntry(entry)
-                zos.write(content.toByteArray(Charsets.UTF_8))
-                zos.closeEntry()
-            }
-            zos.finish()
-            zipFile.writeBytes(baos.toByteArray())
-            "✓ Sukses menyimpan file via penyimpanan internal aplikasi.\n• Folder: ${targetDir.absolutePath}\n• Paket: $zipFileName"
-        } catch (e: Exception) {
-            "✓ Folder internal berhasil dibuat & file diekspor ke penyimpanan aplikasi!\n(Fallback internal: ${e.localizedMessage})"
-        }
-    }
-
-    /**
-     * Mengekspor seluruh file sampel, config, guide, dan ZIP/OBB ke folder internal aplikasi.
-     */
-    fun exportToCustomDirectory(targetFolderPath: String, isObb: Boolean = false): String {
-        val gameFiles = generateAllGameFiles()
-        val zipFileName = if (isObb) "main.1.apex3d.game.obb" else "Apex3D_Game_Data_Package.zip"
-
-        val targetDir = if (targetFolderPath.isBlank() || targetFolderPath.startsWith(context.filesDir.absolutePath)) {
-            getExportDir()
-        } else {
-            getExportDir()
-        }
-        if (!targetDir.exists()) targetDir.mkdirs()
-
-        var writtenCount = 0
-        for ((name, content) in gameFiles) {
-            try {
-                File(targetDir, name).writeText(content, Charsets.UTF_8)
-                writtenCount++
-            } catch (e: Exception) {
-                // Ignore
-            }
-        }
-
-        try {
-            val zipFile = File(targetDir, zipFileName)
-            FileOutputStream(zipFile).use { fos ->
-                val zos = ZipOutputStream(fos)
+            val existingZip = pickedDir.findFile(zipFileName)
+            val zipFile = existingZip ?: pickedDir.createFile(
+                if (isObb) "application/octet-stream" else "application/zip",
+                zipFileName
+            )
+            if (zipFile != null) {
+                val baos = ByteArrayOutputStream()
+                val zos = ZipOutputStream(baos)
                 for ((name, content) in gameFiles) {
                     val entry = ZipEntry(name)
                     zos.putNextEntry(entry)
@@ -277,35 +332,153 @@ if __name__ == "__main__":
                     zos.closeEntry()
                 }
                 zos.finish()
+                resolver.openOutputStream(zipFile.uri, "wt")?.use { os ->
+                    os.write(baos.toByteArray())
+                }
+                writeCount++
             }
-            writtenCount++
-        } catch (e: Exception) {
-            // Ignore
-        }
 
-        return buildString {
-            append("✓ Folder internal berhasil dibuat & seluruh file game berhasil diekspor!\n")
-            append("📁 Lokasi Internal: ${targetDir.absolutePath}\n")
-            append("• Paket: $zipFileName\n")
-            append("• Config: area_config.json, player_config.json\n")
-            append("• Script: generate_terrain.py\n")
-            append("• Guide: PANDUAN_OBB_DAN_FORMAT.txt")
+            "✓ Berhasil menyimpan ${writeCount} file langsung ke folder pilihan Anda melalui SAF!\n• Paket: $zipFileName"
+        } catch (e: Exception) {
+            e.printStackTrace()
+            "❌ Gagal menulis via SAF: ${e.localizedMessage}"
         }
     }
 
     /**
-     * Ekspor khusus Script Python Generator `generate_terrain.py` ke folder internal aplikasi
+     * Mengekspor seluruh file sampel, config, guide, dan ZIP/OBB ke folder internal aplikasi atau folder eksternal langsung.
+     */
+    fun exportToCustomDirectory(targetFolderPath: String, isObb: Boolean = false): String {
+        val gameFiles = generateAllGameFiles()
+        val zipFileName = if (isObb) "main.1.apex3d.game.obb" else "Apex3D_Game_Data_Package.zip"
+
+        val targetDir = if (targetFolderPath.isBlank()) {
+            getExportDir()
+        } else {
+            File(targetFolderPath)
+        }
+
+        var useDirectFile = true
+        try {
+            if (!targetDir.exists()) {
+                val created = targetDir.mkdirs()
+                if (!created && !targetDir.exists()) {
+                    useDirectFile = false
+                }
+            }
+        } catch (e: Exception) {
+            useDirectFile = false
+        }
+
+        if (useDirectFile) {
+            var writtenCount = 0
+            for ((name, content) in gameFiles) {
+                try {
+                    File(targetDir, name).writeText(content, Charsets.UTF_8)
+                    writtenCount++
+                } catch (e: Exception) {
+                    useDirectFile = false
+                    break
+                }
+            }
+
+            if (useDirectFile) {
+                try {
+                    val zipFile = File(targetDir, zipFileName)
+                    FileOutputStream(zipFile).use { fos ->
+                        val zos = ZipOutputStream(fos)
+                        for ((name, content) in gameFiles) {
+                            val entry = ZipEntry(name)
+                            zos.putNextEntry(entry)
+                            zos.write(content.toByteArray(Charsets.UTF_8))
+                            zos.closeEntry()
+                        }
+                        zos.finish()
+                    }
+                    writtenCount++
+                } catch (e: Exception) {
+                    useDirectFile = false
+                }
+            }
+
+            if (useDirectFile) {
+                return buildString {
+                    append("✓ Sukses mengekspor ${writtenCount} file langsung ke folder lokal HP!\n")
+                    append("📁 Folder: ${targetDir.absolutePath}\n")
+                    append("• Paket: $zipFileName")
+                }
+            }
+        }
+
+        // FALLBACK: If direct file write fails (due to Android 11+ Scoped Storage), use MediaStore Downloads API
+        var mediaStoreCount = 0
+        for ((name, content) in gameFiles) {
+            val mime = if (name.endsWith(".json")) "application/json"
+                       else if (name.endsWith(".obj")) "text/plain"
+                       else if (name.endsWith(".py")) "text/x-python"
+                       else "text/plain"
+            val success = writeToPublicDownloads("", name, mime, content.toByteArray(Charsets.UTF_8))
+            if (success) mediaStoreCount++
+        }
+
+        // Write the package to MediaStore
+        val baos = ByteArrayOutputStream()
+        val zos = ZipOutputStream(baos)
+        for ((name, content) in gameFiles) {
+            val entry = ZipEntry(name)
+            zos.putNextEntry(entry)
+            zos.write(content.toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+        }
+        zos.finish()
+        val zipBytes = baos.toByteArray()
+        val zipSuccess = writeToPublicDownloads("", zipFileName, if (isObb) "application/octet-stream" else "application/zip", zipBytes)
+        if (zipSuccess) mediaStoreCount++
+
+        return buildString {
+            append("✓ Folder publik berhasil ditulis via MediaStore (Scoped Storage fallback)!\n")
+            append("📁 Folder Publik: Download/Apex3D/\n")
+            append("• Berhasil menulis: $mediaStoreCount file\n")
+            append("• Paket: $zipFileName")
+        }
+    }
+
+    /**
+     * Ekspor khusus Script Python Generator `generate_terrain.py` ke folder target
      */
     fun exportPythonScriptOnly(targetFolderPath: String): String {
         val scriptContent = getPythonTerrainScript()
-        val targetDir = getExportDir()
-        val file = File(targetDir, "generate_terrain.py")
-        file.writeText(scriptContent, Charsets.UTF_8)
+        val targetDir = if (targetFolderPath.isBlank()) getExportDir() else File(targetFolderPath)
 
-        return buildString {
-            append("✓ Script Python 'generate_terrain.py' berhasil diekspor!\n")
-            append("📁 Folder Internal: ${targetDir.absolutePath}/generate_terrain.py\n")
-            append("Siap langsung dijalankan di Termux (`python generate_terrain.py`)!")
+        var useDirectFile = true
+        try {
+            if (!targetDir.exists()) {
+                targetDir.mkdirs()
+            }
+            val file = File(targetDir, "generate_terrain.py")
+            file.writeText(scriptContent, Charsets.UTF_8)
+        } catch (e: Exception) {
+            useDirectFile = false
+        }
+
+        if (useDirectFile) {
+            return buildString {
+                append("✓ Script Python 'generate_terrain.py' berhasil diekspor langsung!\n")
+                append("📁 Folder: ${targetDir.absolutePath}/generate_terrain.py\n")
+                append("Siap langsung dijalankan di Termux (`python generate_terrain.py`)!")
+            }
+        }
+
+        // Fallback to MediaStore
+        val success = writeToPublicDownloads("", "generate_terrain.py", "text/x-python", scriptContent.toByteArray(Charsets.UTF_8))
+        return if (success) {
+            buildString {
+                append("✓ Script 'generate_terrain.py' diekspor via MediaStore!\n")
+                append("📁 Lokasi: Download/Apex3D/generate_terrain.py\n")
+                append("Siap dijalankan di Termux!")
+            }
+        } else {
+            "❌ Gagal mengekspor script python."
         }
     }
 

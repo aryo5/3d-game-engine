@@ -2,29 +2,22 @@ package com.example.engine3d.importer
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import androidx.core.content.ContextCompat
 
 /**
  * Helper untuk mengelola perizinan penyimpanan Android dari versi 7 (API 24)
  * hingga versi terbaru (Android 14/15/16 - API 34+).
- *
- * Kebijakan Android:
- * - Android 7 s/d Android 9 (API 24 - 28) & Android 10 (API 29 legacy):
- *   Membutuhkan izin runtime berbahaya `WRITE_EXTERNAL_STORAGE` untuk menulis ke direktori publik (/sdcard/Download).
- * - Android 10+ (API 29+):
- *   Mendukung Scoped Storage & MediaStore.Downloads API sehingga penulisan ke folder publik
- *   Download/Apex3D dapat dilakukan langsung tanpa memerlukan izin berbahaya.
- * - Storage Access Framework (SAF / DocumentTree) didukung di seluruh versi Android
- *   tanpa memerlukan izin WRITE_EXTERNAL_STORAGE.
  */
 object StoragePermissionHelper {
 
     /**
-     * Mengecek apakah izin runtime penyimpanan telah diberikan pada perangkat saat ini.
-     * Mengembalikan true jika izin sudah diberikan ATAU jika perangkat berjalan di Android 11+
-     * di mana penulisan MediaStore tidak membutuhkan izin berbahaya.
+     * Mengecek apakah izin runtime penyimpanan biasa telah diberikan.
      */
     fun isStoragePermissionGranted(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
@@ -33,8 +26,43 @@ object StoragePermissionHelper {
                 Manifest.permission.WRITE_EXTERNAL_STORAGE
             ) == PackageManager.PERMISSION_GRANTED
         } else {
-            // Android 11+ menggunakan Scoped Storage (MediaStore & SAF), tidak memerlukan WRITE_EXTERNAL_STORAGE
             true
+        }
+    }
+
+    /**
+     * Mengecek apakah aplikasi memiliki akses penuh terhadap manajemen seluruh file (All Files Access)
+     * yang diperlukan untuk Custom File Manager / Explorer di Android 11+.
+     */
+    fun hasAllFilesAccess(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            isStoragePermissionGranted(context)
+        }
+    }
+
+    /**
+     * Mengarahkan pengguna ke pengaturan sistem untuk mengaktifkan izin "Akses Semua File".
+     */
+    fun launchAllFilesAccessSettings(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (ex: Exception) {
+                    ex.printStackTrace()
+                }
+            }
         }
     }
 
@@ -50,13 +78,17 @@ object StoragePermissionHelper {
      */
     fun getPermissionStatusDescription(context: Context): String {
         return when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
-                "Android 11+ (API ${Build.VERSION.SDK_INT}): Menggunakan Scoped Storage & MediaStore. Ekspor ke folder publik (Download/Apex3D) otomatis aktif tanpa perlu izin manual!"
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
+                if (hasAllFilesAccess(context)) {
+                    "Android 11+ (API ${Build.VERSION.SDK_INT}): Akses Manajemen Semua File Aktif! Penjelajah Folder Kustom dapat mengakses semua folder di HP Anda."
+                } else {
+                    "Android 11+ (API ${Build.VERSION.SDK_INT}): Memerlukan izin 'Akses Semua File' agar Penjelajah Folder Kustom bawaan aplikasi dapat membaca semua folder di luar folder Download/Apex3D secara bebas."
+                }
+            }
             isStoragePermissionGranted(context) ->
-                "Android 7-10 (API ${Build.VERSION.SDK_INT}): Izin WRITE_EXTERNAL_STORAGE aktif. Ekspor langsung ke /sdcard/Download/Apex3D diizinkan!"
+                "Android 7-10 (API ${Build.VERSION.SDK_INT}): Izin WRITE_EXTERNAL_STORAGE aktif. Penjelajah Folder Kustom dapat membaca semua folder publik!"
             else ->
-                "Android 7-10 (API ${Build.VERSION.SDK_INT}): Memerlukan izin WRITE_EXTERNAL_STORAGE agar ekspor dapat menulis langsung ke folder Download publik."
+                "Android 7-10 (API ${Build.VERSION.SDK_INT}): Memerlukan izin WRITE_EXTERNAL_STORAGE agar Penjelajah Folder Kustom dapat membaca berkas."
         }
     }
 }
-

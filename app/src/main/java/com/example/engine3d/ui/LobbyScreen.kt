@@ -250,12 +250,12 @@ fun LobbyScreen(
                 tag = "open_asset_hub_menu"
             )
 
-            // 3. Plan File Import Helper (Procedural Level Builder)
+            // 3. Hub Konfigurasi & Editor Grafis Gerak (Central Studio Hub)
             HubMenuCard(
                 icon = Icons.Default.Build,
                 iconColor = Color(0xFF00E5FF),
-                title = "Plan File Import Helper (Procedural Level Builder)",
-                subtitle = "Bentuk peta 3D secara instan dari kisi teks 2D (.plan) atau struktur JSON level. Kustomisasi tembok rintangan, pad turbo, dan NPC!",
+                title = "Hub Konfigurasi & Editor Grafis Gerak (Central Studio Hub)",
+                subtitle = "Pusat konfigurasi grafis gerak karakter, fisika, trigger zone & pintu GLB/OBJ, rintangan peta, NPC dialog, dan cuaca.",
                 onClick = { showPlanImporterSheet = true },
                 tag = "open_plan_importer_menu"
             )
@@ -331,7 +331,7 @@ fun LobbyScreen(
         )
     }
 
-    // GLB Config & Map Visual Patcher Sheet
+    // Hub Konfigurasi & Editor Grafis Gerak
     if (showPlanImporterSheet) {
         GlbConfigPatcherSheet(
             customModelManager = customModelManager,
@@ -340,6 +340,9 @@ fun LobbyScreen(
             npcManager = npcManager,
             interactionSystem = interactionSystem,
             playerPos = physicsEngine.characterPos,
+            settings = settings,
+            physicsEngine = physicsEngine,
+            actionManager = actionManager,
             onDismiss = { showPlanImporterSheet = false }
         )
     }

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.engine3d.actions.ActionManager
 import com.example.engine3d.actions.InteractionSystem
 import com.example.engine3d.actions.InteractableType
 import com.example.engine3d.actions.WorldInteractable
@@ -44,7 +45,9 @@ import com.example.engine3d.math.Vec3
 import com.example.engine3d.npc.NpcManager
 import com.example.engine3d.physics.BarrierManager
 import com.example.engine3d.physics.BarrierType
+import com.example.engine3d.physics.PhysicsEngine
 import com.example.engine3d.physics.WorldBarrier
+import com.example.engine3d.renderer.EngineSettings
 import com.example.engine3d.terrain.TerrainMesh
 
 enum class CharacterAnimSlot(val key: String, val title: String, val icon: String, val description: String) {
@@ -70,6 +73,9 @@ fun GlbConfigPatcherSheet(
     npcManager: NpcManager,
     interactionSystem: InteractionSystem,
     playerPos: Vec3,
+    settings: EngineSettings,
+    physicsEngine: PhysicsEngine,
+    actionManager: ActionManager,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current

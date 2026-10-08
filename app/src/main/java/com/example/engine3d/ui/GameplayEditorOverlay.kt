@@ -1026,8 +1026,8 @@ private fun HudLayoutEditorTab(
             ) {
                 Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Elemen: ${selectedHudId?.name}", fontSize = 10.sp, color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold)
-                    Text("Posisi: (${selectedConfig.x}, ${selectedConfig.y})", fontSize = 9.sp, color = Color.White)
-                    Text("Ukuran: ${selectedConfig.width} x ${selectedConfig.height}", fontSize = 9.sp, color = Color.White)
+                    Text("Posisi: (X: ${"%.2f".format(selectedConfig.xPercent)}, Y: ${"%.2f".format(selectedConfig.yPercent)})", fontSize = 9.sp, color = Color.White)
+                    Text("Skala: ${selectedConfig.scale}x | Transparansi: ${selectedConfig.alpha}", fontSize = 9.sp, color = Color.White)
                 }
             }
         }

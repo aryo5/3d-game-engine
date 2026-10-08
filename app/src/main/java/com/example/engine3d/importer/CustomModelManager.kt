@@ -87,8 +87,11 @@ class CustomModelManager(private val context: Context) {
             val cfgFile = File(dir, "player_config.json")
             if (cfgFile.exists()) {
                 val loadedConfig = PlayerConfig.fromJson(cfgFile.readText())
-                playerConfig = loadedConfig
-                val matchingModel = importedModels.firstOrNull { it.fileName.equals(loadedConfig.modelFile, ignoreCase = true) }
+                val normalizedConfig = if (loadedConfig.modelFile.equals("karakter.glb", ignoreCase = true) && loadedConfig.scaleX > 0.8f) {
+                    loadedConfig.copy(scaleX = 0.4f, scaleY = 0.4f, scaleZ = 0.4f, heightOffset = 0f)
+                } else loadedConfig
+                playerConfig = normalizedConfig
+                val matchingModel = importedModels.firstOrNull { it.fileName.equals(normalizedConfig.modelFile, ignoreCase = true) }
                 if (matchingModel != null) {
                     activeCustomCharacterMesh = matchingModel.mesh
                     activeCharacterFileName = matchingModel.fileName
@@ -219,9 +222,40 @@ class CustomModelManager(private val context: Context) {
             val shouldAutoBind = playerConfig.animIdleName.startsWith("anim_") ||
                 clips.none { it.equals(playerConfig.animIdleName, ignoreCase = true) }
 
+            val isKar = entry.fileName.equals("karakter.glb", ignoreCase = true)
+            val rawHeight = entry.mesh.aabb.max.y - entry.mesh.aabb.min.y
+            
+            // Standard humanoid character target height in world space is ~1.8 units
+            val autoTargetScale = if (isKar) {
+                0.4f
+            } else if (rawHeight > 0.05f) {
+                // Automatically adapt models exported in centimeters (Mixamo ~180cm -> 0.01f),
+                // meters (Blender ~1.8m -> 1.0f), or custom scale (~4.4 units -> 0.41f).
+                (1.8f / rawHeight).coerceIn(0.005f, 20f)
+            } else {
+                1.0f
+            }
+            
+            val autoHeightOffset = if (isKar) {
+                0f
+            } else if (rawHeight > 0.05f) {
+                // Align lowest vertex (feet) cleanly with ground surface
+                (-entry.mesh.aabb.min.y * autoTargetScale).coerceIn(-10f, 10f)
+            } else {
+                0f
+            }
+
+            val isSameModel = playerConfig.modelFile.equals(entry.fileName, ignoreCase = true)
+            val finalScale = if (isKar) 0.4f else if (isSameModel) playerConfig.scaleX else autoTargetScale
+            val finalHeightOffset = if (isKar) 0f else if (isSameModel) playerConfig.heightOffset else autoHeightOffset
+
             playerConfig = playerConfig.copy(
                 modelFile = entry.fileName,
                 characterName = entry.fileName.substringBeforeLast("."),
+                scaleX = finalScale,
+                scaleY = finalScale,
+                scaleZ = finalScale,
+                heightOffset = finalHeightOffset,
                 animIdleName = if (clips.isNotEmpty() && shouldAutoBind) autoIdle else playerConfig.animIdleName,
                 animWalkName = if (clips.isNotEmpty() && shouldAutoBind) autoWalk else playerConfig.animWalkName,
                 animRunName = if (clips.isNotEmpty() && shouldAutoBind) autoRun else playerConfig.animRunName,

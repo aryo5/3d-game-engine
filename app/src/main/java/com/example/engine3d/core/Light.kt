@@ -33,8 +33,8 @@ data class PointLight(
 class LightingEnvironment {
     var sunAzimuthDeg: Float = 45f
     var sunElevationDeg: Float = 55f
-    var sunColor: FloatArray = floatArrayOf(1.0f, 0.95f, 0.85f)
-    var ambientColor: FloatArray = floatArrayOf(0.25f, 0.28f, 0.35f)
+    var sunColor: FloatArray = floatArrayOf(1.0f, 0.96f, 0.88f)
+    var ambientColor: FloatArray = floatArrayOf(0.38f, 0.42f, 0.48f)
     var fogColor: FloatArray = floatArrayOf(0.55f, 0.70f, 0.85f)
     var fogDensity: Float = 0.008f
     var fogEnabled: Boolean = true

@@ -241,10 +241,12 @@ class BatchImportManager(
                             else -> ModelTarget.WORLD_PROP
                         }
 
+                        val entry = ImportedModelEntry(name, "GLB", target, mesh)
                         customModelManager.importedModels.removeAll { it.fileName == name }
-                        customModelManager.importedModels.add(
-                            ImportedModelEntry(name, "GLB", target, mesh)
-                        )
+                        customModelManager.importedModels.add(entry)
+                        if (target == ModelTarget.CHARACTER) {
+                            customModelManager.setActiveCharacter(entry, updatePlayerConfig = true)
+                        }
                     }
                 }
             } else if (lower.endsWith(".obj")) {

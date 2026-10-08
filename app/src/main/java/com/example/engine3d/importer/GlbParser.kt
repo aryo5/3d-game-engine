@@ -6,6 +6,7 @@ import com.example.engine3d.core.GlbNode
 import com.example.engine3d.core.KeyframeChannel
 import com.example.engine3d.core.Mesh
 import com.example.engine3d.math.Mat4
+import kotlin.math.pow
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
@@ -153,6 +154,30 @@ object GlbParser {
             traverseNode(rootIdx, Mat4().identity())
         }
 
+        val skinsArray = json.optJSONArray("skins")
+        val skinObj = if (skinsArray != null && skinsArray.length() > 0) skinsArray.optJSONObject(0) else null
+        val skinJointsJson = skinObj?.optJSONArray("joints")
+        val ibmAccessorIdx = skinObj?.optInt("inverseBindMatrices", -1) ?: -1
+        val skinJoints = if (skinJointsJson != null) {
+            IntArray(skinJointsJson.length()) { skinJointsJson.getInt(it) }
+        } else null
+
+        val inverseBindMatrices: Array<Mat4>? = if (skinJoints != null && ibmAccessorIdx >= 0) {
+            val rawIbm = extractFloatArray(ibmAccessorIdx, accessors, bufferViews, binBuffer)
+            if (rawIbm != null && rawIbm.size >= skinJoints.size * 16) {
+                Array(skinJoints.size) { j ->
+                    val m = Mat4()
+                    val slice = FloatArray(16)
+                    System.arraycopy(rawIbm, j * 16, slice, 0, 16)
+                    m.set(slice)
+                }
+            } else null
+        } else null
+
+        val bonePositions = mutableMapOf<Int, MutableList<Float>>()
+        val boneNormals = mutableMapOf<Int, MutableList<Float>>()
+        val boneColors = mutableMapOf<Int, MutableList<Float>>()
+
         val allPositions = mutableListOf<Float>()
         val allNormals = mutableListOf<Float>()
         val allColors = mutableListOf<Float>()
@@ -177,7 +202,12 @@ object GlbParser {
                     allNormals = allNormals,
                     allColors = allColors,
                     allIndices = allIndices,
-                    totalVertexCount = totalVertexCount
+                    totalVertexCount = totalVertexCount,
+                    skinJoints = skinJoints,
+                    inverseBindMatrices = inverseBindMatrices,
+                    bonePositions = bonePositions,
+                    boneNormals = boneNormals,
+                    boneColors = boneColors
                 )
             }
         } else {
@@ -195,7 +225,12 @@ object GlbParser {
                     allNormals = allNormals,
                     allColors = allColors,
                     allIndices = allIndices,
-                    totalVertexCount = totalVertexCount
+                    totalVertexCount = totalVertexCount,
+                    skinJoints = skinJoints,
+                    inverseBindMatrices = inverseBindMatrices,
+                    bonePositions = bonePositions,
+                    boneNormals = boneNormals,
+                    boneColors = boneColors
                 )
             }
         }
@@ -209,7 +244,23 @@ object GlbParser {
         for (node in nodeList) {
             val parentIdx = nodeParents[node.index] ?: -1
             var subMesh: Mesh? = null
-            if (node.meshIndex >= 0 && node.meshIndex < meshes.length()) {
+            if (skinJoints != null && bonePositions.containsKey(node.index)) {
+                val bPos = bonePositions[node.index]
+                val bNorm = boneNormals[node.index]
+                val bCol = boneColors[node.index]
+                if (bPos != null && bPos.isNotEmpty()) {
+                    subMesh = Mesh(
+                        name = "${node.name}_mesh",
+                        vertices = bPos.toFloatArray(),
+                        normals = bNorm?.toFloatArray(),
+                        colors = bCol?.toFloatArray(),
+                        texCoords = null,
+                        indices = null
+                    )
+                }
+            }
+            
+            if (subMesh == null && node.meshIndex >= 0 && node.meshIndex < meshes.length()) {
                 val subPositions = mutableListOf<Float>()
                 val subNormals = mutableListOf<Float>()
                 val subColors = mutableListOf<Float>()
@@ -277,7 +328,12 @@ object GlbParser {
         allNormals: MutableList<Float>,
         allColors: MutableList<Float>,
         allIndices: MutableList<Short>,
-        totalVertexCount: Int
+        totalVertexCount: Int,
+        skinJoints: IntArray? = null,
+        inverseBindMatrices: Array<Mat4>? = null,
+        bonePositions: MutableMap<Int, MutableList<Float>>? = null,
+        boneNormals: MutableMap<Int, MutableList<Float>>? = null,
+        boneColors: MutableMap<Int, MutableList<Float>>? = null
     ): Int {
         var currentVertexCount = totalVertexCount
         val primitives = meshObj.optJSONArray("primitives") ?: return currentVertexCount
@@ -316,12 +372,16 @@ object GlbParser {
                 val pbrObj = matObj?.optJSONObject("pbrMetallicRoughness")
                 val baseColorFactor = pbrObj?.optJSONArray("baseColorFactor")
                 if (baseColorFactor != null && baseColorFactor.length() >= 3) {
-                    matBaseColor = floatArrayOf(
-                        baseColorFactor.getDouble(0).toFloat(),
-                        baseColorFactor.getDouble(1).toFloat(),
-                        baseColorFactor.getDouble(2).toFloat(),
-                        if (baseColorFactor.length() >= 4) baseColorFactor.getDouble(3).toFloat() else 1.0f
-                    )
+                    val rLin = baseColorFactor.getDouble(0).toFloat()
+                    val gLin = baseColorFactor.getDouble(1).toFloat()
+                    val bLin = baseColorFactor.getDouble(2).toFloat()
+                    // glTF 2.0 baseColorFactor is in linear color space.
+                    // Convert to display gamma space (sRGB) so colors look vibrant and well-lit rather than dark/under-lit.
+                    val rSrgb = rLin.coerceIn(0f, 1f).pow(1f / 2.2f)
+                    val gSrgb = gLin.coerceIn(0f, 1f).pow(1f / 2.2f)
+                    val bSrgb = bLin.coerceIn(0f, 1f).pow(1f / 2.2f)
+                    val aVal = if (baseColorFactor.length() >= 4) baseColorFactor.getDouble(3).toFloat() else 1.0f
+                    matBaseColor = floatArrayOf(rSrgb, gSrgb, bSrgb, aVal)
                 }
             }
 
@@ -329,6 +389,16 @@ object GlbParser {
             val extractedColors = if (colorAccessorIdx >= 0) {
                 extractColorArray(colorAccessorIdx, accessors, bufferViews, binBuffer, primitiveVertexCount)
             } else null
+
+            // Determine bounds for vertex-height fallback
+            var minPy = Float.MAX_VALUE
+            var maxPy = -Float.MAX_VALUE
+            for (i in 0 until primitiveVertexCount) {
+                val py = rawPositions[i * 3 + 1]
+                if (py < minPy) minPy = py
+                if (py > maxPy) maxPy = py
+            }
+            val heightSpan = (maxPy - minPy).coerceAtLeast(0.01f)
 
             val colors = FloatArray(primitiveVertexCount * 4)
             for (i in 0 until primitiveVertexCount) {
@@ -351,14 +421,69 @@ object GlbParser {
                     colors[idx4 + 2] = matBaseColor[2]
                     colors[idx4 + 3] = matBaseColor[3]
                 } else {
-                    // Vibrant character palette fallback based on vertex height (head, torso, legs)
-                    val y = rawPositions[i * 3 + 1]
-                    if (y > 1.25f) { // Head / Helmet
-                        colors[idx4] = 0.95f; colors[idx4 + 1] = 0.80f; colors[idx4 + 2] = 0.65f; colors[idx4 + 3] = 1.0f
-                    } else if (y > 0.55f) { // Torso / Armor
-                        colors[idx4] = 0.15f; colors[idx4 + 1] = 0.65f; colors[idx4 + 2] = 0.95f; colors[idx4 + 3] = 1.0f
-                    } else { // Legs / Boots
-                        colors[idx4] = 0.25f; colors[idx4 + 1] = 0.35f; colors[idx4 + 2] = 0.45f; colors[idx4 + 3] = 1.0f
+                    // Vibrant character palette fallback based on normalized vertex height
+                    val py = rawPositions[i * 3 + 1]
+                    val normY = (py - minPy) / heightSpan
+                    if (normY > 0.70f) { // Head / Hair / Helmet
+                        colors[idx4] = 0.96f; colors[idx4 + 1] = 0.82f; colors[idx4 + 2] = 0.68f; colors[idx4 + 3] = 1.0f
+                    } else if (normY > 0.35f) { // Torso / Outfit
+                        colors[idx4] = 0.22f; colors[idx4 + 1] = 0.68f; colors[idx4 + 2] = 0.95f; colors[idx4 + 3] = 1.0f
+                    } else { // Lower body / Boots
+                        colors[idx4] = 0.28f; colors[idx4 + 1] = 0.38f; colors[idx4 + 2] = 0.48f; colors[idx4 + 3] = 1.0f
+                    }
+                }
+            }
+
+            // Bind skinned triangles directly to joint bone nodes in bone local coordinates
+            if (skinJoints != null && inverseBindMatrices != null && bonePositions != null) {
+                val jointAccessorIdx = attributes.optInt("JOINTS_0", -1)
+                val jointIndices = if (jointAccessorIdx >= 0) {
+                    extractJointIndices(jointAccessorIdx, accessors, bufferViews, binBuffer, primitiveVertexCount)
+                } else null
+
+                if (jointIndices != null) {
+                    val triCount = if (indices != null) indices.size / 3 else primitiveVertexCount / 3
+                    for (t in 0 until triCount) {
+                        val i0 = if (indices != null) indices[t * 3].toInt() and 0xFFFF else t * 3
+                        val i1 = if (indices != null) indices[t * 3 + 1].toInt() and 0xFFFF else t * 3 + 1
+                        val i2 = if (indices != null) indices[t * 3 + 2].toInt() and 0xFFFF else t * 3 + 2
+                        if (i0 * 4 < jointIndices.size) {
+                            val jointIdx = jointIndices[i0 * 4]
+                            if (jointIdx in 0 until skinJoints.size) {
+                                val boneNodeIdx = skinJoints[jointIdx]
+                                val ibm = inverseBindMatrices[jointIdx].data
+                                val bPos = bonePositions.getOrPut(boneNodeIdx) { mutableListOf() }
+                                val bNorm = boneNormals?.getOrPut(boneNodeIdx) { mutableListOf() }
+                                val bCol = boneColors?.getOrPut(boneNodeIdx) { mutableListOf() }
+
+                                for (vIdx in intArrayOf(i0, i1, i2)) {
+                                    val vx = rawPositions[vIdx * 3]
+                                    val vy = rawPositions[vIdx * 3 + 1]
+                                    val vz = rawPositions[vIdx * 3 + 2]
+                                    val tx = ibm[0] * vx + ibm[4] * vy + ibm[8] * vz + ibm[12]
+                                    val ty = ibm[1] * vx + ibm[5] * vy + ibm[9] * vz + ibm[13]
+                                    val tz = ibm[2] * vx + ibm[6] * vy + ibm[10] * vz + ibm[14]
+                                    bPos.add(tx); bPos.add(ty); bPos.add(tz)
+
+                                    val inNx = rawNormals[vIdx * 3]
+                                    val inNy = rawNormals[vIdx * 3 + 1]
+                                    val inNz = rawNormals[vIdx * 3 + 2]
+                                    var tnx = ibm[0] * inNx + ibm[4] * inNy + ibm[8] * inNz
+                                    var tny = ibm[1] * inNx + ibm[5] * inNy + ibm[9] * inNz
+                                    var tnz = ibm[2] * inNx + ibm[6] * inNy + ibm[10] * inNz
+                                    val nlen = kotlin.math.sqrt(tnx * tnx + tny * tny + tnz * tnz)
+                                    if (nlen > 0.0001f) {
+                                        tnx /= nlen; tny /= nlen; tnz /= nlen
+                                    }
+                                    bNorm?.add(tnx); bNorm?.add(tny); bNorm?.add(tnz)
+
+                                    bCol?.add(colors[vIdx * 4])
+                                    bCol?.add(colors[vIdx * 4 + 1])
+                                    bCol?.add(colors[vIdx * 4 + 2])
+                                    bCol?.add(colors[vIdx * 4 + 3])
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -641,6 +766,43 @@ object GlbParser {
             else -> {
                 for (i in 0 until count) {
                     if (binBuffer.remaining() >= 2) result[i] = binBuffer.short
+                }
+            }
+        }
+        return result
+    }
+
+    private fun extractJointIndices(
+        accessorIdx: Int,
+        accessors: JSONArray,
+        bufferViews: JSONArray,
+        binBuffer: ByteBuffer,
+        vertexCount: Int
+    ): IntArray? {
+        if (accessorIdx < 0 || accessorIdx >= accessors.length()) return null
+        val accessor = accessors.optJSONObject(accessorIdx) ?: return null
+        val bufferViewIdx = accessor.optInt("bufferView", -1)
+        if (bufferViewIdx < 0) return null
+        val count = accessor.optInt("count", 0)
+        val componentType = accessor.optInt("componentType", 5121)
+        val byteOffset = accessor.optInt("byteOffset", 0)
+
+        val bufferView = bufferViews.optJSONObject(bufferViewIdx) ?: return null
+        val bvByteOffset = bufferView.optInt("byteOffset", 0)
+        val startOffset = bvByteOffset + byteOffset
+        if (startOffset < 0 || startOffset >= binBuffer.capacity()) return null
+
+        binBuffer.position(startOffset)
+        val totalElements = count * 4
+        val result = IntArray(totalElements)
+        for (i in 0 until totalElements) {
+            if (componentType == 5121) { // UNSIGNED_BYTE
+                if (binBuffer.remaining() >= 1) {
+                    result[i] = binBuffer.get().toInt() and 0xFF
+                }
+            } else if (componentType == 5123) { // UNSIGNED_SHORT
+                if (binBuffer.remaining() >= 2) {
+                    result[i] = binBuffer.short.toInt() and 0xFFFF
                 }
             }
         }

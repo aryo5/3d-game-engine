@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.FolderOpen
@@ -188,6 +189,7 @@ fun EngineScreen(
     // UI Sheets & Modes
     var isEditHudMode by remember { mutableStateOf(false) }
     var showGraphicsSheet by remember { mutableStateOf(false) }
+    var showGlbConfigSheet by remember { mutableStateOf(false) }
     var showWorldMapDialog by remember { mutableStateOf(false) }
     var isExpandedMenuOpen by remember { mutableStateOf(false) }
 
@@ -810,6 +812,20 @@ fun EngineScreen(
                             Text("Grafis", color = Color(0xFFFFD600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
 
+                        // GLB Character & Animation Binding Button
+                        Button(
+                            onClick = { showGlbConfigSheet = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
+                            shape = RoundedCornerShape(20.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("open_glb_config_button")
+                        ) {
+                            Icon(Icons.Default.Build, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Binding GLB", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+
                         // World Map Button
                         val portalCount = interactionSystem.interactables.count {
                             it.targetTeleportPos != null ||
@@ -1008,6 +1024,22 @@ fun EngineScreen(
                     physicsEngine.spawnPhysicsBox(physicsEngine.characterPos)
                 },
                 onDismiss = { showGraphicsSheet = false }
+            )
+        }
+
+        // 6b. GLB Character & Animation Binding Config Patcher
+        if (showGlbConfigSheet) {
+            GlbConfigPatcherSheet(
+                customModelManager = customModelManager,
+                terrainMesh = terrainMesh,
+                barrierManager = physicsEngine.barrierManager,
+                npcManager = npcManager,
+                interactionSystem = interactionSystem,
+                playerPos = physicsEngine.characterPos,
+                settings = settings,
+                physicsEngine = physicsEngine,
+                actionManager = actionManager,
+                onDismiss = { showGlbConfigSheet = false }
             )
         }
 

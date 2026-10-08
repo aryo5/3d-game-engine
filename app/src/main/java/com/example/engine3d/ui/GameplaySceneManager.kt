@@ -309,7 +309,7 @@ class GameplaySceneManager(private val context: Context) {
         settings.sunElevation = 55f
         renderer.lighting.sunAzimuthDeg = 45f
         renderer.lighting.sunElevationDeg = 55f
-        renderer.lighting.ambientColor = floatArrayOf(0.25f, 0.28f, 0.35f)
+        renderer.lighting.ambientColor = floatArrayOf(0.38f, 0.42f, 0.48f)
 
         if (sceneConfigFile.exists()) {
             sceneConfigFile.delete()

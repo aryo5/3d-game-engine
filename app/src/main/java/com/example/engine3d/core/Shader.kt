@@ -111,14 +111,21 @@ class Shader {
                 
                 vec3 lightDir = normalize(uLightDir);
                 
-                // Two-sided soft diffuse fill to eliminate dark silhouettes
-                float diff = abs(dot(norm, lightDir));
-                float softDiff = mix(0.40, 1.0, diff);
-                vec3 diffuse = softDiff * uLightColor;
+                // Hemispheric ambient lighting (sky light from above, ground bounce from below)
+                float hemi = clamp(norm.y * 0.5 + 0.5, 0.0, 1.0);
+                vec3 skyAmbient = uAmbientColor * 1.35;
+                vec3 groundAmbient = uAmbientColor * 0.85;
+                vec3 ambient = mix(groundAmbient, skyAmbient, hemi);
+                
+                // Natural soft wrap diffuse + subtle bounce fill so characters and objects are clearly lit from all angles
+                float NdotL = dot(norm, lightDir);
+                float wrapDiff = clamp((NdotL + 0.45) / 1.45, 0.0, 1.0);
+                float backFill = clamp((-NdotL + 0.30) / 1.30, 0.0, 1.0) * 0.35;
+                vec3 diffuse = (wrapDiff + backFill) * uLightColor;
                 
                 // Specular (Blinn-Phong)
                 vec3 specular = vec3(0.0);
-                if (uShadingQuality >= 2 && diff > 0.1) {
+                if (uShadingQuality >= 2 && NdotL > -0.1) {
                     vec3 viewDir = normalize(uViewPos - vFragPos);
                     vec3 halfwayDir = normalize(lightDir + viewDir);
                     float spec = pow(max(dot(norm, halfwayDir), 0.0), uShininess);
@@ -139,7 +146,7 @@ class Shader {
                     }
                 }
                 
-                vec3 lighting = uAmbientColor + diffuse + pointLightContrib;
+                vec3 lighting = ambient + diffuse + pointLightContrib;
                 vec3 resultColor = (lighting * base.rgb) + specular;
                 
                 // Atmospheric Fog

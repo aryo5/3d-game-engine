@@ -31,6 +31,7 @@ class EngineSettings {
     var cameraSensitivity: Float = 0.28f
     var invertCharacterMovementX: Boolean = false // Membalikkan gerak strafe/belok tanpa membalikkan maju-mundur
     var invertCharacterFacing: Boolean = false    // Memutar hadap model GLB 180° bila model terbalik
+    var twoSidedGlbRendering: Boolean = true      // Render kedua sisi poligon (double-sided / anti culling) agar tidak ada celah tembus pandang pada model pakaian/karakter
 
     fun saveToPrefs(context: Context) {
         val prefs = context.getSharedPreferences("apex3d_engine_settings", Context.MODE_PRIVATE)
@@ -53,6 +54,7 @@ class EngineSettings {
             .putFloat("cameraSensitivity", cameraSensitivity)
             .putBoolean("invertCharacterMovementX", invertCharacterMovementX)
             .putBoolean("invertCharacterFacing", invertCharacterFacing)
+            .putBoolean("twoSidedGlbRendering", twoSidedGlbRendering)
             .apply()
     }
 
@@ -77,6 +79,7 @@ class EngineSettings {
         cameraSensitivity = prefs.getFloat("cameraSensitivity", 0.28f)
         invertCharacterMovementX = prefs.getBoolean("invertCharacterMovementX", false)
         invertCharacterFacing = prefs.getBoolean("invertCharacterFacing", false)
+        twoSidedGlbRendering = prefs.getBoolean("twoSidedGlbRendering", true)
     }
 
     fun applyPreset(preset: GraphicPreset) {

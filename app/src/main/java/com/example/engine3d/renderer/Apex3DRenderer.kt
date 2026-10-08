@@ -387,6 +387,11 @@ class Apex3DRenderer(
                     .rotate(npc.yawDeg, 0f, 1f, 0f)
                     .scale(1.2f, 1.2f, 1.2f)
                 val mvp = Mat4().set(camera.viewProjMatrix).multiply(npcMat)
+                val prevCullFace = GLES20.glIsEnabled(GLES20.GL_CULL_FACE)
+                if (settings.twoSidedGlbRendering && prevCullFace) {
+                    GLES20.glDisable(GLES20.GL_CULL_FACE)
+                }
+
                 if (npc.customMesh!!.nodes.isNotEmpty()) {
                     updateGlbNodeTransforms(npc.customMesh!!, "idle", walkAnimPhase)
                     val sTris = renderGlbSubmeshes(npc.customMesh!!, shader, npcMat, camera.viewProjMatrix, settings.enableWireframe)
@@ -412,6 +417,10 @@ class Apex3DRenderer(
                     GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
                     triCount += npc.customMesh!!.triangleCount
                     drawCallCount++
+                }
+
+                if (settings.twoSidedGlbRendering && prevCullFace) {
+                    GLES20.glEnable(GLES20.GL_CULL_FACE)
                 }
             } else {
                 renderNpcCharacter(npc, shader, triCount, drawCallCount).also { (t, d) ->
@@ -465,6 +474,13 @@ class Apex3DRenderer(
                         preferredClip = animPose.matchedGlbClip,
                         limbSwingAngle = animPose.limbSwingAngle
                     )
+                    
+                    // Handle Two-Sided (Anti Backface Culling) to eliminate gaps in clothing and character geometry
+                    val prevCullFace = GLES20.glIsEnabled(GLES20.GL_CULL_FACE)
+                    if (settings.twoSidedGlbRendering && prevCullFace) {
+                        GLES20.glDisable(GLES20.GL_CULL_FACE)
+                    }
+
                     val submeshTris = renderGlbSubmeshes(customChar, shader, charMat, camera.viewProjMatrix, settings.enableWireframe)
                     if (submeshTris > 0) {
                         triCount += submeshTris
@@ -483,8 +499,17 @@ class Apex3DRenderer(
                         triCount += customChar.triangleCount
                         drawCallCount++
                     }
+
+                    if (settings.twoSidedGlbRendering && prevCullFace) {
+                        GLES20.glEnable(GLES20.GL_CULL_FACE)
+                    }
                 } else {
                     // Flat fallback
+                    val prevCullFace = GLES20.glIsEnabled(GLES20.GL_CULL_FACE)
+                    if (settings.twoSidedGlbRendering && prevCullFace) {
+                        GLES20.glDisable(GLES20.GL_CULL_FACE)
+                    }
+
                     val charMvp = Mat4().set(camera.viewProjMatrix).multiply(charMat)
                     GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, charMvp.data, 0)
                     GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, charMat.data, 0)
@@ -494,6 +519,10 @@ class Apex3DRenderer(
                     GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset
                     triCount += customChar.triangleCount
                     drawCallCount++
+
+                    if (settings.twoSidedGlbRendering && prevCullFace) {
+                        GLES20.glEnable(GLES20.GL_CULL_FACE)
+                    }
                 }
             } else {
                 // Render Default Stylized Cyber Knight with animated limbs

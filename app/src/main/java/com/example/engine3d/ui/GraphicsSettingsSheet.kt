@@ -84,6 +84,7 @@ fun GraphicsSettingsSheet(
     var camSensitivity by remember { mutableFloatStateOf(settings.cameraSensitivity) }
     var invertMovementX by remember { mutableStateOf(settings.invertCharacterMovementX) }
     var invertFacing by remember { mutableStateOf(settings.invertCharacterFacing) }
+    var twoSidedGlb by remember { mutableStateOf(settings.twoSidedGlbRendering) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -488,6 +489,31 @@ fun GraphicsSettingsSheet(
                             updateSettings()
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF76FF03), checkedTrackColor = Color(0x6676FF03))
+                    )
+                }
+
+                // Two-Sided Rendering (Fix celah tembus pandang / backface culling pada mesh GLB)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Render Dua Sisi Model GLB (Double-Sided)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF00E5FF))
+                        Text(
+                            "Hilangkan celah tembus pandang pada baju/karakter dengan merender poligon depan & belakang (Anti-Culling)",
+                            fontSize = 11.sp,
+                            color = Color(0xFFB0BEC5)
+                        )
+                    }
+                    Switch(
+                        checked = twoSidedGlb,
+                        onCheckedChange = {
+                            twoSidedGlb = it
+                            settings.twoSidedGlbRendering = it
+                            updateSettings()
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF00E5FF), checkedTrackColor = Color(0x6600E5FF))
                     )
                 }
             }

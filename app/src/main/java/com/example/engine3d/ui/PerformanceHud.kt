@@ -29,48 +29,37 @@ fun PerformanceHud(
         else -> Color(0xFFFF3D00)
     }
 
-    val slopeColor = if (stats.slopeAngle > 45f) Color(0xFFFF1744) else Color(0xFF00E5FF)
-
     Row(
         modifier = modifier
-            .background(Color(0xCC0D131F), RoundedCornerShape(12.dp))
+            .background(Color(0xDD090D18), RoundedCornerShape(12.dp))
             .border(1.dp, Color(0x3300E5FF), RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(7.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
             text = "${stats.fps} FPS",
             color = fpsColor,
             fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
         )
         Text(
             text = "${String.format("%.1f", stats.frameTimeMs)}ms",
-            color = Color(0xFFB0BEC5),
-            fontSize = 10.sp,
+            color = Color(0xFF94A3B8),
+            fontSize = 9.sp,
             fontFamily = FontFamily.Monospace
         )
         Text(
-            text = "Pos:[${String.format("%.1f", stats.posX)}, ${String.format("%.1f", stats.posY)}, ${String.format("%.1f", stats.posZ)}]",
+            text = "[${stats.posX.toInt()}, ${stats.posY.toInt()}, ${stats.posZ.toInt()}]",
             color = Color(0xFF00E5FF),
             fontSize = 9.sp,
-            fontWeight = FontWeight.SemiBold,
             fontFamily = FontFamily.Monospace
         )
         Text(
-            text = "Arah:${String.format("%.0f", (stats.headingDeg % 360f + 360f) % 360f)}°",
+            text = "${stats.headingDeg.toInt()}°",
             color = Color(0xFFFFD600),
             fontSize = 9.sp,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = FontFamily.Monospace
-        )
-        Text(
-            text = "Lereng:${String.format("%.0f", stats.slopeAngle)}°",
-            color = slopeColor,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace
         )
     }

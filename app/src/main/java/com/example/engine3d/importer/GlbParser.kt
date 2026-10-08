@@ -156,11 +156,34 @@ object GlbParser {
             traverseNode(rootIdx, Mat4().identity())
         }
 
-        // 4. Assemble ALL primitives into one complete unified solid mesh
+        // 4. Parse Skins Data (42 joints & Inverse Bind Matrices)
+        val skinsArray = json.optJSONArray("skins")
+        val skinObj = if (skinsArray != null && skinsArray.length() > 0) skinsArray.optJSONObject(0) else null
+        val skinJointsJson = skinObj?.optJSONArray("joints")
+        val ibmAccessorIdx = skinObj?.optInt("inverseBindMatrices", -1) ?: -1
+        val skinJoints = if (skinJointsJson != null) {
+            IntArray(skinJointsJson.length()) { skinJointsJson.getInt(it) }
+        } else null
+
+        val inverseBindMatrices: Array<Mat4>? = if (skinJoints != null && ibmAccessorIdx >= 0) {
+            val rawIbm = extractFloatArray(ibmAccessorIdx, accessors, bufferViews, binBuffer)
+            if (rawIbm != null && rawIbm.size >= skinJoints.size * 16) {
+                Array(skinJoints.size) { j ->
+                    val m = Mat4()
+                    val slice = FloatArray(16)
+                    System.arraycopy(rawIbm, j * 16, slice, 0, 16)
+                    m.set(slice)
+                }
+            } else null
+        } else null
+
+        // 5. Gabungkan seluruh primitive & ambil data JOINTS_0 dan WEIGHTS_0
         val allPositions = mutableListOf<Float>()
         val allNormals = mutableListOf<Float>()
         val allColors = mutableListOf<Float>()
         val allIndices = mutableListOf<Short>()
+        val allJoints = mutableListOf<Int>()
+        val allWeights = mutableListOf<Float>()
         var totalVertexCount = 0
 
         val nodesWithMesh = nodeList.filter { it.meshIndex >= 0 && it.meshIndex < meshes.length() }
@@ -180,6 +203,8 @@ object GlbParser {
                     allNormals = allNormals,
                     allColors = allColors,
                     allIndices = allIndices,
+                    allJoints = allJoints,
+                    allWeights = allWeights,
                     totalVertexCount = totalVertexCount
                 )
             }
@@ -197,6 +222,8 @@ object GlbParser {
                     allNormals = allNormals,
                     allColors = allColors,
                     allIndices = allIndices,
+                    allJoints = allJoints,
+                    allWeights = allWeights,
                     totalVertexCount = totalVertexCount
                 )
             }
@@ -206,7 +233,7 @@ object GlbParser {
 
         val animationClips = extractAnimationClips(json, accessors, bufferViews, binBuffer)
 
-        // 5. Build clean GlbNodes without tearing joints
+        // 6. Simpan node hierarchy untuk evaluasi animasi
         val glbNodes = mutableListOf<GlbNode>()
         for (node in nodeList) {
             val parentIdx = nodeParents[node.index] ?: -1
@@ -218,10 +245,12 @@ object GlbParser {
                     meshIndex = node.meshIndex,
                     defaultLocalMatrix = node.localMatrix,
                     children = node.children,
-                    subMesh = null // Biarkan null agar tidak memecah mesh menjadi serpihan kaku
+                    subMesh = null
                 )
             )
         }
+
+        val hasSkinning = skinJoints != null && allWeights.isNotEmpty()
 
         return Mesh(
             name = name,
@@ -232,7 +261,12 @@ object GlbParser {
             indices = if (allIndices.isNotEmpty()) allIndices.toShortArray() else null,
             animationClips = animationClips,
             nodes = glbNodes,
-            rootNodes = rootNodeIndices
+            rootNodes = rootNodeIndices,
+            bindVertices = if (hasSkinning) allPositions.toFloatArray() else null,
+            vertexJoints = if (hasSkinning) allJoints.toIntArray() else null,
+            vertexWeights = if (hasSkinning) allWeights.toFloatArray() else null,
+            skinJointNodes = skinJoints,
+            inverseBindMatrices = inverseBindMatrices
         )
     }
 
@@ -247,6 +281,8 @@ object GlbParser {
         allNormals: MutableList<Float>,
         allColors: MutableList<Float>,
         allIndices: MutableList<Short>,
+        allJoints: MutableList<Int>,
+        allWeights: MutableList<Float>,
         totalVertexCount: Int
     ): Int {
         var currentVertexCount = totalVertexCount
@@ -277,7 +313,17 @@ object GlbParser {
                 rawNormals = computeNormals(rawPositions, indices)
             }
 
-            // Material baseColorFactor
+            // Ekstrak JOINTS_0 dan WEIGHTS_0
+            val jointAccessorIdx = attributes.optInt("JOINTS_0", -1)
+            val rawJoints = if (jointAccessorIdx >= 0) {
+                extractJointIndices(jointAccessorIdx, accessors, bufferViews, binBuffer, primitiveVertexCount)
+            } else null
+
+            val weightAccessorIdx = attributes.optInt("WEIGHTS_0", -1)
+            val rawWeights = if (weightAccessorIdx >= 0) {
+                extractWeightArray(weightAccessorIdx, accessors, bufferViews, binBuffer, primitiveVertexCount)
+            } else null
+
             val matIdx = prim.optInt("material", -1)
             var matBaseColor: FloatArray? = null
             if (materialsArray != null && matIdx >= 0 && matIdx < materialsArray.length()) {
@@ -301,7 +347,6 @@ object GlbParser {
                 extractColorArray(colorAccessorIdx, accessors, bufferViews, binBuffer, primitiveVertexCount)
             } else null
 
-            // Transform vertices by node world matrix
             for (i in 0 until primitiveVertexCount) {
                 val vx = rawPositions[i * 3]
                 val vy = rawPositions[i * 3 + 1]
@@ -334,13 +379,32 @@ object GlbParser {
                 allNormals.add(tny)
                 allNormals.add(tnz)
 
-                // Color assignment
-                val idx4 = i * 4
-                if (extractedColors != null && extractedColors.size >= idx4 + 4) {
-                    var r = extractedColors[idx4]
-                    var g = extractedColors[idx4 + 1]
-                    var b = extractedColors[idx4 + 2]
-                    val a = extractedColors[idx4 + 3]
+                // Simpan joints dan weights
+                val i4 = i * 4
+                if (rawJoints != null && rawJoints.size >= i4 + 4) {
+                    allJoints.add(rawJoints[i4])
+                    allJoints.add(rawJoints[i4 + 1])
+                    allJoints.add(rawJoints[i4 + 2])
+                    allJoints.add(rawJoints[i4 + 3])
+                } else {
+                    allJoints.add(0); allJoints.add(0); allJoints.add(0); allJoints.add(0)
+                }
+
+                if (rawWeights != null && rawWeights.size >= i4 + 4) {
+                    allWeights.add(rawWeights[i4])
+                    allWeights.add(rawWeights[i4 + 1])
+                    allWeights.add(rawWeights[i4 + 2])
+                    allWeights.add(rawWeights[i4 + 3])
+                } else {
+                    allWeights.add(1f); allWeights.add(0f); allWeights.add(0f); allWeights.add(0f)
+                }
+
+                // Color
+                if (extractedColors != null && extractedColors.size >= i4 + 4) {
+                    var r = extractedColors[i4]
+                    var g = extractedColors[i4 + 1]
+                    var b = extractedColors[i4 + 2]
+                    val a = extractedColors[i4 + 3]
                     if (matBaseColor != null) {
                         r *= matBaseColor[0]
                         g *= matBaseColor[1]
@@ -371,6 +435,83 @@ object GlbParser {
             currentVertexCount += primitiveVertexCount
         }
         return currentVertexCount
+    }
+
+    private fun extractWeightArray(
+        accessorIdx: Int,
+        accessors: JSONArray,
+        bufferViews: JSONArray,
+        binBuffer: ByteBuffer,
+        vertexCount: Int
+    ): FloatArray? {
+        if (accessorIdx < 0 || accessorIdx >= accessors.length()) return null
+        val accessor = accessors.optJSONObject(accessorIdx) ?: return null
+        val bufferViewIdx = accessor.optInt("bufferView", -1)
+        if (bufferViewIdx < 0) return null
+        val count = accessor.optInt("count", 0)
+        val componentType = accessor.optInt("componentType", 5126)
+        val byteOffset = accessor.optInt("byteOffset", 0)
+
+        val bufferView = bufferViews.optJSONObject(bufferViewIdx) ?: return null
+        val bvByteOffset = bufferView.optInt("byteOffset", 0)
+        val startOffset = bvByteOffset + byteOffset
+        if (startOffset < 0 || startOffset >= binBuffer.capacity()) return null
+
+        binBuffer.position(startOffset)
+        val totalElements = count * 4
+        val result = FloatArray(vertexCount * 4)
+
+        for (i in 0 until totalElements.coerceAtMost(vertexCount * 4)) {
+            when (componentType) {
+                5126 -> {
+                    if (binBuffer.remaining() >= 4) result[i] = binBuffer.float
+                }
+                5121 -> {
+                    if (binBuffer.remaining() >= 1) result[i] = (binBuffer.get().toInt() and 0xFF) / 255.0f
+                }
+                5123 -> {
+                    if (binBuffer.remaining() >= 2) result[i] = (binBuffer.short.toInt() and 0xFFFF) / 65535.0f
+                }
+            }
+        }
+        return result
+    }
+
+    private fun extractJointIndices(
+        accessorIdx: Int,
+        accessors: JSONArray,
+        bufferViews: JSONArray,
+        binBuffer: ByteBuffer,
+        vertexCount: Int
+    ): IntArray? {
+        if (accessorIdx < 0 || accessorIdx >= accessors.length()) return null
+        val accessor = accessors.optJSONObject(accessorIdx) ?: return null
+        val bufferViewIdx = accessor.optInt("bufferView", -1)
+        if (bufferViewIdx < 0) return null
+        val count = accessor.optInt("count", 0)
+        val componentType = accessor.optInt("componentType", 5121)
+        val byteOffset = accessor.optInt("byteOffset", 0)
+
+        val bufferView = bufferViews.optJSONObject(bufferViewIdx) ?: return null
+        val bvByteOffset = bufferView.optInt("byteOffset", 0)
+        val startOffset = bvByteOffset + byteOffset
+        if (startOffset < 0 || startOffset >= binBuffer.capacity()) return null
+
+        binBuffer.position(startOffset)
+        val totalElements = count * 4
+        val result = IntArray(totalElements)
+        for (i in 0 until totalElements) {
+            if (componentType == 5121) {
+                if (binBuffer.remaining() >= 1) {
+                    result[i] = binBuffer.get().toInt() and 0xFF
+                }
+            } else if (componentType == 5123) {
+                if (binBuffer.remaining() >= 2) {
+                    result[i] = binBuffer.short.toInt() and 0xFFFF
+                }
+            }
+        }
+        return result
     }
 
     private fun computeNodeLocalMatrix(nodeObj: JSONObject): Mat4 {

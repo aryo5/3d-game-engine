@@ -101,11 +101,33 @@ fun GlbConfigPatcherSheet(
     }
 
     fun runAutoDetect(clips: List<String>) {
-        val detectedIdle = clips.firstOrNull { it.contains("idle", true) || it.contains("stand", true) || it.contains("breath", true) }
-        val detectedWalk = clips.firstOrNull { it.contains("walk", true) || it.contains("move", true) || it.contains("jalan", true) }
-        val detectedRun = clips.firstOrNull { it.contains("run", true) || it.contains("sprint", true) || it.contains("lari", true) || it.contains("dash", true) }
-        val detectedJump = clips.firstOrNull { it.contains("jump", true) || it.contains("leap", true) || it.contains("lompat", true) || it.contains("fall", true) }
-        val detectedSlash = clips.firstOrNull { it.contains("slash", true) || it.contains("attack", true) || it.contains("serang", true) || it.contains("hit", true) || it.contains("punch", true) || it.contains("sword", true) || it.contains("clap", true) }
+        if (clips.isEmpty()) return
+        fun clean(str: String) = str.substringAfterLast("|").substringAfterLast(":").lowercase().replace("_", "").replace("-", "")
+
+        val detectedIdle = clips.firstOrNull {
+            val c = clean(it)
+            c.contains("idle") || c.contains("stand") || c.contains("breath") || c.contains("stay") || c.contains("wait") || c.contains("loop")
+        } ?: clips.firstOrNull()
+
+        val detectedWalk = clips.firstOrNull {
+            val c = clean(it)
+            c.contains("walk") || c.contains("move") || c.contains("jalan") || c.contains("step") || c.contains("stride") || c.contains("forward")
+        } ?: clips.firstOrNull { clean(it).contains("run") } ?: detectedIdle
+
+        val detectedRun = clips.firstOrNull {
+            val c = clean(it)
+            c.contains("run") || c.contains("sprint") || c.contains("lari") || c.contains("dash") || c.contains("fast") || c.contains("jog")
+        } ?: detectedWalk
+
+        val detectedJump = clips.firstOrNull {
+            val c = clean(it)
+            c.contains("jump") || c.contains("leap") || c.contains("lompat") || c.contains("air") || c.contains("fall")
+        } ?: detectedIdle
+
+        val detectedSlash = clips.firstOrNull {
+            val c = clean(it)
+            c.contains("slash") || c.contains("attack") || c.contains("serang") || c.contains("hit") || c.contains("strike") || c.contains("punch") || c.contains("sword") || c.contains("combo")
+        } ?: detectedIdle
 
         if (detectedIdle != null) idleBind = detectedIdle
         if (detectedWalk != null) walkBind = detectedWalk
@@ -120,7 +142,13 @@ fun GlbConfigPatcherSheet(
             manualModelTypeOverride = model.target
             val clips = model.mesh.animationClips.map { it.name }
             val currentPConfig = customModelManager.playerConfig
-            if (currentPConfig.modelFile.equals(model.fileName, ignoreCase = true) && currentPConfig.animIdleName.isNotEmpty()) {
+            val isCurrentModel = currentPConfig.modelFile.equals(model.fileName, ignoreCase = true)
+            val hasValidBoundClips = isCurrentModel &&
+                currentPConfig.animIdleName.isNotBlank() &&
+                !currentPConfig.animIdleName.startsWith("anim_") &&
+                clips.any { it.equals(currentPConfig.animIdleName, ignoreCase = true) }
+
+            if (hasValidBoundClips) {
                 idleBind = currentPConfig.animIdleName
                 walkBind = currentPConfig.animWalkName
                 runBind = currentPConfig.animRunName
@@ -1005,19 +1033,22 @@ fun GlbConfigPatcherSheet(
                                                 }
                                             }
 
-                                            // Draw portals
+                                            // Draw teleportation portals with distinct glowing rings
                                             interactionSystem.interactables.forEach { item ->
                                                 val pOffset = Offset(((item.position.x - worldMin) / worldSize) * canvasSize.width, ((item.position.z - worldMin) / worldSize) * canvasSize.height)
-                                                drawCircle(
-                                                    color = Color(0xFF00E5FF),
-                                                    radius = 8f,
-                                                    center = pOffset
-                                                )
-                                                drawCircle(
-                                                    color = Color.White,
-                                                    radius = 4f,
-                                                    center = pOffset
-                                                )
+                                                val isPortal = item.targetTeleportPos != null ||
+                                                    item.type == InteractableType.QUANTUM_PORTAL ||
+                                                    item.type == InteractableType.HOUSE_DOOR_ENTER ||
+                                                    item.type == InteractableType.HOUSE_DOOR_EXIT
+
+                                                if (isPortal) {
+                                                    drawCircle(color = Color(0x66E040FB), radius = 12f, center = pOffset)
+                                                    drawCircle(color = Color(0xFF00E5FF), radius = 7f, center = pOffset, style = Stroke(2f))
+                                                    drawCircle(color = Color.White, radius = 3f, center = pOffset)
+                                                } else {
+                                                    drawCircle(color = Color(0xFFFFD600), radius = 5f, center = pOffset)
+                                                    drawCircle(color = Color.Black, radius = 2f, center = pOffset)
+                                                }
                                             }
 
                                             // Draw Player Start Point

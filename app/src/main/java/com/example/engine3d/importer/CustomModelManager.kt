@@ -161,9 +161,45 @@ class CustomModelManager(private val context: Context) {
         activeCustomCharacterMesh = entry?.mesh
         activeCharacterFileName = entry?.fileName
         if (entry != null && updatePlayerConfig) {
+            val clips = entry.mesh.animationClips.map { it.name }
+            val clean = { str: String -> str.substringAfterLast("|").substringAfterLast(":").lowercase().replace("_", "").replace("-", "") }
+
+            val autoIdle = clips.firstOrNull {
+                val c = clean(it)
+                c.contains("idle") || c.contains("stand") || c.contains("breath") || c.contains("stay") || c.contains("wait") || c.contains("loop")
+            } ?: clips.firstOrNull() ?: "idle"
+
+            val autoWalk = clips.firstOrNull {
+                val c = clean(it)
+                c.contains("walk") || c.contains("move") || c.contains("jalan") || c.contains("step") || c.contains("stride") || c.contains("forward")
+            } ?: clips.firstOrNull { clean(it).contains("run") } ?: autoIdle
+
+            val autoRun = clips.firstOrNull {
+                val c = clean(it)
+                c.contains("run") || c.contains("sprint") || c.contains("lari") || c.contains("dash") || c.contains("fast") || c.contains("jog")
+            } ?: autoWalk
+
+            val autoJump = clips.firstOrNull {
+                val c = clean(it)
+                c.contains("jump") || c.contains("leap") || c.contains("lompat") || c.contains("air") || c.contains("fall")
+            } ?: autoIdle
+
+            val autoSlash = clips.firstOrNull {
+                val c = clean(it)
+                c.contains("slash") || c.contains("attack") || c.contains("serang") || c.contains("hit") || c.contains("strike") || c.contains("punch") || c.contains("sword")
+            } ?: autoIdle
+
+            val shouldAutoBind = playerConfig.animIdleName.startsWith("anim_") ||
+                clips.none { it.equals(playerConfig.animIdleName, ignoreCase = true) }
+
             playerConfig = playerConfig.copy(
                 modelFile = entry.fileName,
-                characterName = entry.fileName.substringBeforeLast(".")
+                characterName = entry.fileName.substringBeforeLast("."),
+                animIdleName = if (clips.isNotEmpty() && shouldAutoBind) autoIdle else playerConfig.animIdleName,
+                animWalkName = if (clips.isNotEmpty() && shouldAutoBind) autoWalk else playerConfig.animWalkName,
+                animRunName = if (clips.isNotEmpty() && shouldAutoBind) autoRun else playerConfig.animRunName,
+                animJumpName = if (clips.isNotEmpty() && shouldAutoBind) autoJump else playerConfig.animJumpName,
+                animSlashName = if (clips.isNotEmpty() && shouldAutoBind) autoSlash else playerConfig.animSlashName
             )
             savePlayerConfig(playerConfig)
         }

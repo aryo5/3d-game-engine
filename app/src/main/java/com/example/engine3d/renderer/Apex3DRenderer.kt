@@ -358,14 +358,32 @@ class Apex3DRenderer(
                     .rotate(npc.yawDeg, 0f, 1f, 0f)
                     .scale(1.2f, 1.2f, 1.2f)
                 val mvp = Mat4().set(camera.viewProjMatrix).multiply(npcMat)
-                GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
-                GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, npcMat.data, 0)
-                GLES20.glUniform4f(shader.uBaseColorLocation, npc.tintColor[0], npc.tintColor[1], npc.tintColor[2], 1f)
-                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (npc.customMesh!!.colors != null) 1 else 0)
-                npc.customMesh!!.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
-                GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset
-                triCount += npc.customMesh!!.triangleCount
-                drawCallCount++
+                if (npc.customMesh!!.nodes.isNotEmpty()) {
+                    updateGlbNodeTransforms(npc.customMesh!!, "idle", walkAnimPhase)
+                    val sTris = renderGlbSubmeshes(npc.customMesh!!, shader, npcMat, camera.viewProjMatrix, settings.enableWireframe)
+                    if (sTris > 0) {
+                        triCount += sTris
+                        drawCallCount += npc.customMesh!!.nodes.filter { it.subMesh != null }.size
+                    } else {
+                        GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
+                        GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, npcMat.data, 0)
+                        GLES20.glUniform4f(shader.uBaseColorLocation, npc.tintColor[0], npc.tintColor[1], npc.tintColor[2], 1f)
+                        GLES20.glUniform1i(shader.uUseVertexColorLocation, if (npc.customMesh!!.colors != null) 1 else 0)
+                        npc.customMesh!!.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+                        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
+                        triCount += npc.customMesh!!.triangleCount
+                        drawCallCount++
+                    }
+                } else {
+                    GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
+                    GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, npcMat.data, 0)
+                    GLES20.glUniform4f(shader.uBaseColorLocation, npc.tintColor[0], npc.tintColor[1], npc.tintColor[2], 1f)
+                    GLES20.glUniform1i(shader.uUseVertexColorLocation, if (npc.customMesh!!.colors != null) 1 else 0)
+                    npc.customMesh!!.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+                    GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
+                    triCount += npc.customMesh!!.triangleCount
+                    drawCallCount++
+                }
             } else {
                 renderNpcCharacter(npc, shader, triCount, drawCallCount).also { (t, d) ->
                     triCount = t
@@ -410,10 +428,29 @@ class Apex3DRenderer(
 
                 if (customChar.nodes.isNotEmpty()) {
                     // Update keyframed submesh hierarchy transforms
-                    updateGlbNodeTransforms(customChar, animPose.activeClipName, animationPlayer.animTimeSec)
+                    updateGlbNodeTransforms(
+                        mesh = customChar,
+                        clipName = animPose.activeClipName,
+                        time = animationPlayer.animTimeSec,
+                        preferredClip = animPose.matchedGlbClip,
+                        limbSwingAngle = animPose.limbSwingAngle
+                    )
                     val submeshTris = renderGlbSubmeshes(customChar, shader, charMat, camera.viewProjMatrix, settings.enableWireframe)
-                    triCount += submeshTris
-                    drawCallCount += customChar.nodes.filter { it.subMesh != null }.size
+                    if (submeshTris > 0) {
+                        triCount += submeshTris
+                        drawCallCount += customChar.nodes.filter { it.subMesh != null }.size
+                    } else {
+                        // Fallback to full mesh if submeshes drew 0 tris
+                        val charMvp = Mat4().set(camera.viewProjMatrix).multiply(charMat)
+                        GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, charMvp.data, 0)
+                        GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, charMat.data, 0)
+                        GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
+                        GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customChar.colors != null) 1 else 0)
+                        customChar.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+                        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
+                        triCount += customChar.triangleCount
+                        drawCallCount++
+                    }
                 } else {
                     // Flat fallback
                     val charMvp = Mat4().set(camera.viewProjMatrix).multiply(charMat)
@@ -617,16 +654,22 @@ class Apex3DRenderer(
         return Pair(tri, draw)
     }
 
-    private fun updateGlbNodeTransforms(mesh: Mesh, clipName: String, time: Float) {
+    private fun updateGlbNodeTransforms(
+        mesh: Mesh,
+        clipName: String,
+        time: Float,
+        preferredClip: com.example.engine3d.core.GlbAnimationClip? = null,
+        limbSwingAngle: Float = 0f
+    ) {
         val nodes = mesh.nodes
         if (nodes.isEmpty()) return
 
-        // Find active clip
-        val clip = mesh.animationClips.firstOrNull { c ->
+        // Find active clip: check preferred first, then fuzzy match, then fallback to first clip
+        val clip = preferredClip ?: mesh.animationClips.firstOrNull { c ->
             c.name.equals(clipName, ignoreCase = true) ||
             c.name.contains(clipName, ignoreCase = true) ||
             clipName.contains(c.name, ignoreCase = true)
-        }
+        } ?: mesh.animationClips.firstOrNull()
 
         // Loop the animation time cleanly modulo duration to prevent it from freezing at the last frame
         val clipTime = if (clip != null && clip.duration > 0f) {
@@ -668,6 +711,32 @@ class Apex3DRenderer(
                     val val3 = interpolateVec3Keyframes(sChannel.times, sChannel.values, clipTime)
                     sx = val3[0]; sy = val3[1]; sz = val3[2]
                     hasScale = true
+                }
+            }
+
+            // Procedural limb swing fallback for limbs without active rotation tracks
+            if (!hasRotation && limbSwingAngle != 0f) {
+                val nLower = node.name.lowercase()
+                val isLeftLeg = nLower.contains("leg.l") || nLower.contains("thigh.l") || nLower.contains("leftleg") || (nLower.contains("leg") && nLower.contains("l"))
+                val isRightLeg = nLower.contains("leg.r") || nLower.contains("thigh.r") || nLower.contains("rightleg") || (nLower.contains("leg") && nLower.contains("r"))
+                val isLeftArm = nLower.contains("arm.l") || nLower.contains("shoulder.l") || nLower.contains("leftarm") || (nLower.contains("arm") && nLower.contains("l"))
+                val isRightArm = nLower.contains("arm.r") || nLower.contains("shoulder.r") || nLower.contains("rightarm") || (nLower.contains("arm") && nLower.contains("r"))
+
+                val swingDeg = when {
+                    isLeftLeg -> limbSwingAngle
+                    isRightLeg -> -limbSwingAngle
+                    isLeftArm -> -limbSwingAngle * 0.8f
+                    isRightArm -> limbSwingAngle * 0.8f
+                    else -> 0f
+                }
+
+                if (swingDeg != 0f) {
+                    val rad = Math.toRadians((swingDeg * 0.5f).toDouble()).toFloat()
+                    rx = kotlin.math.sin(rad)
+                    ry = 0f
+                    rz = 0f
+                    rw = kotlin.math.cos(rad)
+                    hasRotation = true
                 }
             }
 

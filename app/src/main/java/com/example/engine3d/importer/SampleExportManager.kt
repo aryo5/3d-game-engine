@@ -197,55 +197,82 @@ if __name__ == "__main__":
      */
     fun writeToPublicDownloads(subfolder: String, fileName: String, mimeType: String, content: ByteArray): Boolean {
         var success = false
-        // 1. Coba tulis via MediaStore (Android 10+)
+
+        // 1. Coba tulis via MediaStore (Android 10+ / API 29+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
                 val resolver = context.contentResolver
                 val cleanSub = subfolder.trim('/').removePrefix("Download/").removePrefix("Download")
                 val relativePath = "Download/$cleanSub/"
 
-                val contentValues = ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
-                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                // Cek apakah file dengan nama yang sama sudah ada di MediaStore Downloads
+                var targetUri: Uri? = null
+                val projection = arrayOf(MediaStore.MediaColumns._ID)
+                val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?"
+                val selectionArgs = arrayOf(fileName, relativePath)
+
+                try {
+                    resolver.query(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        projection,
+                        selection,
+                        selectionArgs,
+                        null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+                            targetUri = android.content.ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Query fallback
                 }
 
-                var uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-                if (uri == null) {
-                    uri = resolver.insert(MediaStore.Files.getContentUri("external"), contentValues)
+                if (targetUri == null) {
+                    val contentValues = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                        put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+
+                    targetUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                    if (targetUri == null) {
+                        targetUri = resolver.insert(MediaStore.Files.getContentUri("external"), contentValues)
+                    }
                 }
 
-                if (uri != null) {
-                    resolver.openOutputStream(uri, "rwt")?.use { os ->
+                if (targetUri != null) {
+                    resolver.openOutputStream(targetUri!!, "rwt")?.use { os ->
                         os.write(content)
                         os.flush()
                     }
-                    contentValues.clear()
-                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                    resolver.update(uri, contentValues, null, null)
+                    val updateValues = ContentValues().apply {
+                        put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    }
+                    resolver.update(targetUri!!, updateValues, null, null)
                     success = true
                 }
             } catch (e: Exception) {
-                // MediaStore insert may throw on duplicate or restricted folders
+                // Scoped storage security or media provider fallback
             }
         }
 
-        // 2. Coba tulis langsung ke Download/Apex3D di penyimpanan publik
+        // 2. Tulis langsung ke folder publik Download/Apex3D (Android 7 - 9 atau saat izin diberikan)
         try {
             val pubDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             val apexDir = File(pubDownloads, subfolder.trim('/'))
-            if (!apexDir.exists()) apexDir.mkdirs()
-            if (apexDir.exists() && apexDir.canWrite()) {
-                val targetFile = File(apexDir, fileName)
-                targetFile.writeBytes(content)
-                success = true
+            if (!apexDir.exists()) {
+                apexDir.mkdirs()
             }
+            val targetFile = File(apexDir, fileName)
+            targetFile.writeBytes(content)
+            success = true
         } catch (e: Exception) {
-            // Ignore scoped storage direct restriction
+            // Scoped storage direct restriction handled safely
         }
 
-        // 3. Pastikan selalu tertulis di app external files dir (Android/data/.../files/ApexExports/subfolder)
+        // 3. Cadangan di app external files dir (Android/data/.../files/ApexExports/subfolder)
         try {
             val appExtDir = context.getExternalFilesDir(subfolder.trim('/')) ?: File(context.filesDir, subfolder.trim('/'))
             if (!appExtDir.exists()) appExtDir.mkdirs()

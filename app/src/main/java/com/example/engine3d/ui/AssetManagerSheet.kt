@@ -34,7 +34,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.CheckCircle
+import com.example.engine3d.importer.StoragePermissionHelper
 import java.io.File
 import java.io.FileOutputStream
 import androidx.compose.material.icons.filled.Tune
@@ -129,6 +131,21 @@ fun AssetManagerSheet(
     val fileAccessConfig = remember { FileAccessConfig(context) }
     var focusPathInput by remember { mutableStateOf(fileAccessConfig.focusFolderPath) }
     var writePathInput by remember { mutableStateOf(fileAccessConfig.writeFolderPath) }
+
+    var hasStoragePermission by remember {
+        mutableStateOf(StoragePermissionHelper.isStoragePermissionGranted(context))
+    }
+
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        hasStoragePermission = isGranted || !StoragePermissionHelper.needsRuntimePermission()
+        if (isGranted) {
+            Toast.makeText(context, "✓ Izin penyimpanan aktif! Ekspor langsung siap digunakan.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Izin penyimpanan ditolak. Fitur ekspor tetap dapat menggunakan SAF atau folder aplikasi.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // 1. SAF Folder Tree Picker Launcher
     val folderPickerLauncher = rememberLauncherForActivityResult(

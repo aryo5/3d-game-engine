@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -67,6 +68,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -77,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.engine3d.actions.ActionManager
+import com.example.engine3d.actions.InteractableType
 import com.example.engine3d.actions.InteractionSystem
 import com.example.engine3d.controller.ExpandedContainerConfig
 import com.example.engine3d.controller.ExpandedContainerType
@@ -94,6 +97,7 @@ import com.example.engine3d.renderer.Apex3DRenderer
 import com.example.engine3d.renderer.EnginePerformanceStats
 import com.example.engine3d.renderer.EngineSettings
 import com.example.engine3d.terrain.TerrainMesh
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -187,6 +191,7 @@ fun EngineScreen(
     var showStudioMenuSheet by remember { mutableStateOf(false) }
     var showGraphicsSheet by remember { mutableStateOf(false) }
     var showAssetManagerSheet by remember { mutableStateOf(false) }
+    var showWorldMapDialog by remember { mutableStateOf(false) }
     var isExpandedMenuOpen by remember { mutableStateOf(false) }
 
     val sceneManager = remember { GameplaySceneManager(context) }
@@ -680,28 +685,91 @@ fun EngineScreen(
             // 3c. Mini Radar / Coordinates (MINIMAP_RADAR)
             val radarCfg = hudConfigs[HudControlId.MINIMAP_RADAR]
             if (radarCfg != null && radarCfg.isEnabled) {
-                val rSize = 56.dp * radarCfg.scale
+                val rSize = 64.dp * radarCfg.scale
                 val rX = (radarCfg.xPercent * screenW - rSize.value / 2f).coerceIn(4f, screenW - rSize.value - 4f)
                 val rY = (radarCfg.yPercent * screenH - rSize.value / 2f).coerceIn(4f, screenH - rSize.value - 4f)
+
+                val teleportPoints = interactionSystem.interactables.filter {
+                    it.type == InteractableType.QUANTUM_PORTAL ||
+                    it.type == InteractableType.HOUSE_DOOR_ENTER ||
+                    it.type == InteractableType.HOUSE_DOOR_EXIT ||
+                    it.targetTeleportPos != null
+                }
 
                 Surface(
                     modifier = Modifier
                         .offset { IntOffset(rX.dp.roundToPx(), rY.dp.roundToPx()) }
                         .size(rSize)
-                        .alpha(radarCfg.alpha),
+                        .alpha(radarCfg.alpha)
+                        .clip(CircleShape)
+                        .clickable { showWorldMapDialog = true }
+                        .testTag("minimap_radar_button"),
                     shape = CircleShape,
-                    color = Color(0xD9060E1A),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF))
+                    color = Color(0xEB060E1A),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF00E5FF))
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val rCx = size.width / 2f
+                            val rCy = size.height / 2f
+                            val maxRadarRange = 60f
+
+                            // Concentric rings
+                            drawCircle(Color(0x2500E5FF), radius = rCx * 0.45f, center = Offset(rCx, rCy), style = Stroke(1f))
+                            drawCircle(Color(0x3500E5FF), radius = rCx * 0.88f, center = Offset(rCx, rCy), style = Stroke(1f))
+
+                            // Crosshair lines
+                            drawLine(Color(0x1800E5FF), Offset(0f, rCy), Offset(size.width, rCy), strokeWidth = 1f)
+                            drawLine(Color(0x1800E5FF), Offset(rCx, 0f), Offset(rCx, size.height), strokeWidth = 1f)
+
+                            // Teleport points / portals
+                            teleportPoints.forEach { portal ->
+                                val dx = portal.position.x - physicsEngine.characterPos.x
+                                val dz = portal.position.z - physicsEngine.characterPos.z
+                                val dist = sqrt(dx * dx + dz * dz)
+
+                                val angle = atan2(dz, dx)
+                                val clampedDist = dist.coerceAtMost(maxRadarRange)
+                                val normDist = clampedDist / maxRadarRange
+                                val blipX = rCx + (normDist * (rCx * 0.82f) * cos(angle))
+                                val blipY = rCy + (normDist * (rCy * 0.82f) * sin(angle))
+
+                                val isOut = dist > maxRadarRange
+                                if (isOut) {
+                                    drawCircle(Color(0xFFE040FB), radius = 3.5f, center = Offset(blipX, blipY))
+                                    drawCircle(Color(0xFF00E5FF), radius = 2f, center = Offset(blipX, blipY))
+                                } else {
+                                    drawCircle(Color(0x5500E5FF), radius = 7f, center = Offset(blipX, blipY))
+                                    drawCircle(Color(0xFF00E5FF), radius = 3.5f, center = Offset(blipX, blipY))
+                                    drawCircle(Color.White, radius = 1.5f, center = Offset(blipX, blipY))
+                                }
+                            }
+
+                            // Player heading arrow & dot
+                            val pYawRad = Math.toRadians((physicsEngine.characterYawDeg - 90.0)).toFloat()
+                            val pHeadX = rCx + cos(pYawRad) * 7.5f
+                            val pHeadY = rCy + sin(pYawRad) * 7.5f
+                            drawLine(Color(0xFF76FF03), Offset(rCx, rCy), Offset(pHeadX, pHeadY), strokeWidth = 2f)
+                            drawCircle(Color(0xFF76FF03), radius = 3.5f, center = Offset(rCx, rCy))
+                        }
+
+                        // North indicator
                         Text(
                             text = "N",
                             color = Color(0xFFFF5252),
-                            fontSize = 8.sp,
+                            fontSize = 7.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 2.dp)
+                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 1.dp)
                         )
-                        Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(Color(0xFF76FF03)))
+
+                        // Portal count badge
+                        Text(
+                            text = "🌀${teleportPoints.size}",
+                            color = Color(0xFF00E5FF),
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 1.dp)
+                        )
                     }
                 }
             }
@@ -763,6 +831,24 @@ fun EngineScreen(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             )
+                        }
+
+                        // World Map Button
+                        val portalCount = interactionSystem.interactables.count {
+                            it.targetTeleportPos != null ||
+                            it.type == InteractableType.QUANTUM_PORTAL ||
+                            it.type == InteractableType.HOUSE_DOOR_ENTER ||
+                            it.type == InteractableType.HOUSE_DOOR_EXIT
+                        }
+                        Button(
+                            onClick = { showWorldMapDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
+                            shape = RoundedCornerShape(20.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("open_world_map_button")
+                        ) {
+                            Text("🗺️ Peta ($portalCount)", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
 
                         // Engine Unified Settings & Studio Menu Button
@@ -1040,6 +1126,16 @@ fun EngineScreen(
                     glSurfaceView?.requestRender()
                 },
                 onDismiss = { showAssetManagerSheet = false }
+            )
+        }
+
+        // 10. Full World Map & Teleportation Hub Dialog
+        if (showWorldMapDialog) {
+            WorldMapDialog(
+                physicsEngine = physicsEngine,
+                interactionSystem = interactionSystem,
+                npcManager = npcManager,
+                onDismiss = { showWorldMapDialog = false }
             )
         }
     }

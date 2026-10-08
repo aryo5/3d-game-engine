@@ -641,6 +641,135 @@ private fun NpcAndInteractEditorTab(
                 }
             }
         }
+
+        Spacer(Modifier.height(4.dp))
+
+        // 2. Section: Portal & Benda Interaksi
+        val currentInteractable = interactionSystem.interactables.firstOrNull { it.id == selectedInteractableId }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "🌀 Portal Teleportasi & Objek (${interactionSystem.interactables.size} Objek):",
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                color = Color(0xFF00E5FF)
+            )
+
+            Button(
+                onClick = {
+                    val p = physicsEngine.characterPos
+                    val newId = "portal_${System.currentTimeMillis()}"
+                    val newPortal = WorldInteractable(
+                        id = newId,
+                        name = "Portal #${interactionSystem.interactables.size + 1}",
+                        type = InteractableType.QUANTUM_PORTAL,
+                        position = Vec3(p.x + 2f, p.y, p.z),
+                        targetTeleportPos = Vec3(0f, 1.5f, 0f),
+                        promptText = "Teleportasi ke Titik Pusat"
+                    )
+                    interactionSystem.interactables.add(newPortal)
+                    onSelectInteractable(newId)
+                    onUpdate()
+                    Toast.makeText(context, "🌀 Portal baru ditambahkan!", Toast.LENGTH_SHORT).show()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier.height(28.dp)
+            ) {
+                Text("+ Buat Portal", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Chip list of Portals / Interactables
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            interactionSystem.interactables.forEach { item ->
+                val isSel = item.id == selectedInteractableId
+                val isPortal = item.targetTeleportPos != null || item.type == InteractableType.QUANTUM_PORTAL
+                FilterChip(
+                    selected = isSel,
+                    onClick = { onSelectInteractable(item.id) },
+                    label = { Text("${if (isPortal) "🌀" else "📦"} ${item.name}", fontSize = 10.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF00E5FF),
+                        selectedLabelColor = Color.Black
+                    )
+                )
+            }
+        }
+
+        // Inspector for current Interactable / Portal
+        if (currentInteractable != null) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF101B2E)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+            ) {
+                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🌀 Edit Data: ${currentInteractable.name}", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF00E5FF))
+                        IconButton(
+                            onClick = {
+                                interactionSystem.interactables.remove(currentInteractable)
+                                onSelectInteractable(null)
+                                onUpdate()
+                                Toast.makeText(context, "Objek dihapus!", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color(0xFFFF5252), modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    Text("Posisi Portal Saat Ini (Meter):", fontSize = 9.sp, color = Color(0xFF90A4AE))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        CoordinateNudge(label = "X", value = currentInteractable.position.x, onValueChange = { currentInteractable.position.x = it; onUpdate() }, modifier = Modifier.weight(1f))
+                        CoordinateNudge(label = "Y", value = currentInteractable.position.y, onValueChange = { currentInteractable.position.y = it; onUpdate() }, modifier = Modifier.weight(1f))
+                        CoordinateNudge(label = "Z", value = currentInteractable.position.z, onValueChange = { currentInteractable.position.z = it; onUpdate() }, modifier = Modifier.weight(1f))
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val p = physicsEngine.characterPos
+                                currentInteractable.position.set(p.x, p.y, p.z)
+                                onUpdate()
+                                Toast.makeText(context, "Portal ditarik ke posisi karakter!", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2B47)),
+                            modifier = Modifier.weight(1f).height(28.dp)
+                        ) {
+                            Text("📍 Tarik ke Karakter", fontSize = 9.sp, color = Color.White)
+                        }
+
+                        Button(
+                            onClick = {
+                                physicsEngine.characterPos.set(currentInteractable.position.x, currentInteractable.position.y + 1f, currentInteractable.position.z)
+                                onUpdate()
+                                Toast.makeText(context, "🌀 Karakter diteleportasi ke portal!", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                            modifier = Modifier.weight(1f).height(28.dp)
+                        ) {
+                            Text("🌀 Teleport ke Sini", fontSize = 9.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

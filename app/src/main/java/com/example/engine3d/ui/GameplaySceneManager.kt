@@ -261,19 +261,13 @@ class GameplaySceneManager(private val context: Context) {
                 return "Belum ada konfigurasi level yang disimpan untuk diekspor. Silakan simpan level terlebih dahulu!"
             }
             val jsonContent = sceneConfigFile.readText()
-            val result = exportManager.writeToPublicDownloads(
-                subfolder = "scene",
-                fileName = "custom_gameplay_scene.json",
-                mimeType = "application/json",
-                content = jsonContent.toByteArray(Charsets.UTF_8)
-            )
-            if (result) {
-                "✓ Berhasil mengekspor konfigurasi level ke Download/Apex3D/scene/custom_gameplay_scene.json"
-            } else {
-                "Gagal menulis ke folder Download publik."
-            }
+            val dir = File(context.filesDir, "ApexExports/scene")
+            if (!dir.exists()) dir.mkdirs()
+            val target = File(dir, "custom_gameplay_scene.json")
+            target.writeText(jsonContent, Charsets.UTF_8)
+            "✓ Berhasil mengekspor konfigurasi level ke penyimpanan internal:\n${target.absolutePath}"
         } catch (e: Exception) {
-            "Kesalahan ekspor: ${e.message}"
+            "Kesalahan ekspor internal: ${e.message}"
         }
     }
 
@@ -322,3 +316,4 @@ class GameplaySceneManager(private val context: Context) {
         }
     }
 }
+

@@ -1000,143 +1000,34 @@ private fun HudLayoutEditorTab(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            hudConfigs.forEach { (id, cfg) ->
-                val isSel = selectedHudId == id
+            hudConfigs.forEach { (id, config) ->
+                val isSelected = selectedHudId == id
                 FilterChip(
-                    selected = isSel,
+                    selected = isSelected,
                     onClick = { selectedHudId = id },
-                    label = { Text(id.displayName, fontSize = 9.sp) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = if (cfg.isEnabled) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = null,
-                            modifier = Modifier.size(11.dp),
-                            tint = if (isSel) Color.Black else if (cfg.isEnabled) Color(0xFF00E5FF) else Color.Gray
-                        )
-                    },
+                    label = { Text(id.name.take(12), fontSize = 9.sp) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(0xFF00E5FF),
-                        selectedLabelColor = Color.Black,
-                        containerColor = Color(0xFF16233B)
+                        selectedLabelColor = Color.Black
                     )
                 )
             }
         }
 
-        // Detailed Inspector for Selected HUD Element
-        val activeCfg = selectedHudId?.let { hudConfigs[it] }
-        if (activeCfg != null) {
+        // Detail for selected HUD element (if any)
+        val selectedConfig = hudConfigs[selectedHudId]
+        if (selectedConfig != null) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF131D30)),
-                shape = RoundedCornerShape(10.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
-                modifier = Modifier.fillMaxWidth()
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF111A2E)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
             ) {
-                Column(
-                    modifier = Modifier.padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Konfigurasi: ${activeCfg.id.displayName}",
-                            color = Color(0xFF00E5FF),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
-
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Aktif:", fontSize = 10.sp, color = Color(0xFF90A4AE))
-                            Switch(
-                                checked = activeCfg.isEnabled,
-                                onCheckedChange = { en ->
-                                    val updated = hudConfigs.toMutableMap()
-                                    updated[activeCfg.id] = activeCfg.copy(isEnabled = en)
-                                    onHudConfigsUpdated(updated)
-                                    hudPreferences.saveLayout(activePresetName, updated)
-                                },
-                                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF00E5FF))
-                            )
-                        }
-                    }
-
-                    // Posisi X & Y Sliders
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Posisi X (Horisontal): ${(activeCfg.xPercent * 100).roundToInt()}%", fontSize = 9.sp, color = Color(0xFF90A4AE))
-                            Slider(
-                                value = activeCfg.xPercent,
-                                onValueChange = { newX ->
-                                    val updated = hudConfigs.toMutableMap()
-                                    updated[activeCfg.id] = activeCfg.copy(xPercent = newX)
-                                    onHudConfigsUpdated(updated)
-                                    hudPreferences.saveLayout(activePresetName, updated)
-                                },
-                                valueRange = 0.02f..0.98f,
-                                colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
-                            )
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Posisi Y (Vertikal): ${(activeCfg.yPercent * 100).roundToInt()}%", fontSize = 9.sp, color = Color(0xFF90A4AE))
-                            Slider(
-                                value = activeCfg.yPercent,
-                                onValueChange = { newY ->
-                                    val updated = hudConfigs.toMutableMap()
-                                    updated[activeCfg.id] = activeCfg.copy(yPercent = newY)
-                                    onHudConfigsUpdated(updated)
-                                    hudPreferences.saveLayout(activePresetName, updated)
-                                },
-                                valueRange = 0.02f..0.98f,
-                                colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
-                            )
-                        }
-                    }
-
-                    // Ukuran (Scale) & Opasitas (Alpha) Sliders
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Ukuran Skala: ${(activeCfg.scale * 100).roundToInt()}%", fontSize = 9.sp, color = Color(0xFF90A4AE))
-                            Slider(
-                                value = activeCfg.scale,
-                                onValueChange = { newScale ->
-                                    val updated = hudConfigs.toMutableMap()
-                                    updated[activeCfg.id] = activeCfg.copy(scale = newScale)
-                                    onHudConfigsUpdated(updated)
-                                    hudPreferences.saveLayout(activePresetName, updated)
-                                },
-                                valueRange = 0.5f..1.8f,
-                                colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
-                            )
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Transparansi / Opasitas: ${(activeCfg.alpha * 100).roundToInt()}%", fontSize = 9.sp, color = Color(0xFF90A4AE))
-                            Slider(
-                                value = activeCfg.alpha,
-                                onValueChange = { newAlpha ->
-                                    val updated = hudConfigs.toMutableMap()
-                                    updated[activeCfg.id] = activeCfg.copy(alpha = newAlpha)
-                                    onHudConfigsUpdated(updated)
-                                    hudPreferences.saveLayout(activePresetName, updated)
-                                },
-                                valueRange = 0.2f..1.0f,
-                                colors = SliderDefaults.colors(thumbColor = Color(0xFF76FF03), activeTrackColor = Color(0xFF76FF03))
-                            )
-                        }
-                    }
+                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Elemen: ${selectedHudId?.name}", fontSize = 10.sp, color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold)
+                    Text("Posisi: (${selectedConfig.x}, ${selectedConfig.y})", fontSize = 9.sp, color = Color.White)
+                    Text("Ukuran: ${selectedConfig.width} x ${selectedConfig.height}", fontSize = 9.sp, color = Color.White)
                 }
             }
         }
@@ -1166,22 +1057,20 @@ private fun SaveLevelEditorTab(
             color = Color(0xFF00E676)
         )
         Text(
-            text = "Simpan seluruh perubahan rintangan, posisi NPC, setting cuaca, dan fisika agar tetap aktif saat game dibuka kembali.",
+            text = "Semua data level disimpan di penyimpanan internal aplikasi agar aman dan tidak perlu izin publik.",
             fontSize = 10.sp,
-            color = Color(0xFF90A4AE)
+            color = Color(0xFFB0BEC5)
         )
 
         Button(
             onClick = {
-                val ok = sceneManager.saveScene(physicsEngine, barrierManager, npcManager, interactionSystem, renderer, settings)
-                if (ok) {
-                    Toast.makeText(context, "✓ Berhasil menyimpan seluruh konfigurasi gameplay & dunia!", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "Gagal menyimpan konfigurasi gameplay.", Toast.LENGTH_SHORT).show()
-                }
+                val res = sceneManager.saveScene(physicsEngine, barrierManager, npcManager, interactionSystem, renderer, settings)
+                val msg = if (res) "✓ Level berhasil disimpan ke internal storage" else "❌ Gagal menyimpan level"
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                onReload()
             },
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676)),
-            modifier = Modifier.fillMaxWidth().height(36.dp).testTag("save_gameplay_scene_button")
+            modifier = Modifier.fillMaxWidth().height(36.dp)
         ) {
             Icon(Icons.Default.Save, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
@@ -1198,25 +1087,22 @@ private fun SaveLevelEditorTab(
         ) {
             Icon(Icons.Default.Share, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Ekspor Level JSON ke Download/Apex3D", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Text("Ekspor Level JSON ke Penyimpanan Internal", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
         }
 
         OutlinedButton(
             onClick = {
-                sceneManager.resetToDefaults(physicsEngine, barrierManager, npcManager, interactionSystem, renderer, settings)
-                onReload()
-                Toast.makeText(context, "Dunia berhasil direset ke pengaturan awal!", Toast.LENGTH_SHORT).show()
+                val output = exportManager.exportToCustomDirectory(context.filesDir.absolutePath + "/ApexExports", isObb = false)
+                Toast.makeText(context, output, Toast.LENGTH_LONG).show()
             },
-            modifier = Modifier.fillMaxWidth().height(36.dp)
+            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF00E5FF)),
+            modifier = Modifier.fillMaxWidth().height(34.dp)
         ) {
-            Icon(Icons.Default.Refresh, contentDescription = null, tint = Color(0xFFFF5252), modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Reset Level & Dunia ke Standar Bawaan", color = Color(0xFFFF5252), fontSize = 11.sp)
+            Text("Ekspor Paket ke Folder Internal App")
         }
     }
 }
 
-/** Komponen Nudge Koordinat Ringan **/
 @Composable
 private fun CoordinateNudge(
     label: String,
@@ -1224,35 +1110,39 @@ private fun CoordinateNudge(
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = Color(0xFF0E1626),
-        shape = RoundedCornerShape(6.dp),
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFF263552)),
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier.padding(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+    Column(modifier = modifier) {
+        Text(label, fontSize = 8.sp, color = Color(0xFF90A4AE))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label, fontSize = 9.sp, color = Color(0xFF80D8FF), fontWeight = FontWeight.Bold)
-            Text("%.1f".format(value), fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { onValueChange(value - 1.0f) },
-                    modifier = Modifier.size(20.dp)
-                ) {
-                    Text("-", color = Color(0xFFFF5252), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-                IconButton(
-                    onClick = { onValueChange(value + 1.0f) },
-                    modifier = Modifier.size(20.dp)
-                ) {
-                    Text("+", color = Color(0xFF76FF03), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-            }
+            OutlinedButton(
+                onClick = { onValueChange(value - 0.5f) },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                modifier = Modifier.weight(1f)
+            ) { Text("-", fontSize = 11.sp) }
+
+            OutlinedTextField(
+                value = value.toString(),
+                onValueChange = { newValue ->
+                    newValue.toFloatOrNull()?.let { onValueChange(it) }
+                },
+                singleLine = true,
+                modifier = Modifier.weight(2f),
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 9.sp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF00E5FF),
+                    unfocusedBorderColor = Color(0xFF475569)
+                )
+            )
+
+            OutlinedButton(
+                onClick = { onValueChange(value + 0.5f) },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                modifier = Modifier.weight(1f)
+            ) { Text("+", fontSize = 11.sp) }
         }
     }
 }
+

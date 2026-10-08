@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.example.engine3d.renderer.EngineSettings
 import com.example.engine3d.renderer.GraphicPreset
 
@@ -58,6 +59,12 @@ fun GraphicsSettingsSheet(
     onSpawnPhysicsCrate: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val updateSettings = {
+        settings.saveToPrefs(context)
+        onSettingsChanged()
+    }
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var currentPreset by remember { mutableStateOf(settings.activePreset) }
@@ -137,7 +144,7 @@ fun GraphicsSettingsSheet(
                                 lightingQuality = settings.lightingQuality
                                 enableFog = settings.enableFog
                                 renderDistance = settings.renderDistance
-                                onSettingsChanged()
+                                updateSettings()
                             }
                             .padding(10.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -181,7 +188,7 @@ fun GraphicsSettingsSheet(
                             onClick = {
                                 targetFps = fps
                                 settings.targetFps = fps
-                                onSettingsChanged()
+                                updateSettings()
                             },
                             label = { Text("$fps FPS", fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
@@ -207,7 +214,7 @@ fun GraphicsSettingsSheet(
                     onValueChange = {
                         resScale = it
                         settings.resolutionScale = it
-                        onSettingsChanged()
+                        updateSettings()
                     },
                     valueRange = 0.5f..1.0f,
                     colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
@@ -228,7 +235,7 @@ fun GraphicsSettingsSheet(
                     onValueChange = {
                         renderDistance = it
                         settings.renderDistance = it
-                        onSettingsChanged()
+                        updateSettings()
                     },
                     valueRange = 80f..800f,
                     colors = SliderDefaults.colors(thumbColor = Color(0xFF76FF03), activeTrackColor = Color(0xFF76FF03))
@@ -249,7 +256,7 @@ fun GraphicsSettingsSheet(
                     onValueChange = {
                         camDist = it
                         settings.cameraDistance = it
-                        onSettingsChanged()
+                        updateSettings()
                     },
                     valueRange = 2.5f..12.0f,
                     colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
@@ -276,7 +283,7 @@ fun GraphicsSettingsSheet(
                             onClick = {
                                 lightingQuality = idx
                                 settings.lightingQuality = idx
-                                onSettingsChanged()
+                                updateSettings()
                             },
                             label = { Text(label, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
@@ -302,7 +309,7 @@ fun GraphicsSettingsSheet(
                     onValueChange = {
                         sunElevation = it
                         settings.sunElevation = it
-                        onSettingsChanged()
+                        updateSettings()
                     },
                     valueRange = 10f..85f,
                     colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
@@ -322,7 +329,7 @@ fun GraphicsSettingsSheet(
                     onValueChange = {
                         sunAzimuth = it
                         settings.sunAzimuth = it
-                        onSettingsChanged()
+                        updateSettings()
                     },
                     valueRange = 0f..360f,
                     colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
@@ -377,7 +384,7 @@ fun GraphicsSettingsSheet(
                         onValueChange = {
                             camSensitivity = it
                             settings.cameraSensitivity = it
-                            onSettingsChanged()
+                            updateSettings()
                         },
                         valueRange = 0.10f..0.80f,
                         colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
@@ -403,7 +410,7 @@ fun GraphicsSettingsSheet(
                         onCheckedChange = {
                             invertCameraX = it
                             settings.invertCameraX = it
-                            onSettingsChanged()
+                            updateSettings()
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF00E5FF), checkedTrackColor = Color(0x6600E5FF))
                     )
@@ -428,7 +435,7 @@ fun GraphicsSettingsSheet(
                         onCheckedChange = {
                             invertCameraY = it
                             settings.invertCameraY = it
-                            onSettingsChanged()
+                            updateSettings()
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF00E5FF), checkedTrackColor = Color(0x6600E5FF))
                     )
@@ -453,7 +460,7 @@ fun GraphicsSettingsSheet(
                         onCheckedChange = {
                             invertMovementX = it
                             settings.invertCharacterMovementX = it
-                            onSettingsChanged()
+                            updateSettings()
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFFD600), checkedTrackColor = Color(0x66FFD600))
                     )
@@ -478,7 +485,7 @@ fun GraphicsSettingsSheet(
                         onCheckedChange = {
                             invertFacing = it
                             settings.invertCharacterFacing = it
-                            onSettingsChanged()
+                            updateSettings()
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF76FF03), checkedTrackColor = Color(0x6676FF03))
                     )
@@ -500,7 +507,7 @@ fun GraphicsSettingsSheet(
                     onCheckedChange = {
                         enableFog = it
                         settings.enableFog = it
-                        onSettingsChanged()
+                        updateSettings()
                     },
                     colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF00E5FF), checkedTrackColor = Color(0x6600E5FF))
                 )
@@ -520,7 +527,7 @@ fun GraphicsSettingsSheet(
                     onCheckedChange = {
                         enableWireframe = it
                         settings.enableWireframe = it
-                        onSettingsChanged()
+                        updateSettings()
                     },
                     colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF76FF03), checkedTrackColor = Color(0x6676FF03))
                 )

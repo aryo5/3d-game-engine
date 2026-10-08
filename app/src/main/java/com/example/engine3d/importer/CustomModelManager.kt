@@ -42,6 +42,20 @@ class CustomModelManager(private val context: Context) {
 
     private fun loadSavedModels() {
         val dir = getModelsDir()
+        // Ensure karakter.glb is copied from assets if available
+        try {
+            val targetKarFile = File(dir, "karakter.glb")
+            if (!targetKarFile.exists()) {
+                context.assets.open("karakter.glb").use { input ->
+                    FileOutputStream(targetKarFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // asset might not be present or error
+        }
+
         val files = dir.listFiles() ?: return
         for (file in files) {
             try {
@@ -55,10 +69,12 @@ class CustomModelManager(private val context: Context) {
 
                     if (mesh != null) {
                         val target = when {
+                            file.name.equals("karakter.glb", ignoreCase = true) -> ModelTarget.CHARACTER
                             file.name.contains("terrain", ignoreCase = true) || file.name.contains("map", ignoreCase = true) -> ModelTarget.TERRAIN
                             file.name.contains("char", ignoreCase = true) || file.name.contains("hero", ignoreCase = true) -> ModelTarget.CHARACTER
                             else -> ModelTarget.WORLD_PROP
                         }
+                        importedModels.removeAll { it.fileName.equals(file.name, ignoreCase = true) }
                         importedModels.add(ImportedModelEntry(file.name, file.extension.uppercase(), target, mesh))
                     }
                 }
@@ -96,7 +112,7 @@ class CustomModelManager(private val context: Context) {
                         activeTerrainFileName = matchT.fileName
                     }
                 }
-                if (savedChar.isNotEmpty() && activeCustomCharacterMesh == null) {
+                if (savedChar.isNotEmpty()) {
                     val matchC = importedModels.firstOrNull { it.fileName.equals(savedChar, ignoreCase = true) }
                     if (matchC != null) {
                         activeCustomCharacterMesh = matchC.mesh
@@ -108,12 +124,23 @@ class CustomModelManager(private val context: Context) {
             e.printStackTrace()
         }
 
-        // If no character is active yet, but models exist with CHARACTER target or glb files exist
+        // If no character is active yet, default to karakter.glb or first CHARACTER model
         if (activeCustomCharacterMesh == null && importedModels.isNotEmpty()) {
-            val charModel = importedModels.firstOrNull { it.target == ModelTarget.CHARACTER }
+            val charModel = importedModels.firstOrNull { it.fileName.equals("karakter.glb", ignoreCase = true) }
+                ?: importedModels.firstOrNull { it.target == ModelTarget.CHARACTER }
+                ?: importedModels.first()
             if (charModel != null) {
-                activeCustomCharacterMesh = charModel.mesh
-                activeCharacterFileName = charModel.fileName
+                setActiveCharacter(charModel, updatePlayerConfig = true)
+            }
+        }
+
+        // Ensure karakter.glb has its 11 animations mapped if current config has placeholder/empty anims
+        val currentKar = importedModels.firstOrNull { it.fileName.equals("karakter.glb", ignoreCase = true) }
+        if (currentKar != null && (activeCharacterFileName.equals("karakter.glb", ignoreCase = true) || activeCustomCharacterMesh == null)) {
+            if (activeCustomCharacterMesh == null) {
+                setActiveCharacter(currentKar, updatePlayerConfig = true)
+            } else if (playerConfig.animIdleName.isBlank() || playerConfig.animIdleName.startsWith("anim_")) {
+                setActiveCharacter(currentKar, updatePlayerConfig = true)
             }
         }
 

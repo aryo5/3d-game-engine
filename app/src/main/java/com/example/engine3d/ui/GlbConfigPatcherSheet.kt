@@ -98,6 +98,16 @@ fun GlbConfigPatcherSheet(
     var slashBind by remember { mutableStateOf("") }
     var manualModelTypeOverride by remember { mutableStateOf<ModelTarget?>(null) }
 
+    // Model configuration offset states (Gaya Jalangkung Anti-Tenggelam / Melayang)
+    var charScale by remember { mutableStateOf(1.2f) }
+    var rotationOffset by remember { mutableStateOf(0f) }
+    var heightOffset by remember { mutableStateOf(0f) }
+    var collisionRadius by remember { mutableStateOf(0.6f) }
+    var collisionHeight by remember { mutableStateOf(1.8f) }
+    var walkSpeed by remember { mutableStateOf(6.5f) }
+    var runMultiplier by remember { mutableStateOf(1.6f) }
+    var jumpImpulse by remember { mutableStateOf(11.5f) }
+
     var activePickingSlot by remember { mutableStateOf<CharacterAnimSlot?>(null) }
     var clipForQuickAssign by remember { mutableStateOf<String?>(null) }
 
@@ -153,6 +163,26 @@ fun GlbConfigPatcherSheet(
                 currentPConfig.animIdleName.isNotBlank() &&
                 !currentPConfig.animIdleName.startsWith("anim_") &&
                 clips.any { it.equals(currentPConfig.animIdleName, ignoreCase = true) }
+
+            if (isCurrentModel) {
+                charScale = currentPConfig.scaleX
+                rotationOffset = currentPConfig.rotationOffsetYDeg
+                heightOffset = currentPConfig.heightOffset
+                collisionRadius = currentPConfig.collisionRadius
+                collisionHeight = currentPConfig.collisionHeight
+                walkSpeed = currentPConfig.walkSpeed
+                runMultiplier = currentPConfig.runMultiplier
+                jumpImpulse = currentPConfig.jumpImpulse
+            } else {
+                charScale = 1.0f
+                rotationOffset = 0f
+                heightOffset = 0f
+                collisionRadius = 0.6f
+                collisionHeight = 1.8f
+                walkSpeed = 6.5f
+                runMultiplier = 1.6f
+                jumpImpulse = 11.5f
+            }
 
             if (hasValidBoundClips) {
                 idleBind = currentPConfig.animIdleName
@@ -253,6 +283,23 @@ fun GlbConfigPatcherSheet(
                                 fontSize = 11.sp
                             )
                         } else {
+                            // Quick Button for Karakter GLB 1 (11 Animations)
+                            val karakterGlbEntry = customModelManager.importedModels.firstOrNull { it.fileName.equals("karakter.glb", ignoreCase = true) }
+                            if (karakterGlbEntry != null) {
+                                Button(
+                                    onClick = {
+                                        selectedModel = karakterGlbEntry
+                                        customModelManager.setActiveCharacter(karakterGlbEntry, updatePlayerConfig = true)
+                                        customModelManager.activeCustomCharacterMesh = karakterGlbEntry.mesh
+                                        Toast.makeText(context, "👑 Karakter GLB 1 (11 Animasi) diaktifkan!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
+                                    modifier = Modifier.fillMaxWidth().height(36.dp)
+                                ) {
+                                    Text("👑 Aktifkan Karakter GLB 1 (11 Animasi)", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                }
+                            }
+
                             // Model selection chips
                             Text(text = "Daftar GLB Terdeteksi:", fontSize = 11.sp, color = Color(0xFF90A4AE))
                             Row(
@@ -476,6 +523,78 @@ fun GlbConfigPatcherSheet(
                                                     modifier = Modifier.height(34.dp)
                                                 ) {
                                                     Text("Reset", color = Color(0xFFFF5252), fontSize = 10.sp)
+                                                }
+                                            }
+                                        }
+
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(Color(0xFF1E2B47), RoundedCornerShape(8.dp))
+                                                .padding(10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                "Satu-Ketuk Preset Animasi Cepat (Gaya Mixamo / Blender / Synty):",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFFFD600)
+                                            )
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                val clips = model.mesh.animationClips.map { it.name }
+                                                
+                                                // 1. Mixamo Preset
+                                                Button(
+                                                    onClick = {
+                                                        idleBind = clips.firstOrNull { it.contains("idle", ignoreCase = true) } ?: clips.firstOrNull() ?: ""
+                                                        walkBind = clips.firstOrNull { it.contains("walk", ignoreCase = true) } ?: clips.firstOrNull() ?: ""
+                                                        runBind = clips.firstOrNull { it.contains("run", ignoreCase = true) || it.contains("sprint", ignoreCase = true) } ?: walkBind
+                                                        jumpBind = clips.firstOrNull { it.contains("jump", ignoreCase = true) || it.contains("leap", ignoreCase = true) } ?: idleBind
+                                                        slashBind = clips.firstOrNull { it.contains("attack", ignoreCase = true) || it.contains("slash", ignoreCase = true) || it.contains("hit", ignoreCase = true) } ?: idleBind
+                                                        Toast.makeText(context, "Preset Mixamo diterapkan!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(28.dp)
+                                                ) {
+                                                    Text("🏃 Mixamo Style", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                }
+
+                                                // 2. Blender / Unity Capitalized
+                                                Button(
+                                                    onClick = {
+                                                        idleBind = clips.firstOrNull { it == "Idle" || it == "IDLE" || it.contains("idle") } ?: ""
+                                                        walkBind = clips.firstOrNull { it == "Walk" || it == "WALK" || it.contains("walk") } ?: ""
+                                                        runBind = clips.firstOrNull { it == "Run" || it == "RUN" || it.contains("run") } ?: walkBind
+                                                        jumpBind = clips.firstOrNull { it == "Jump" || it == "JUMP" || it.contains("jump") } ?: idleBind
+                                                        slashBind = clips.firstOrNull { it == "Attack" || it == "Slash" || it.contains("attack") } ?: idleBind
+                                                        Toast.makeText(context, "Preset Blender/Unity diterapkan!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(28.dp)
+                                                ) {
+                                                    Text("🎨 Blender / Unity Rig", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                }
+
+                                                // 3. Reset to Standard System Defaults (For fallback or unrigged custom)
+                                                Button(
+                                                    onClick = {
+                                                        idleBind = "anim_idle"
+                                                        walkBind = "anim_walk"
+                                                        runBind = "anim_run"
+                                                        jumpBind = "anim_jump"
+                                                        slashBind = "anim_slash"
+                                                        Toast.makeText(context, "Direset ke nama animasi bawaan sistem!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD84315)),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(28.dp)
+                                                ) {
+                                                    Text("⚙️ Bawaan Sistem", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
@@ -725,11 +844,189 @@ fun GlbConfigPatcherSheet(
                                             )
                                         }
 
+                                        // Section: Penyesuaian Ukuran, Tinggi & Fisika Karakter (Anti-Melayang / Jalangkung)
+                                        Card(
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF162032)),
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(10.dp))
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text("📏", fontSize = 16.sp)
+                                                    Text(
+                                                        "Penyesuaian Skala & Posisi Model 3D",
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp,
+                                                        color = Color(0xFF00E5FF)
+                                                    )
+                                                }
+
+                                                Text(
+                                                    "Bila model karakter Anda melayang seperti jalangkung atau terkubur, sesuaikan Tinggi Offset (Y) di bawah ini agar kakinya pas menempel di tanah.",
+                                                    fontSize = 10.sp,
+                                                    color = Color(0xFFB0BEC5),
+                                                    lineHeight = 14.sp
+                                                )
+
+                                                // Slider: Skala Karakter (charScale)
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Skala / Ukuran Model 3D:", fontSize = 11.sp)
+                                                        Text("${"%.2f".format(charScale)}x", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                    Slider(
+                                                        value = charScale,
+                                                        onValueChange = { charScale = it },
+                                                        valueRange = 0.3f..3.5f,
+                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
+                                                    )
+                                                }
+
+                                                // Slider: Tinggi Offset (heightOffset) -> SOLVES JALANGKUNG MELAYANG
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Tinggi Offset (Y) - Anti Melayang:", fontSize = 11.sp)
+                                                        Text("${"%.2f".format(heightOffset)} meter", color = Color(0xFF76FF03), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                    Slider(
+                                                        value = heightOffset,
+                                                        onValueChange = { heightOffset = it },
+                                                        valueRange = -2.5f..2.5f,
+                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF76FF03), activeTrackColor = Color(0xFF76FF03))
+                                                    )
+                                                }
+
+                                                // Slider: Rotasi Offset (rotationOffset)
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Rotasi Offset Hadap Depan (Y-Axis):", fontSize = 11.sp)
+                                                        Text("${rotationOffset.toInt()}°", color = Color(0xFFFFD600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                    Slider(
+                                                        value = rotationOffset,
+                                                        onValueChange = { rotationOffset = it },
+                                                        valueRange = 0f..360f,
+                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
+                                                    )
+                                                }
+
+                                                // Slider: Radius Fisika Tabrakan (collisionRadius)
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Radius Kolisi Tabrakan Fisika:", fontSize = 11.sp)
+                                                        Text("${"%.2f".format(collisionRadius)}m", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                    Slider(
+                                                        value = collisionRadius,
+                                                        onValueChange = { collisionRadius = it },
+                                                        valueRange = 0.2f..2.0f,
+                                                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White)
+                                                    )
+                                                }
+
+                                                // Slider: Tinggi Fisika Tabrakan (collisionHeight)
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Tinggi Kolisi Tabrakan Fisika:", fontSize = 11.sp)
+                                                        Text("${"%.2f".format(collisionHeight)}m", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                    Slider(
+                                                        value = collisionHeight,
+                                                        onValueChange = { collisionHeight = it },
+                                                        valueRange = 0.5f..3.5f,
+                                                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White)
+                                                    )
+                                                }
+
+                                                // Slider: Kecepatan Jalan (walkSpeed)
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Kecepatan Berjalan Karakter:", fontSize = 11.sp)
+                                                        Text("${"%.1f".format(walkSpeed)} m/s", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                    Slider(
+                                                        value = walkSpeed,
+                                                        onValueChange = { walkSpeed = it },
+                                                        valueRange = 2.0f..15.0f,
+                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
+                                                    )
+                                                }
+
+                                                // Slider: Multiplier Kecepatan Lari (runMultiplier)
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Multiplier Lari Cepat (Sprint):", fontSize = 11.sp)
+                                                        Text("${"%.1f".format(runMultiplier)}x", color = Color(0xFF76FF03), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                    Slider(
+                                                        value = runMultiplier,
+                                                        onValueChange = { runMultiplier = it },
+                                                        valueRange = 1.1f..2.5f,
+                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF76FF03), activeTrackColor = Color(0xFF76FF03))
+                                                    )
+                                                }
+
+                                                // Slider: Kekuatan Lompatan (jumpImpulse)
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text("Kekuatan Dorongan Melompat:", fontSize = 11.sp)
+                                                        Text("${"%.1f".format(jumpImpulse)}", color = Color(0xFFFFD600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                    Slider(
+                                                        value = jumpImpulse,
+                                                        onValueChange = { jumpImpulse = it },
+                                                        valueRange = 5.0f..20.0f,
+                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
+                                                    )
+                                                }
+                                            }
+                                        }
+
                                         Button(
                                             onClick = {
                                                 val config = customModelManager.playerConfig.copy(
                                                     characterName = model.fileName.substringBeforeLast("."),
                                                     modelFile = model.fileName,
+                                                    scaleX = charScale,
+                                                    scaleY = charScale,
+                                                    scaleZ = charScale,
+                                                    rotationOffsetYDeg = rotationOffset,
+                                                    heightOffset = heightOffset,
+                                                    collisionRadius = collisionRadius,
+                                                    collisionHeight = collisionHeight,
+                                                    walkSpeed = walkSpeed,
+                                                    runMultiplier = runMultiplier,
+                                                    jumpImpulse = jumpImpulse,
                                                     animIdleName = idleBind,
                                                     animWalkName = walkBind,
                                                     animRunName = runBind,

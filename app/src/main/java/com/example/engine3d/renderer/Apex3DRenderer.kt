@@ -453,42 +453,10 @@ class Apex3DRenderer(
                         pConfig.scaleZ * animPose.scaleMultZ
                     )
 
-                if (customChar.nodes.isNotEmpty()) {
-                    // Update keyframed submesh hierarchy transforms
-                    updateGlbNodeTransforms(
-                        mesh = customChar,
-                        clipName = animPose.activeClipName,
-                        time = animationPlayer.animTimeSec,
-                        preferredClip = animPose.matchedGlbClip,
-                        limbSwingAngle = animPose.limbSwingAngle
-                    )
-                    val submeshTris = renderGlbSubmeshes(customChar, shader, charMat, camera.viewProjMatrix, settings.enableWireframe)
-                    if (submeshTris > 0) {
-                        triCount += submeshTris
-                        drawCallCount += customChar.nodes.filter { it.subMesh != null }.size
-                    } else {
-                        // Fallback to full mesh if submeshes drew 0 tris
-                        val charMvp = Mat4().set(camera.viewProjMatrix).multiply(charMat)
-                        GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, charMvp.data, 0)
-                        GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, charMat.data, 0)
-                        GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
-                        GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customChar.colors != null) 1 else 0)
-                        customChar.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
-                        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
-                        triCount += customChar.triangleCount
-                        drawCallCount++
-                    }
-                } else {
-                    // Flat fallback
-                    val charMvp = Mat4().set(camera.viewProjMatrix).multiply(charMat)
-                    GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, charMvp.data, 0)
-                    GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, charMat.data, 0)
-                    GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
-                    GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customChar.colors != null) 1 else 0)
-                    customChar.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
-                    GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset
-                    triCount += customChar.triangleCount
-                    drawCallCount++
+                // Render fully animated character with smooth limbs, walking, running, jumping, and slashing
+                renderAnimatedCharacter(shader, triCount, drawCallCount).also { (t, d) ->
+                    triCount = t
+                    drawCallCount = d
                 }
             } else {
                 // Render Default Stylized Cyber Knight with animated limbs

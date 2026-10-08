@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // Shared Engine Singletons across Lobby & In-Game World
-                    val settings = remember { EngineSettings() }
+                    val settings = remember { EngineSettings().apply { loadFromPrefs(context) } }
                     val terrainMesh = remember { TerrainMesh() }
                     val customModelManager = remember {
                         CustomModelManager(context).also { mgr ->

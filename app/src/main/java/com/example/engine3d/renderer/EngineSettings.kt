@@ -1,5 +1,7 @@
 package com.example.engine3d.renderer
 
+import android.content.Context
+
 enum class GraphicPreset(val label: String, val description: String) {
     POTATO_ULTRA_LIGHT("Paling Ringan (Potato)", "30 FPS, Unlit Shader, Tanpa Bayangan/Kabut. Sangat hemat baterai & lancar di HP spek rendah."),
     BALANCED("Seimbang (Balanced)", "60 FPS, Pencahayaan Gouraud, Kabut Atmosfer Lembut. Visual mulus."),
@@ -29,6 +31,53 @@ class EngineSettings {
     var cameraSensitivity: Float = 0.28f
     var invertCharacterMovementX: Boolean = false // Membalikkan gerak strafe/belok tanpa membalikkan maju-mundur
     var invertCharacterFacing: Boolean = false    // Memutar hadap model GLB 180° bila model terbalik
+
+    fun saveToPrefs(context: Context) {
+        val prefs = context.getSharedPreferences("apex3d_engine_settings", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("preset", activePreset.name)
+            .putInt("targetFps", targetFps)
+            .putFloat("resolutionScale", resolutionScale)
+            .putInt("lightingQuality", lightingQuality)
+            .putBoolean("enableFog", enableFog)
+            .putFloat("fogDensity", fogDensity)
+            .putBoolean("enableWireframe", enableWireframe)
+            .putBoolean("showCollisionDebug", showCollisionDebug)
+            .putBoolean("showPerformanceStats", showPerformanceStats)
+            .putFloat("renderDistance", renderDistance)
+            .putFloat("sunAzimuth", sunAzimuth)
+            .putFloat("sunElevation", sunElevation)
+            .putFloat("cameraDistance", cameraDistance)
+            .putBoolean("invertCameraX", invertCameraX)
+            .putBoolean("invertCameraY", invertCameraY)
+            .putFloat("cameraSensitivity", cameraSensitivity)
+            .putBoolean("invertCharacterMovementX", invertCharacterMovementX)
+            .putBoolean("invertCharacterFacing", invertCharacterFacing)
+            .apply()
+    }
+
+    fun loadFromPrefs(context: Context) {
+        val prefs = context.getSharedPreferences("apex3d_engine_settings", Context.MODE_PRIVATE)
+        val presetStr = prefs.getString("preset", GraphicPreset.BALANCED.name) ?: GraphicPreset.BALANCED.name
+        activePreset = try { GraphicPreset.valueOf(presetStr) } catch(e: Exception) { GraphicPreset.BALANCED }
+        targetFps = prefs.getInt("targetFps", 60)
+        resolutionScale = prefs.getFloat("resolutionScale", 0.85f)
+        lightingQuality = prefs.getInt("lightingQuality", 1)
+        enableFog = prefs.getBoolean("enableFog", true)
+        fogDensity = prefs.getFloat("fogDensity", 0.008f)
+        enableWireframe = prefs.getBoolean("enableWireframe", false)
+        showCollisionDebug = prefs.getBoolean("showCollisionDebug", false)
+        showPerformanceStats = prefs.getBoolean("showPerformanceStats", true)
+        renderDistance = prefs.getFloat("renderDistance", 250f)
+        sunAzimuth = prefs.getFloat("sunAzimuth", 45f)
+        sunElevation = prefs.getFloat("sunElevation", 55f)
+        cameraDistance = prefs.getFloat("cameraDistance", 6.0f)
+        invertCameraX = prefs.getBoolean("invertCameraX", false)
+        invertCameraY = prefs.getBoolean("invertCameraY", false)
+        cameraSensitivity = prefs.getFloat("cameraSensitivity", 0.28f)
+        invertCharacterMovementX = prefs.getBoolean("invertCharacterMovementX", false)
+        invertCharacterFacing = prefs.getBoolean("invertCharacterFacing", false)
+    }
 
     fun applyPreset(preset: GraphicPreset) {
         activePreset = preset

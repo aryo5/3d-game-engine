@@ -22,6 +22,11 @@ android {
     versionName = customVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    
+    // Split APK untuk ARM64 saja (mengurangi ukuran)
+    ndk {
+      abiFilters.add("arm64-v8a")
+    }
   }
 
   signingConfigs {
@@ -42,30 +47,63 @@ android {
 
   buildTypes {
     release {
+      // R8 Code Shrinking & Optimization
+      isMinifyEnabled = true
+      isShrinkResources = true
+      isDebuggable = false
+      isZipAlignEnabled = true
+      
+      // Disable PNG compression untuk faster build
       isCrunchPngs = false
-      isMinifyEnabled = false
-      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      
+      proguardFiles(
+        getDefaultProguardFile("proguard-android-optimize.txt"),
+        "proguard-rules.pro"
+      )
       signingConfig = signingConfigs.getByName("release")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug { 
+      signingConfig = signingConfigs.getByName("debugConfig")
+      isDebuggable = true
+    }
   }
+  
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
   }
+  
   buildFeatures {
     compose = true
     buildConfig = true
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  
+  testOptions { 
+    unitTests { 
+      isIncludeAndroidResources = true 
+    } 
+  }
+  
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
   }
+  
+  // Optimize for smaller APK
+  bundle {
+    // Enable for Play Store optimization
+    enableSplit = true
+  }
+  
+  // Parallel build tasks
+  gradle.projectsEvaluated {
+    tasks.withType<JavaCompile> {
+      options.isFork = true
+    }
+  }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
 secrets {
   propertiesFileName = ".env"
   defaultPropertiesFileName = ".env.example"
@@ -74,8 +112,6 @@ secrets {
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
 
-// Some unused dependencies are commented out below instead of being removed.
-// This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))

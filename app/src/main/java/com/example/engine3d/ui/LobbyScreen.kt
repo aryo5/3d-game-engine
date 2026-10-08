@@ -58,7 +58,9 @@ fun LobbyScreen(
 ) {
     var showWarmupDialog by remember { mutableStateOf(false) }
     var showGraphicsSheet by remember { mutableStateOf(false) }
+    var showAssetManagerSheet by remember { mutableStateOf(false) }
     var showHudEditorModal by remember { mutableStateOf(false) }
+    var showPlanImporterSheet by remember { mutableStateOf(false) }
 
     val activePresetName by remember { mutableStateOf(hudPreferences.getActivePresetName()) }
     var hudConfigs by remember { mutableStateOf(hudPreferences.loadLayout(activePresetName)) }
@@ -135,7 +137,7 @@ fun LobbyScreen(
                 }
             }
 
-            // Status Tiles dengan Overflow Text Ellipsis yang Rapi
+            // Status Tiles
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -162,24 +164,46 @@ fun LobbyScreen(
 
             Text("Pusat Kontrol & Studio Aset", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
 
-            // Menu Cards
+            // 1. Studio Kustomisasi HUD
             HubMenuCard(
                 icon = Icons.Default.VideogameAsset,
                 iconColor = Color(0xFF00E5FF),
                 title = "Studio Kustomisasi HUD & Kontrol",
                 subtitle = "Ubah tata letak tombol virtual, ukuran, opasitas, dan kontainer aksi.",
-                onClick = { showHudEditorModal = true }
+                onClick = { showHudEditorModal = true },
+                tag = "open_hud_studio_menu"
             )
 
+            // 2. Pusat Impor & Kustomisasi Aset (KEMBALI DI SINI)
+            HubMenuCard(
+                icon = Icons.Default.FolderOpen,
+                iconColor = Color(0xFF76FF03),
+                title = "Pusat Impor & Kustomisasi Aset (Lobby Hub)",
+                subtitle = "Impor file .GLB, .OBJ, .OBB, dan .ZIP dari lobby. Sambungkan aksi lari, jurus, dan ketinggian ke model karakter.",
+                onClick = { showAssetManagerSheet = true },
+                tag = "open_asset_hub_menu"
+            )
+
+            // 3. Hub Konfigurasi & Editor Grafis Gerak (KEMBALI DI SINI)
+            HubMenuCard(
+                icon = Icons.Default.Build,
+                iconColor = Color(0xFF00E5FF),
+                title = "Hub Konfigurasi & Editor Grafis Gerak (Central Studio Hub)",
+                subtitle = "Pusat konfigurasi grafis gerak karakter, fisika, trigger zone & pintu GLB/OBJ, rintangan peta, NPC dialog, dan cuaca.",
+                onClick = { showPlanImporterSheet = true },
+                tag = "open_plan_importer_menu"
+            )
+
+            // 4. Pengaturan Grafis Engine
             HubMenuCard(
                 icon = Icons.Default.Tune,
                 iconColor = Color(0xFFFFD600),
                 title = "Pengaturan Grafis Engine",
                 subtitle = "Pilih preset Potato 30 FPS, Balanced 60 FPS, atau Ultra HD 120 FPS.",
-                onClick = { showGraphicsSheet = true }
+                onClick = { showGraphicsSheet = true },
+                tag = "open_graphics_menu"
             )
 
-            // Padding ekstra agar menu paling bawah tidak terpotong navbar HP
             Spacer(Modifier.height(48.dp))
         }
     }
@@ -216,6 +240,37 @@ fun LobbyScreen(
             onDismiss = { showGraphicsSheet = false }
         )
     }
+
+    // Sheet Impor Aset GLB / OBJ / OBB / ZIP
+    if (showAssetManagerSheet) {
+        AssetManagerSheet(
+            customModelManager = customModelManager,
+            batchImportManager = batchImportManager,
+            terrainMesh = terrainMesh,
+            actionManager = actionManager,
+            npcManager = npcManager,
+            barrierManager = barrierManager,
+            onModelImported = {},
+            onTerrainChanged = {},
+            onDismiss = { showAssetManagerSheet = false }
+        )
+    }
+
+    // Sheet Patcher & Konfigurasi Karakter / Area
+    if (showPlanImporterSheet) {
+        GlbConfigPatcherSheet(
+            customModelManager = customModelManager,
+            terrainMesh = terrainMesh,
+            barrierManager = barrierManager,
+            npcManager = npcManager,
+            interactionSystem = interactionSystem,
+            playerPos = physicsEngine.characterPos,
+            settings = settings,
+            physicsEngine = physicsEngine,
+            actionManager = actionManager,
+            onDismiss = { showPlanImporterSheet = false }
+        )
+    }
 }
 
 @Composable
@@ -243,7 +298,8 @@ fun HubMenuCard(
     iconColor: Color,
     title: String,
     subtitle: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    tag: String = ""
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF131E33)),
@@ -252,6 +308,7 @@ fun HubMenuCard(
             .fillMaxWidth()
             .border(1.dp, Color(0xFF223147), RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
+            .testTag(tag)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),

@@ -10,7 +10,6 @@ import com.example.engine3d.actions.InteractionSystem
 import com.example.engine3d.core.Camera
 import com.example.engine3d.core.LightingEnvironment
 import com.example.engine3d.core.Mesh
-import com.example.engine3d.core.GlbNode
 import com.example.engine3d.core.Shader
 import com.example.engine3d.importer.CustomModelManager
 import com.example.engine3d.importer.ProceduralMeshGenerator
@@ -96,7 +95,7 @@ class Apex3DRenderer(
 
     var onPerformanceUpdate: ((EnginePerformanceStats) -> Unit)? = null
 
-    // Walk & Character animation player
+    // Walk & Character animation phase
     private var walkAnimPhase: Float = 0f
     private val animationPlayer = com.example.engine3d.animation.AnimationPlayer()
 
@@ -107,10 +106,8 @@ class Apex3DRenderer(
         GLES20.glEnable(GLES20.GL_CULL_FACE)
         GLES20.glCullFace(GLES20.GL_BACK)
 
-        // Compile main PBR/Lighting shader
         mainShader = Shader()
 
-        // Generate procedural meshes
         boxMesh = ProceduralMeshGenerator.createBox("Box", 1f, 1f, 1f, 0.8f, 0.8f, 0.8f)
         cylinderMesh = ProceduralMeshGenerator.createCylinder("Cyl", 0.5f, 1f, 12, 0.7f, 0.7f, 0.75f)
         bladeMesh = ProceduralMeshGenerator.createEnergyBlade()
@@ -121,16 +118,12 @@ class Apex3DRenderer(
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        // Always render to full surface dimension (0, 0, width, height) to eliminate any void/black cut on the right
         GLES20.glViewport(0, 0, width, height)
         camera.setAspectRatio(width, height)
 
-        // Dynamically adapt FOV for Portrait vs Landscape
         if (width < height) {
-            // Portrait mode: slightly wider vertical view
             camera.fovDeg = 72f
         } else {
-            // Landscape mode
             camera.fovDeg = 62f
         }
     }
@@ -141,9 +134,8 @@ class Apex3DRenderer(
         lastFrameTimeNs = currentNs
         val dt = (dtNs / 1_000_000_000.0f).coerceIn(0.001f, 0.1f)
 
-        // FPS Calculation
         frameCount++
-        if (currentNs - fpsTimerNs >= 500_000_000L) { // Every 0.5s
+        if (currentNs - fpsTimerNs >= 500_000_000L) {
             val elapsedSec = (currentNs - fpsTimerNs) / 1_000_000_000.0f
             currentFps = (frameCount / elapsedSec).toInt()
             currentFrameTimeMs = (dtNs / 1_000_000.0f)
@@ -165,7 +157,6 @@ class Apex3DRenderer(
             )
         }
 
-        // Target FPS throttling if capped
         if (settings.targetFps > 0) {
             val targetFrameNs = 1_000_000_000L / settings.targetFps
             val frameWorkNs = System.nanoTime() - currentNs
@@ -175,13 +166,11 @@ class Apex3DRenderer(
             }
         }
 
-        // Update Physics, Character Movement, Actions, Interactors, and NPCs
         physicsEngine.update(dt, inputStickX, inputStickY, camera.yawDeg)
         actionManager.update(dt)
         interactionSystem.updateProximity(physicsEngine.characterPos, dt)
         npcManager.update(physicsEngine.characterPos, dt)
 
-        // Camera follow character with AC Shadows dynamic framing
         camera.farPlane = settings.renderDistance
         val charSpeed = kotlin.math.sqrt(physicsEngine.characterVel.x * physicsEngine.characterVel.x + physicsEngine.characterVel.z * physicsEngine.characterVel.z)
         camera.updateCinematic(
@@ -193,13 +182,11 @@ class Apex3DRenderer(
             dt = dt
         )
 
-        // Walk animation cycle
         val horizSpeed = kotlin.math.sqrt(physicsEngine.characterVel.x * physicsEngine.characterVel.x + physicsEngine.characterVel.z * physicsEngine.characterVel.z)
         if (physicsEngine.isGrounded && horizSpeed > 0.5f) {
             walkAnimPhase += dt * horizSpeed * 2.5f
         }
 
-        // Render pass
         val fogC = lighting.fogColor
         GLES20.glClearColor(fogC[0], fogC[1], fogC[2], 1.0f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
@@ -207,7 +194,6 @@ class Apex3DRenderer(
         val shader = mainShader ?: return
         shader.use()
 
-        // Setup lighting uniforms
         lighting.sunAzimuthDeg = settings.sunAzimuth
         lighting.sunElevationDeg = settings.sunElevation
         val sunDir = lighting.getSunDirection()
@@ -216,14 +202,12 @@ class Apex3DRenderer(
         GLES20.glUniform3f(shader.uAmbientColorLocation, lighting.ambientColor[0], lighting.ambientColor[1], lighting.ambientColor[2])
         GLES20.glUniform3f(shader.uViewPosLocation, camera.position.x, camera.position.y, camera.position.z)
 
-        // Fog
         GLES20.glUniform1i(shader.uFogEnabledLocation, if (settings.enableFog) 1 else 0)
         GLES20.glUniform1f(shader.uFogDensityLocation, settings.fogDensity)
         GLES20.glUniform3f(shader.uFogColorLocation, fogC[0], fogC[1], fogC[2])
         GLES20.glUniform1i(shader.uUseLightingLocation, if (settings.lightingQuality > 0) 1 else 0)
         GLES20.glUniform1i(shader.uShadingQualityLocation, settings.lightingQuality)
 
-        // Point light (Beacon light)
         if (lighting.pointLights.isNotEmpty()) {
             val pl = lighting.pointLights[0]
             GLES20.glUniform3f(shader.uPointLightPosLocation, pl.position.x, pl.position.y, pl.position.z)
@@ -234,7 +218,7 @@ class Apex3DRenderer(
         var triCount = 0
         var drawCallCount = 0
 
-        // 1. Render Terrain Mesh (Follows contours)
+        // 1. Render Terrain
         val activeTerrain = customModelManager.activeCustomTerrainMesh ?: terrainMesh.mesh
         val terrainModelMat = Mat4()
         val terrainMvp = Mat4().set(camera.viewProjMatrix).multiply(terrainModelMat)
@@ -247,14 +231,13 @@ class Apex3DRenderer(
         GLES20.glUniform1i(shader.uUseVertexColorLocation, if (activeTerrain.colors != null) 1 else 0)
 
         activeTerrain.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
-        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset to uncolored default for procedural objects
+        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
         triCount += activeTerrain.triangleCount
         drawCallCount++
 
         // 2. Render World Interactables
         val box = boxMesh ?: return
         for (item in interactionSystem.interactables) {
-            // Check if item has custom 3D mesh attached (e.g. GLB/OBJ door or portal object)
             val customMesh = if (!item.meshFileName.isNullOrBlank()) {
                 customModelManager.importedModels.firstOrNull { it.fileName.equals(item.meshFileName, ignoreCase = true) }?.mesh
             } else null
@@ -284,7 +267,6 @@ class Apex3DRenderer(
 
             when (item.type) {
                 InteractableType.POWER_BEACON -> {
-                    // Tower with floating glowing crystal
                     itemMat.scale(0.8f, 3.5f, 0.8f)
                     val mvp = Mat4().set(camera.viewProjMatrix).multiply(itemMat)
                     GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
@@ -294,7 +276,6 @@ class Apex3DRenderer(
                     triCount += box.triangleCount
                     drawCallCount++
 
-                    // Floating crystal at top
                     val crystalMat = Mat4().translate(item.position.x, item.position.y + 4.2f + sin(walkAnimPhase.toDouble() * 2).toFloat() * 0.2f, item.position.z)
                         .rotate(walkAnimPhase * 45f, 0f, 1f, 0f)
                         .scale(0.6f, 0.9f, 0.6f)
@@ -330,7 +311,6 @@ class Apex3DRenderer(
                     }
                 }
                 InteractableType.QUANTUM_PORTAL -> {
-                    // Gateway arch
                     itemMat.scale(2.2f, 3.2f, 0.4f)
                     val mvp = Mat4().set(camera.viewProjMatrix).multiply(itemMat)
                     GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
@@ -344,7 +324,7 @@ class Apex3DRenderer(
             }
         }
 
-        // 3. Render Physics Rigid Bodies (Dynamic Crates & Orbs bouncing on contour)
+        // 3. Render Physics Rigid Bodies
         for (rb in physicsEngine.rigidBodies) {
             val rbMat = Mat4().translate(rb.position.x, rb.position.y, rb.position.z)
                 .scale(rb.size.x, rb.size.y, rb.size.z)
@@ -367,7 +347,7 @@ class Apex3DRenderer(
             drawCallCount++
         }
 
-        // 3b. Render World Barriers, Road Blockers, Speed Pads & Launch Pads
+        // 3b. Render Barriers & Pads
         for (barrier in physicsEngine.barrierManager.barriers) {
             val bMat = Mat4().translate(barrier.position.x, barrier.position.y, barrier.position.z)
                 .scale(barrier.size.x, barrier.size.y, barrier.size.z)
@@ -380,48 +360,32 @@ class Apex3DRenderer(
             drawCallCount++
         }
 
-        // 4. Render NPCs in the World
+        // 4. Render NPCs
         for (npc in npcManager.npcs) {
             if (npc.customMesh != null) {
                 val npcMat = Mat4().translate(npc.position.x, npc.position.y, npc.position.z)
                     .rotate(npc.yawDeg, 0f, 1f, 0f)
                     .scale(1.2f, 1.2f, 1.2f)
                 val mvp = Mat4().set(camera.viewProjMatrix).multiply(npcMat)
+
                 val prevCullFace = GLES20.glIsEnabled(GLES20.GL_CULL_FACE)
                 if (settings.twoSidedGlbRendering && prevCullFace) {
                     GLES20.glDisable(GLES20.GL_CULL_FACE)
                 }
 
-                if (npc.customMesh!!.nodes.isNotEmpty()) {
-                    updateGlbNodeTransforms(npc.customMesh!!, "idle", walkAnimPhase)
-                    val sTris = renderGlbSubmeshes(npc.customMesh!!, shader, npcMat, camera.viewProjMatrix, settings.enableWireframe)
-                    if (sTris > 0) {
-                        triCount += sTris
-                        drawCallCount += npc.customMesh!!.nodes.filter { it.subMesh != null }.size
-                    } else {
-                        GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
-                        GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, npcMat.data, 0)
-                        GLES20.glUniform4f(shader.uBaseColorLocation, npc.tintColor[0], npc.tintColor[1], npc.tintColor[2], 1f)
-                        GLES20.glUniform1i(shader.uUseVertexColorLocation, if (npc.customMesh!!.colors != null) 1 else 0)
-                        npc.customMesh!!.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
-                        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
-                        triCount += npc.customMesh!!.triangleCount
-                        drawCallCount++
-                    }
-                } else {
-                    GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
-                    GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, npcMat.data, 0)
-                    GLES20.glUniform4f(shader.uBaseColorLocation, npc.tintColor[0], npc.tintColor[1], npc.tintColor[2], 1f)
-                    GLES20.glUniform1i(shader.uUseVertexColorLocation, if (npc.customMesh!!.colors != null) 1 else 0)
-                    npc.customMesh!!.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
-                    GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
-                    triCount += npc.customMesh!!.triangleCount
-                    drawCallCount++
-                }
+                GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
+                GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, npcMat.data, 0)
+                GLES20.glUniform4f(shader.uBaseColorLocation, npc.tintColor[0], npc.tintColor[1], npc.tintColor[2], 1f)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (npc.customMesh!!.colors != null) 1 else 0)
+                npc.customMesh!!.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
 
                 if (settings.twoSidedGlbRendering && prevCullFace) {
                     GLES20.glEnable(GLES20.GL_CULL_FACE)
                 }
+
+                triCount += npc.customMesh!!.triangleCount
+                drawCallCount++
             } else {
                 renderNpcCharacter(npc, shader, triCount, drawCallCount).also { (t, d) ->
                     triCount = t
@@ -430,7 +394,7 @@ class Apex3DRenderer(
             }
         }
 
-        // 5. Render Player Character
+        // 5. Render Player Character (SOLID, UNIFIED, SEAMLESS)
         if (!camera.isFirstPerson) {
             val customChar = customModelManager.activeCustomCharacterMesh
             if (customChar != null) {
@@ -465,67 +429,37 @@ class Apex3DRenderer(
                         pConfig.scaleZ * animPose.scaleMultZ
                     )
 
-                if (customChar.nodes.isNotEmpty()) {
-                    // Update keyframed submesh hierarchy transforms
-                    updateGlbNodeTransforms(
-                        mesh = customChar,
-                        clipName = animPose.activeClipName,
-                        time = animationPlayer.animTimeSec,
-                        preferredClip = animPose.matchedGlbClip,
-                        limbSwingAngle = animPose.limbSwingAngle
-                    )
-                    
-                    // Handle Two-Sided (Anti Backface Culling) to eliminate gaps in clothing and character geometry
-                    val prevCullFace = GLES20.glIsEnabled(GLES20.GL_CULL_FACE)
-                    if (settings.twoSidedGlbRendering && prevCullFace) {
-                        GLES20.glDisable(GLES20.GL_CULL_FACE)
-                    }
+                val charMvp = Mat4().set(camera.viewProjMatrix).multiply(charMat)
 
-                    val submeshTris = renderGlbSubmeshes(customChar, shader, charMat, camera.viewProjMatrix, settings.enableWireframe)
-                    if (submeshTris > 0) {
-                        triCount += submeshTris
-                        drawCallCount += customChar.nodes.filter { it.subMesh != null }.size
-                    } else {
-                        // Fallback to full mesh if submeshes drew 0 tris
-                        val charMvp = Mat4().set(camera.viewProjMatrix).multiply(charMat)
-                        GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, charMvp.data, 0)
-                        GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, charMat.data, 0)
-                        GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
-                        GLES20.glUniform1f(shader.uSpecularStrengthLocation, 0.35f)
-                        GLES20.glUniform1f(shader.uShininessLocation, 24f)
-                        GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customChar.colors != null) 1 else 0)
-                        customChar.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
-                        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
-                        triCount += customChar.triangleCount
-                        drawCallCount++
-                    }
-
-                    if (settings.twoSidedGlbRendering && prevCullFace) {
-                        GLES20.glEnable(GLES20.GL_CULL_FACE)
-                    }
-                } else {
-                    // Flat fallback
-                    val prevCullFace = GLES20.glIsEnabled(GLES20.GL_CULL_FACE)
-                    if (settings.twoSidedGlbRendering && prevCullFace) {
-                        GLES20.glDisable(GLES20.GL_CULL_FACE)
-                    }
-
-                    val charMvp = Mat4().set(camera.viewProjMatrix).multiply(charMat)
-                    GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, charMvp.data, 0)
-                    GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, charMat.data, 0)
-                    GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
-                    GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customChar.colors != null) 1 else 0)
-                    customChar.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
-                    GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset
-                    triCount += customChar.triangleCount
-                    drawCallCount++
-
-                    if (settings.twoSidedGlbRendering && prevCullFace) {
-                        GLES20.glEnable(GLES20.GL_CULL_FACE)
-                    }
+                // Anti backface culling to ensure clothing & hair are 100% solid
+                val prevCullFace = GLES20.glIsEnabled(GLES20.GL_CULL_FACE)
+                if (settings.twoSidedGlbRendering && prevCullFace) {
+                    GLES20.glDisable(GLES20.GL_CULL_FACE)
                 }
+
+                GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, charMvp.data, 0)
+                GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, charMat.data, 0)
+                GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
+                GLES20.glUniform1f(shader.uSpecularStrengthLocation, 0.35f)
+                GLES20.glUniform1f(shader.uShininessLocation, 24f)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customChar.colors != null) 1 else 0)
+
+                // Render whole unified mesh (No disjointed bone slices!)
+                customChar.render(
+                    shader.aPositionLocation,
+                    shader.aNormalLocation,
+                    shader.aColorLocation,
+                    settings.enableWireframe
+                )
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
+
+                if (settings.twoSidedGlbRendering && prevCullFace) {
+                    GLES20.glEnable(GLES20.GL_CULL_FACE)
+                }
+
+                triCount += customChar.triangleCount
+                drawCallCount++
             } else {
-                // Render Default Stylized Cyber Knight with animated limbs
                 renderAnimatedCharacter(shader, triCount, drawCallCount).also { (t, d) ->
                     triCount = t
                     drawCallCount = d
@@ -547,7 +481,6 @@ class Apex3DRenderer(
         val posZ = npc.position.z
         val yaw = npc.yawDeg
 
-        // Torso
         val torsoMat = Mat4().translate(posX, posY + 1.05f, posZ)
             .rotate(yaw, 0f, 1f, 0f)
             .scale(0.5f, 0.6f, 0.32f)
@@ -559,7 +492,6 @@ class Apex3DRenderer(
         tri += box.triangleCount
         draw++
 
-        // Head
         val headMat = Mat4().translate(posX, posY + 1.55f, posZ)
             .rotate(yaw, 0f, 1f, 0f)
             .scale(0.3f, 0.3f, 0.3f)
@@ -571,7 +503,6 @@ class Apex3DRenderer(
         tri += box.triangleCount
         draw++
 
-        // Overhead Role Marker (floating glowing diamond)
         val markerMat = Mat4().translate(posX, posY + 2.1f, posZ)
             .rotate(walkAnimPhase * 50f, 0f, 1f, 0f)
             .scale(0.18f, 0.18f, 0.18f)
@@ -601,7 +532,6 @@ class Apex3DRenderer(
         val crouchScaleY = if (physicsEngine.isCrouched) 0.65f else 1.0f
         val legSwing = sin(walkAnimPhase.toDouble()).toFloat() * 25f
 
-        // If riding hoverboard, draw board under feet
         if (interactionSystem.isHoverboardMounted) {
             val boardMat = Mat4().translate(posX, posY + 0.15f, posZ)
                 .rotate(yaw, 0f, 1f, 0f)
@@ -615,19 +545,17 @@ class Apex3DRenderer(
             draw++
         }
 
-        // 1. Torso
         val torsoMat = Mat4().translate(posX, posY + (1.1f * crouchScaleY), posZ)
             .rotate(yaw, 0f, 1f, 0f)
             .scale(0.55f, 0.65f * crouchScaleY, 0.35f)
         val torsoMvp = Mat4().set(camera.viewProjMatrix).multiply(torsoMat)
         GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, torsoMvp.data, 0)
         GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, torsoMat.data, 0)
-        GLES20.glUniform4f(shader.uBaseColorLocation, 0.15f, 0.20f, 0.28f, 1f) // Dark Cyber Armor
+        GLES20.glUniform4f(shader.uBaseColorLocation, 0.15f, 0.20f, 0.28f, 1f)
         box.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
         tri += box.triangleCount
         draw++
 
-        // 2. Head with Visor
         val headMat = Mat4().translate(posX, posY + (1.6f * crouchScaleY), posZ)
             .rotate(yaw, 0f, 1f, 0f)
             .scale(0.32f, 0.32f, 0.32f)
@@ -639,7 +567,6 @@ class Apex3DRenderer(
         tri += box.triangleCount
         draw++
 
-        // Visor glow
         val visorMat = Mat4().translate(posX, posY + (1.62f * crouchScaleY), posZ)
             .rotate(yaw, 0f, 1f, 0f)
             .translate(0f, 0f, -0.17f)
@@ -647,12 +574,11 @@ class Apex3DRenderer(
         val visorMvp = Mat4().set(camera.viewProjMatrix).multiply(visorMat)
         GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, visorMvp.data, 0)
         GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, visorMat.data, 0)
-        GLES20.glUniform4f(shader.uBaseColorLocation, 0f, 0.95f, 1f, 1f) // Neon Blue Visor
+        GLES20.glUniform4f(shader.uBaseColorLocation, 0f, 0.95f, 1f, 1f)
         box.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
         tri += box.triangleCount
         draw++
 
-        // 3. Legs
         val legLMat = Mat4().translate(posX, posY + 0.4f * crouchScaleY, posZ)
             .rotate(yaw, 0f, 1f, 0f)
             .translate(-0.16f, 0f, 0f)
@@ -678,14 +604,12 @@ class Apex3DRenderer(
         tri += box.triangleCount
         draw++
 
-        // 4. Arms & Plasma Blade
         val armSwing = if (actionManager.isActionInProgress) {
             actionManager.swingAngle
         } else {
             -legSwing * 0.8f
         }
 
-        // Right Arm (Holding Blade)
         val armRMat = Mat4().translate(posX, posY + (1.2f * crouchScaleY), posZ)
             .rotate(yaw, 0f, 1f, 0f)
             .translate(0.38f, 0f, 0f)
@@ -699,7 +623,6 @@ class Apex3DRenderer(
         tri += box.triangleCount
         draw++
 
-        // Plasma Blade in hand
         val swordMat = Mat4().translate(posX, posY + (1.2f * crouchScaleY), posZ)
             .rotate(yaw, 0f, 1f, 0f)
             .translate(0.40f, -0.25f, -0.1f)
@@ -714,243 +637,5 @@ class Apex3DRenderer(
         draw++
 
         return Pair(tri, draw)
-    }
-
-    private fun updateGlbNodeTransforms(
-        mesh: Mesh,
-        clipName: String,
-        time: Float,
-        preferredClip: com.example.engine3d.core.GlbAnimationClip? = null,
-        limbSwingAngle: Float = 0f
-    ) {
-        val nodes = mesh.nodes
-        if (nodes.isEmpty()) return
-
-        // Find active clip: check preferred first, then fuzzy match, then fallback if not idle
-        val clip = preferredClip ?: mesh.animationClips.firstOrNull { c ->
-            c.name.equals(clipName, ignoreCase = true) ||
-            c.name.contains(clipName, ignoreCase = true) ||
-            clipName.contains(c.name, ignoreCase = true)
-        } ?: if (clipName != "idle") mesh.animationClips.firstOrNull() else null
-
-        // Loop the animation time cleanly modulo duration to prevent it from freezing at the last frame
-        val clipTime = if (clip != null && clip.duration > 0f) {
-            time % clip.duration
-        } else {
-            time
-        }
-
-        // Interpolate node local matrices
-        for (node in nodes) {
-            var tx = 0f; var ty = 0f; var tz = 0f
-            var rx = 0f; var ry = 0f; var rz = 0f; var rw = 1f
-            var sx = 1f; var sy = 1f; var sz = 1f
-
-            var hasTranslation = false
-            var hasRotation = false
-            var hasScale = false
-
-            if (clip != null) {
-                // Find translation channel for this node
-                val tChannel = clip.channels.firstOrNull { it.nodeIndex == node.index && it.path == "translation" }
-                if (tChannel != null && tChannel.times.isNotEmpty()) {
-                    val val3 = interpolateVec3Keyframes(tChannel.times, tChannel.values, clipTime)
-                    tx = val3[0]; ty = val3[1]; tz = val3[2]
-                    hasTranslation = true
-                }
-
-                // Find rotation channel (quaternion VEC4) for this node
-                val rChannel = clip.channels.firstOrNull { it.nodeIndex == node.index && it.path == "rotation" }
-                if (rChannel != null && rChannel.times.isNotEmpty()) {
-                    val val4 = interpolateVec4Keyframes(rChannel.times, rChannel.values, clipTime)
-                    rx = val4[0]; ry = val4[1]; rz = val4[2]; rw = val4[3]
-                    hasRotation = true
-                }
-
-                // Find scale channel for this node
-                val sChannel = clip.channels.firstOrNull { it.nodeIndex == node.index && it.path == "scale" }
-                if (sChannel != null && sChannel.times.isNotEmpty()) {
-                    val val3 = interpolateVec3Keyframes(sChannel.times, sChannel.values, clipTime)
-                    sx = val3[0]; sy = val3[1]; sz = val3[2]
-                    hasScale = true
-                }
-            }
-
-            // Procedural limb swing fallback for limbs without active rotation tracks
-            if (!hasRotation && limbSwingAngle != 0f) {
-                val nLower = node.name.lowercase()
-                val isLeftLeg = nLower.contains("leg.l") || nLower.contains("thigh.l") || nLower.contains("leftleg") || (nLower.contains("leg") && nLower.contains("l"))
-                val isRightLeg = nLower.contains("leg.r") || nLower.contains("thigh.r") || nLower.contains("rightleg") || (nLower.contains("leg") && nLower.contains("r"))
-                val isLeftArm = nLower.contains("arm.l") || nLower.contains("shoulder.l") || nLower.contains("leftarm") || (nLower.contains("arm") && nLower.contains("l"))
-                val isRightArm = nLower.contains("arm.r") || nLower.contains("shoulder.r") || nLower.contains("rightarm") || (nLower.contains("arm") && nLower.contains("r"))
-
-                val swingDeg = when {
-                    isLeftLeg -> limbSwingAngle
-                    isRightLeg -> -limbSwingAngle
-                    isLeftArm -> -limbSwingAngle * 0.8f
-                    isRightArm -> limbSwingAngle * 0.8f
-                    else -> 0f
-                }
-
-                if (swingDeg != 0f) {
-                    val rad = Math.toRadians((swingDeg * 0.5f).toDouble()).toFloat()
-                    rx = kotlin.math.sin(rad)
-                    ry = 0f
-                    rz = 0f
-                    rw = kotlin.math.cos(rad)
-                    hasRotation = true
-                }
-            }
-
-            if (hasTranslation || hasRotation || hasScale) {
-                // Construct animated local matrix from animated components or defaults
-                if (!hasTranslation) {
-                    tx = node.defaultLocalMatrix.data[12]
-                    ty = node.defaultLocalMatrix.data[13]
-                    tz = node.defaultLocalMatrix.data[14]
-                }
-                val tMat = Mat4().translate(tx, ty, tz)
-                val rMat = if (hasRotation) quaternionToMat4(rx, ry, rz, rw) else Mat4().identity()
-                if (!hasRotation) {
-                    rMat.set(node.defaultLocalMatrix)
-                    rMat.data[12] = 0f; rMat.data[13] = 0f; rMat.data[14] = 0f // strip translation
-                } else {
-                    rMat.scale(sx, sy, sz)
-                }
-                node.animatedLocalMatrix.set(tMat.multiply(rMat))
-            } else {
-                node.animatedLocalMatrix.set(node.defaultLocalMatrix)
-            }
-        }
-
-        // Compute animated world matrices recursively
-        val computed = BooleanArray(nodes.size) { false }
-        fun computeWorldMatrix(idx: Int) {
-            if (idx < 0 || idx >= nodes.size || computed[idx]) return
-            val node = nodes[idx]
-            val parentIdx = node.parentIndex
-            if (parentIdx >= 0 && parentIdx < nodes.size) {
-                computeWorldMatrix(parentIdx)
-                val parentWorld = nodes[parentIdx].animatedWorldMatrix
-                node.animatedWorldMatrix.set(parentWorld).multiply(node.animatedLocalMatrix)
-            } else {
-                node.animatedWorldMatrix.set(node.animatedLocalMatrix)
-            }
-            computed[idx] = true
-        }
-
-        for (i in nodes.indices) {
-            computeWorldMatrix(i)
-        }
-    }
-
-    private fun interpolateVec3Keyframes(times: FloatArray, values: FloatArray, animTime: Float): FloatArray {
-        if (times.size == 1 || animTime <= times[0]) {
-            return floatArrayOf(values[0], values[1], values[2])
-        }
-        if (animTime >= times.last()) {
-            val base = (times.size - 1) * 3
-            return floatArrayOf(values[base], values[base + 1], values[base + 2])
-        }
-        var i = 0
-        while (i < times.size - 1 && animTime > times[i + 1]) {
-            i++
-        }
-        val t0 = times[i]
-        val t1 = times[i + 1]
-        val t = (animTime - t0) / (t1 - t0)
-        val idx0 = i * 3
-        val idx1 = (i + 1) * 3
-        val x = values[idx0] + t * (values[idx1] - values[idx0])
-        val y = values[idx0 + 1] + t * (values[idx1 + 1] - values[idx0 + 1])
-        val z = values[idx0 + 2] + t * (values[idx1 + 2] - values[idx0 + 2])
-        return floatArrayOf(x, y, z)
-    }
-
-    private fun interpolateVec4Keyframes(times: FloatArray, values: FloatArray, animTime: Float): FloatArray {
-        if (times.size == 1 || animTime <= times[0]) {
-            return floatArrayOf(values[0], values[1], values[2], values[3])
-        }
-        if (animTime >= times.last()) {
-            val base = (times.size - 1) * 4
-            return floatArrayOf(values[base], values[base + 1], values[base + 2], values[base + 3])
-        }
-        var i = 0
-        while (i < times.size - 1 && animTime > times[i + 1]) {
-            i++
-        }
-        val t0 = times[i]
-        val t1 = times[i + 1]
-        val t = (animTime - t0) / (t1 - t0)
-        val idx0 = i * 4
-        val idx1 = (i + 1) * 4
-
-        var qx0 = values[idx0]; var qy0 = values[idx0 + 1]; var qz0 = values[idx0 + 2]; var qw0 = values[idx0 + 3]
-        val qx1 = values[idx1]; val qy1 = values[idx1 + 1]; val qz1 = values[idx1 + 2]; val qw1 = values[idx1 + 3]
-
-        val dot = qx0*qx1 + qy0*qy1 + qz0*qz1 + qw0*qw1
-        if (dot < 0f) {
-            qx0 = -qx0; qy0 = -qy0; qz0 = -qz0; qw0 = -qw0
-        }
-
-        var rx = qx0 + t * (qx1 - qx0)
-        var ry = qy0 + t * (qy1 - qy0)
-        var rz = qz0 + t * (qz1 - qz0)
-        var qw = qw0 + t * (qw1 - qw0)
-
-        val len = kotlin.math.sqrt(rx*rx + ry*ry + rz*rz + qw*qw)
-        if (len > 0.0001f) {
-            rx /= len; ry /= len; rz /= len; qw /= len
-        }
-        return floatArrayOf(rx, ry, rz, qw)
-    }
-
-    private fun quaternionToMat4(qx: Float, qy: Float, qz: Float, qw: Float): Mat4 {
-        val m = Mat4()
-        val xx = qx * qx; val yy = qy * qy; val zz = qz * qz
-        val xy = qx * qy; val xz = qx * qz; val yz = qy * qz
-        val wx = qw * qx; val wy = qw * qy; val wz = qw * qz
-        val data = FloatArray(16)
-        data[0] = 1f - 2f * (yy + zz)
-        data[1] = 2f * (xy + wz)
-        data[2] = 2f * (xz - wy)
-        data[3] = 0f
-        data[4] = 2f * (xy - wz)
-        data[5] = 1f - 2f * (xx + zz)
-        data[6] = 2f * (yz + wx)
-        data[7] = 0f
-        data[8] = 2f * (xz + wy)
-        data[9] = 2f * (yz - wx)
-        data[10] = 1f - 2f * (xx + yy)
-        data[11] = 0f
-        data[12] = 0f; data[13] = 0f; data[14] = 0f; data[15] = 1f
-        return m.set(data)
-    }
-
-    private fun renderGlbSubmeshes(
-        mesh: Mesh,
-        shader: Shader,
-        modelMatrix: Mat4,
-        viewProjMatrix: Mat4,
-        wireframe: Boolean
-    ): Int {
-        var submeshTriangles = 0
-        for (node in mesh.nodes) {
-            val subMesh = node.subMesh ?: continue
-            val nodeModelMatrix = Mat4().set(modelMatrix).multiply(node.animatedWorldMatrix)
-            val nodeMvp = Mat4().set(viewProjMatrix).multiply(nodeModelMatrix)
-            
-            GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, nodeMvp.data, 0)
-            GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, nodeModelMatrix.data, 0)
-            GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
-            GLES20.glUniform1f(shader.uSpecularStrengthLocation, 0.35f)
-            GLES20.glUniform1f(shader.uShininessLocation, 24f)
-            GLES20.glUniform1i(shader.uUseVertexColorLocation, if (subMesh.colors != null) 1 else 0)
-            
-            subMesh.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, wireframe)
-            submeshTriangles += subMesh.triangleCount
-        }
-        GLES20.glUniform1i(shader.uUseVertexColorLocation, 0) // Reset after drawing submeshes
-        return submeshTriangles
     }
 }

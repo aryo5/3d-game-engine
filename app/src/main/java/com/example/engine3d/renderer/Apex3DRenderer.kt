@@ -51,10 +51,16 @@ class Apex3DRenderer(
 
     val camera = Camera().apply {
         terrainQuery = terrainMesh.heightQuery
+        baseDistance = settings.cameraDistance.coerceIn(1.5f, 20f)
+        targetDistance = baseDistance
+        currentDistance = baseDistance
     }
     val lighting = LightingEnvironment()
 
     init {
+        camera.onZoomChanged = { dist ->
+            settings.cameraDistance = dist
+        }
         actionManager.onActionTriggered = { act ->
             when (act.animationType) {
                 "SLAM" -> camera.triggerShake(intensity = 0.35f, durationSec = 0.28f)
@@ -119,15 +125,13 @@ class Apex3DRenderer(
         GLES20.glViewport(0, 0, width, height)
         camera.setAspectRatio(width, height)
 
-        // Dynamically adapt FOV & distance for Portrait vs Landscape
+        // Dynamically adapt FOV for Portrait vs Landscape
         if (width < height) {
             // Portrait mode: slightly wider vertical view
             camera.fovDeg = 72f
-            camera.baseDistance = (settings.cameraDistance + 1.2f).coerceIn(4.0f, 15.0f)
         } else {
             // Landscape mode
             camera.fovDeg = 62f
-            camera.baseDistance = settings.cameraDistance.coerceIn(3.0f, 15.0f)
         }
     }
 
@@ -179,7 +183,6 @@ class Apex3DRenderer(
 
         // Camera follow character with AC Shadows dynamic framing
         camera.farPlane = settings.renderDistance
-        camera.baseDistance = settings.cameraDistance
         val charSpeed = kotlin.math.sqrt(physicsEngine.characterVel.x * physicsEngine.characterVel.x + physicsEngine.characterVel.z * physicsEngine.characterVel.z)
         camera.updateCinematic(
             targetPos = physicsEngine.characterPos,
@@ -694,12 +697,12 @@ class Apex3DRenderer(
         val nodes = mesh.nodes
         if (nodes.isEmpty()) return
 
-        // Find active clip: check preferred first, then fuzzy match, then fallback to first clip
+        // Find active clip: check preferred first, then fuzzy match, then fallback if not idle
         val clip = preferredClip ?: mesh.animationClips.firstOrNull { c ->
             c.name.equals(clipName, ignoreCase = true) ||
             c.name.contains(clipName, ignoreCase = true) ||
             clipName.contains(c.name, ignoreCase = true)
-        } ?: mesh.animationClips.firstOrNull()
+        } ?: if (clipName != "idle") mesh.animationClips.firstOrNull() else null
 
         // Loop the animation time cleanly modulo duration to prevent it from freezing at the last frame
         val clipTime = if (clip != null && clip.duration > 0f) {

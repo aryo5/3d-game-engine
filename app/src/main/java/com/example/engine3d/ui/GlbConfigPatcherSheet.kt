@@ -283,20 +283,20 @@ fun GlbConfigPatcherSheet(
                                 fontSize = 11.sp
                             )
                         } else {
-                            // Quick Button for Karakter GLB 1 (11 Animations)
-                            val karakterGlbEntry = customModelManager.importedModels.firstOrNull { it.fileName.equals("karakter.glb", ignoreCase = true) }
-                            if (karakterGlbEntry != null) {
+                            // Quick Button for Default Farmer Harvest Moon GLB
+                            val defaultFarmerEntry = customModelManager.importedModels.firstOrNull { it.fileName.equals("farmer_harvest_moon.glb", ignoreCase = true) }
+                            if (defaultFarmerEntry != null) {
                                 Button(
                                     onClick = {
-                                        selectedModel = karakterGlbEntry
-                                        customModelManager.setActiveCharacter(karakterGlbEntry, updatePlayerConfig = true)
-                                        customModelManager.activeCustomCharacterMesh = karakterGlbEntry.mesh
-                                        Toast.makeText(context, "👑 Karakter GLB 1 (11 Animasi) diaktifkan!", Toast.LENGTH_SHORT).show()
+                                        selectedModel = defaultFarmerEntry
+                                        customModelManager.setActiveCharacter(defaultFarmerEntry, updatePlayerConfig = true)
+                                        customModelManager.activeCustomCharacterMesh = defaultFarmerEntry.mesh
+                                        Toast.makeText(context, "👨‍🌾 Karakter Farmer Harvest Moon diaktifkan!", Toast.LENGTH_SHORT).show()
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
                                     modifier = Modifier.fillMaxWidth().height(36.dp)
                                 ) {
-                                    Text("👑 Aktifkan Karakter GLB 1 (11 Animasi)", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    Text("👨‍🌾 Aktifkan Karakter Default: Farmer Harvest Moon", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                 }
                             }
 

@@ -42,12 +42,16 @@ class CustomModelManager(private val context: Context) {
 
     private fun loadSavedModels() {
         val dir = getModelsDir()
-        // Ensure karakter.glb is copied from assets if available
+        // Ensure farmer_harvest_moon.glb is copied from assets if available and old karakter.glb cleaned up
         try {
-            val targetKarFile = File(dir, "karakter.glb")
-            if (!targetKarFile.exists()) {
-                context.assets.open("karakter.glb").use { input ->
-                    FileOutputStream(targetKarFile).use { output ->
+            val oldKar = File(dir, "karakter.glb")
+            if (oldKar.exists()) {
+                oldKar.delete()
+            }
+            val targetFarmerFile = File(dir, "farmer_harvest_moon.glb")
+            if (!targetFarmerFile.exists()) {
+                context.assets.open("farmer_harvest_moon.glb").use { input ->
+                    FileOutputStream(targetFarmerFile).use { output ->
                         input.copyTo(output)
                     }
                 }
@@ -60,6 +64,10 @@ class CustomModelManager(private val context: Context) {
         for (file in files) {
             try {
                 if (file.name == "player_config.json" || file.name == "active_scene.json") continue
+                if (file.name.equals("karakter.glb", ignoreCase = true)) {
+                    file.delete()
+                    continue
+                }
                 FileInputStream(file).use { fis ->
                     val mesh = if (file.name.endsWith(".glb", ignoreCase = true)) {
                         GlbParser.parse(fis, file.name)
@@ -69,9 +77,9 @@ class CustomModelManager(private val context: Context) {
 
                     if (mesh != null) {
                         val target = when {
-                            file.name.equals("karakter.glb", ignoreCase = true) -> ModelTarget.CHARACTER
+                            file.name.equals("farmer_harvest_moon.glb", ignoreCase = true) -> ModelTarget.CHARACTER
                             file.name.contains("terrain", ignoreCase = true) || file.name.contains("map", ignoreCase = true) -> ModelTarget.TERRAIN
-                            file.name.contains("char", ignoreCase = true) || file.name.contains("hero", ignoreCase = true) -> ModelTarget.CHARACTER
+                            file.name.contains("char", ignoreCase = true) || file.name.contains("hero", ignoreCase = true) || file.name.contains("farmer", ignoreCase = true) -> ModelTarget.CHARACTER
                             else -> ModelTarget.WORLD_PROP
                         }
                         importedModels.removeAll { it.fileName.equals(file.name, ignoreCase = true) }
@@ -87,8 +95,8 @@ class CustomModelManager(private val context: Context) {
             val cfgFile = File(dir, "player_config.json")
             if (cfgFile.exists()) {
                 val loadedConfig = PlayerConfig.fromJson(cfgFile.readText())
-                val normalizedConfig = if (loadedConfig.modelFile.equals("karakter.glb", ignoreCase = true) && loadedConfig.scaleX > 0.8f) {
-                    loadedConfig.copy(scaleX = 0.4f, scaleY = 0.4f, scaleZ = 0.4f, heightOffset = 0f)
+                val normalizedConfig = if (loadedConfig.modelFile.equals("karakter.glb", ignoreCase = true)) {
+                    PlayerConfig()
                 } else loadedConfig
                 playerConfig = normalizedConfig
                 val matchingModel = importedModels.firstOrNull { it.fileName.equals(normalizedConfig.modelFile, ignoreCase = true) }
@@ -115,7 +123,7 @@ class CustomModelManager(private val context: Context) {
                         activeTerrainFileName = matchT.fileName
                     }
                 }
-                if (savedChar.isNotEmpty()) {
+                if (savedChar.isNotEmpty() && !savedChar.equals("karakter.glb", ignoreCase = true)) {
                     val matchC = importedModels.firstOrNull { it.fileName.equals(savedChar, ignoreCase = true) }
                     if (matchC != null) {
                         activeCustomCharacterMesh = matchC.mesh
@@ -127,9 +135,9 @@ class CustomModelManager(private val context: Context) {
             e.printStackTrace()
         }
 
-        // If no character is active yet, default to karakter.glb or first CHARACTER model
+        // If no character is active yet, default to farmer_harvest_moon.glb or first CHARACTER model
         if (activeCustomCharacterMesh == null && importedModels.isNotEmpty()) {
-            val charModel = importedModels.firstOrNull { it.fileName.equals("karakter.glb", ignoreCase = true) }
+            val charModel = importedModels.firstOrNull { it.fileName.equals("farmer_harvest_moon.glb", ignoreCase = true) }
                 ?: importedModels.firstOrNull { it.target == ModelTarget.CHARACTER }
                 ?: importedModels.first()
             if (charModel != null) {
@@ -137,14 +145,10 @@ class CustomModelManager(private val context: Context) {
             }
         }
 
-        // Ensure karakter.glb has its 11 animations mapped if current config has placeholder/empty anims
-        val currentKar = importedModels.firstOrNull { it.fileName.equals("karakter.glb", ignoreCase = true) }
-        if (currentKar != null && (activeCharacterFileName.equals("karakter.glb", ignoreCase = true) || activeCustomCharacterMesh == null)) {
-            if (activeCustomCharacterMesh == null) {
-                setActiveCharacter(currentKar, updatePlayerConfig = true)
-            } else if (playerConfig.animIdleName.isBlank() || playerConfig.animIdleName.startsWith("anim_")) {
-                setActiveCharacter(currentKar, updatePlayerConfig = true)
-            }
+        // Ensure default farmer character is loaded cleanly
+        val currentFarmer = importedModels.firstOrNull { it.fileName.equals("farmer_harvest_moon.glb", ignoreCase = true) }
+        if (currentFarmer != null && activeCustomCharacterMesh == null) {
+            setActiveCharacter(currentFarmer, updatePlayerConfig = true)
         }
 
         // If no terrain is active yet, but models exist with TERRAIN target
@@ -222,12 +226,12 @@ class CustomModelManager(private val context: Context) {
             val shouldAutoBind = playerConfig.animIdleName.startsWith("anim_") ||
                 clips.none { it.equals(playerConfig.animIdleName, ignoreCase = true) }
 
-            val isKar = entry.fileName.equals("karakter.glb", ignoreCase = true)
+            val isFarmer = entry.fileName.equals("farmer_harvest_moon.glb", ignoreCase = true)
             val rawHeight = entry.mesh.aabb.max.y - entry.mesh.aabb.min.y
             
-            // Standard humanoid character target height in world space is ~1.8 units
-            val autoTargetScale = if (isKar) {
-                0.4f
+            // Standard humanoid character target height in world space is ~1.8 units (or 1.0f natural scale for farmer)
+            val autoTargetScale = if (isFarmer) {
+                1.0f
             } else if (rawHeight > 0.05f) {
                 // Automatically adapt models exported in centimeters (Mixamo ~180cm -> 0.01f),
                 // meters (Blender ~1.8m -> 1.0f), or custom scale (~4.4 units -> 0.41f).
@@ -236,8 +240,8 @@ class CustomModelManager(private val context: Context) {
                 1.0f
             }
             
-            val autoHeightOffset = if (isKar) {
-                0f
+            val autoHeightOffset = if (isFarmer) {
+                -0.10f
             } else if (rawHeight > 0.05f) {
                 // Align lowest vertex (feet) cleanly with ground surface
                 (-entry.mesh.aabb.min.y * autoTargetScale).coerceIn(-10f, 10f)
@@ -246,8 +250,8 @@ class CustomModelManager(private val context: Context) {
             }
 
             val isSameModel = playerConfig.modelFile.equals(entry.fileName, ignoreCase = true)
-            val finalScale = if (isKar) 0.4f else if (isSameModel) playerConfig.scaleX else autoTargetScale
-            val finalHeightOffset = if (isKar) 0f else if (isSameModel) playerConfig.heightOffset else autoHeightOffset
+            val finalScale = if (isFarmer) 1.0f else if (isSameModel) playerConfig.scaleX else autoTargetScale
+            val finalHeightOffset = if (isFarmer) -0.10f else if (isSameModel) playerConfig.heightOffset else autoHeightOffset
 
             playerConfig = playerConfig.copy(
                 modelFile = entry.fileName,

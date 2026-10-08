@@ -302,8 +302,18 @@ class Camera {
         pitchDeg = (pitchDeg + deltaPitch).coerceIn(-75f, 75f)
     }
 
+    var onZoomChanged: ((Float) -> Unit)? = null
+
     fun zoom(deltaDistance: Float) {
-        baseDistance = (baseDistance + deltaDistance).coerceIn(1.8f, 15f)
+        baseDistance = (baseDistance + deltaDistance).coerceIn(1.5f, 20f)
         targetDistance = baseDistance
+        onZoomChanged?.invoke(baseDistance)
+    }
+
+    fun setDirectDistance(newDist: Float) {
+        baseDistance = newDist.coerceIn(1.5f, 20f)
+        targetDistance = baseDistance
+        currentDistance = baseDistance
+        onZoomChanged?.invoke(baseDistance)
     }
 }

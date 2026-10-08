@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.CheckCircle
 import com.example.engine3d.importer.StoragePermissionHelper
+import android.os.Build
+import androidx.compose.runtime.DisposableEffect
 import java.io.File
 import java.io.FileOutputStream
 import androidx.compose.material.icons.filled.Tune
@@ -138,15 +140,34 @@ fun AssetManagerSheet(
         mutableStateOf(StoragePermissionHelper.isStoragePermissionGranted(context))
     }
 
+    var hasAllFilesAccess by remember {
+        mutableStateOf(StoragePermissionHelper.hasAllFilesAccess(context))
+    }
+
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         hasStoragePermission = isGranted || !StoragePermissionHelper.needsRuntimePermission()
+        hasAllFilesAccess = StoragePermissionHelper.hasAllFilesAccess(context)
         if (isGranted) {
-            Toast.makeText(context, "✓ Izin penyimpanan aktif! Ekspor langsung siap digunakan.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "✓ Izin penyimpanan aktif! Ekspor langsung dan pembaca berkas siap digunakan.", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, "Izin penyimpanan ditolak. Fitur ekspor tetap dapat menggunakan SAF atau folder aplikasi.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Izin penyimpanan belum aktif. Anda dapat mengaktifkannya kapan saja melalui tombol perizinan.", Toast.LENGTH_LONG).show()
         }
+    }
+
+    // Otomatis minta izin penyimpanan saat menu pusat impor / aset dibuka
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
+            storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+    }
+
+    // Refresh status izin saat sheet aktif
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        hasStoragePermission = StoragePermissionHelper.isStoragePermissionGranted(context)
+        hasAllFilesAccess = StoragePermissionHelper.hasAllFilesAccess(context)
+        onDispose { }
     }
 
     // 1. SAF Folder Tree Picker Launcher
@@ -285,6 +306,52 @@ fun AssetManagerSheet(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
                         ) {
                             Text("✖ Tutup Studio", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Permission Request & Status Banner
+                if (!hasStoragePermission || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess)) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B0E)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.border(1.dp, Color(0xFFFFB74D), RoundedCornerShape(10.dp))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFFFFB74D))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Izin Akses Penyimpanan File",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFFFCC80)
+                                )
+                                Text(
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                                        "Berikan izin agar aplikasi dapat memindai GLB dan membaca konfigurasi dari folder publik HP tanpa kendala."
+                                    else
+                                        "Memerlukan izin penyimpanan untuk membaca dan menulis berkas model GLB secara langsung.",
+                                    fontSize = 10.sp,
+                                    color = Color.White
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
+                                        storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess) {
+                                        StoragePermissionHelper.launchAllFilesAccessSettings(context)
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB74D)),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text("Berikan Izin", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

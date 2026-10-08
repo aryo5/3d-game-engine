@@ -60,6 +60,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -212,6 +213,18 @@ fun EngineScreen(
     var activePresetName by remember { mutableStateOf(hudPreferences.getActivePresetName()) }
     var hudConfigs by remember { mutableStateOf(hudPreferences.loadLayout(activePresetName)) }
     var currentCameraMode by remember { mutableStateOf(CameraPresetMode.DYNAMIC_EXPLORATION) }
+    var currentCameraDist by remember { mutableFloatStateOf(renderer.camera.baseDistance) }
+
+    DisposableEffect(renderer) {
+        val prevCb = renderer.camera.onZoomChanged
+        renderer.camera.onZoomChanged = { dist ->
+            currentCameraDist = dist
+            settings.cameraDistance = dist
+        }
+        onDispose {
+            renderer.camera.onZoomChanged = prevCb
+        }
+    }
 
     // Joystick Touch Offsets
     var joystickThumbOffset by remember { mutableStateOf(Offset.Zero) }
@@ -263,12 +276,72 @@ fun EngineScreen(
                                  )
                                  // Cubit (Pinch) untuk Zoom In / Out halus ala galeri foto
                                  if (zoom != 1f) {
-                                     val zoomSensitivity = 14.0f
-                                     renderer.camera.zoom((1f - zoom) * zoomSensitivity)
+                                     val zoomSensitivity = 8.0f
+                                     val deltaDist = (1f - zoom) * zoomSensitivity
+                                     renderer.camera.zoom(deltaDist)
+                                     settings.cameraDistance = renderer.camera.baseDistance
+                                     currentCameraDist = renderer.camera.baseDistance
                                  }
                              }
                          }
                  )
+
+                 // 2b. Floating Quick Zoom In/Out Controller Pill (Memudahkan zoom di layar sentuh maupun emulator)
+                 Surface(
+                     modifier = Modifier
+                         .align(Alignment.CenterEnd)
+                         .padding(end = 12.dp)
+                         .testTag("camera_zoom_hud_controls"),
+                     shape = RoundedCornerShape(22.dp),
+                     color = Color(0xD00B1320),
+                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x6600E5FF))
+                 ) {
+                     Column(
+                         horizontalAlignment = Alignment.CenterHorizontally,
+                         modifier = Modifier.padding(vertical = 6.dp, horizontal = 5.dp),
+                         verticalArrangement = Arrangement.spacedBy(4.dp)
+                     ) {
+                         // Zoom In (+)
+                         IconButton(
+                             onClick = {
+                                 renderer.camera.zoom(-0.8f)
+                                 settings.cameraDistance = renderer.camera.baseDistance
+                                 currentCameraDist = renderer.camera.baseDistance
+                             },
+                             modifier = Modifier
+                                 .size(34.dp)
+                                 .clip(CircleShape)
+                                 .background(Color(0x3300E5FF))
+                                 .testTag("camera_zoom_in_button")
+                         ) {
+                             Text("+", color = Color(0xFF00E5FF), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                         }
+
+                         // Distance indicator
+                         Text(
+                             text = "${"%.1f".format(currentCameraDist)}m",
+                             color = Color.White,
+                             fontSize = 9.sp,
+                             fontWeight = FontWeight.Bold
+                         )
+
+                         // Zoom Out (-)
+                         IconButton(
+                             onClick = {
+                                 renderer.camera.zoom(0.8f)
+                                 settings.cameraDistance = renderer.camera.baseDistance
+                                 currentCameraDist = renderer.camera.baseDistance
+                             },
+                             modifier = Modifier
+                                 .size(34.dp)
+                                 .clip(CircleShape)
+                                 .background(Color(0x33FFD600))
+                                 .testTag("camera_zoom_out_button")
+                         ) {
+                             Text("−", color = Color(0xFFFFD600), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                         }
+                     }
+                 }
 
                 hudConfigs.forEach { (id, cfg) ->
                     if (!cfg.isEnabled) return@forEach

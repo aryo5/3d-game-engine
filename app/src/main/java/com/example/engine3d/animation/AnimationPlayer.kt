@@ -62,12 +62,7 @@ class AnimationPlayer {
         }
         animTimeSec += dt * timeMultiplier
 
-        var baseOffsetY = 0f
-        if (matchedClip != null && matchedClip.duration > 0f) {
-            val clipTime = animTimeSec % matchedClip.duration
-            val phaseNorm = clipTime / matchedClip.duration
-            baseOffsetY = sin(phaseNorm * Math.PI * 2.0).toFloat() * 0.05f
-        }
+        val baseOffsetY = 0f
 
         var pose = PoseEvaluation(
             offsetY = baseOffsetY,
@@ -82,44 +77,42 @@ class AnimationPlayer {
                 pose.copy(
                     rotationYDeg = slashSwing * 35f,
                     pitchXDeg = slashSwing * 12f,
-                    scaleMultY = 1.0f + slashSwing * 0.08f,
-                    offsetY = pose.offsetY + slashSwing * 0.1f,
+                    scaleMultY = 1.0f,
+                    offsetY = 0f,
                     limbSwingAngle = slashSwing * 65f
                 )
             }
             "jump" -> {
                 pose.copy(
                     pitchXDeg = -12f,
-                    scaleMultY = 1.08f,
-                    offsetY = pose.offsetY + 0.15f,
+                    scaleMultY = 1.0f,
+                    offsetY = 0.15f,
                     limbSwingAngle = -15f
                 )
             }
             "run", "walk" -> {
                 val isFast = slotType == "run"
-                val strideFreq = if (isFast) 12f else 8f
-                val bounceAmp = if (isFast) 0.12f else 0.06f
-                val tiltAngle = if (isFast) 9f else 4f
+                val strideFreq = if (isFast) 10f else 7f
+                val tiltAngle = if (isFast) 4f else 2f
                 val phase = animTimeSec * strideFreq
 
-                val bounceY = kotlin.math.abs(sin(phase)).toFloat() * bounceAmp
-                val swayZ = cos(phase * 0.5f).toFloat() * (if (isFast) 3.5f else 2.0f)
-                val pitchX = sin(phase).toFloat() * 3.0f + tiltAngle
-                val limbSwing = sin(phase).toFloat() * (if (isFast) 35f else 22f)
+                // If GLB has its own animation clip, DO NOT add artificial vertical bouncing or squashing
+                val hasClip = matchedClip != null
+                val pitchX = if (hasClip) 0f else tiltAngle
+                val limbSwing = if (hasClip) 0f else sin(phase).toFloat() * (if (isFast) 30f else 20f)
 
                 pose.copy(
-                    offsetY = pose.offsetY + bounceY,
+                    offsetY = 0f,
                     pitchXDeg = pitchX,
-                    rollZDeg = swayZ,
-                    scaleMultY = 1.0f + sin(phase * 2f).toFloat() * 0.03f,
+                    rollZDeg = 0f,
+                    scaleMultY = 1.0f,
                     limbSwingAngle = limbSwing
                 )
             }
             else -> {
-                val breath = sin(animTimeSec * 2.5f).toFloat() * 0.02f
                 pose.copy(
-                    offsetY = pose.offsetY + breath,
-                    scaleMultY = 1.0f + breath * 0.5f,
+                    offsetY = 0f,
+                    scaleMultY = 1.0f,
                     limbSwingAngle = 0f
                 )
             }
@@ -182,8 +175,12 @@ class AnimationPlayer {
             if (fallbackMatch != null) return fallbackMatch
         }
 
-        // 4. If only 1 clip exists in the GLB, always use it
+        // 4. If only 1 clip exists in the GLB, check if it's a locomotion clip during idle
         if (clips.size == 1) {
+            val cn = clean(clips[0].name)
+            if (slotType == "idle" && (cn.contains("walk") || cn.contains("run") || cn.contains("move") || cn.contains("step") || cn.contains("sprint"))) {
+                return null
+            }
             return clips[0]
         }
 
@@ -191,8 +188,9 @@ class AnimationPlayer {
         if (slotType == "idle" || slotType == "walk") {
             return clips.firstOrNull { c ->
                 val cn = clean(c.name)
-                !cn.contains("attack") && !cn.contains("death") && !cn.contains("die")
-            } ?: clips.firstOrNull()
+                if (slotType == "idle" && (cn.contains("walk") || cn.contains("run") || cn.contains("sprint"))) false
+                else !cn.contains("attack") && !cn.contains("death") && !cn.contains("die")
+            } ?: if (slotType == "walk") clips.firstOrNull() else null
         }
 
         return null

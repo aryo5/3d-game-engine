@@ -23,7 +23,8 @@ object GlbParser {
         val name: String,
         val meshIndex: Int,
         val localMatrix: Mat4,
-        val children: List<Int>
+        val children: List<Int>,
+        val skinIndex: Int = -1
     )
 
     fun parse(inputStream: InputStream, modelName: String = "ImportedGLB"): Mesh? {
@@ -114,8 +115,9 @@ object GlbParser {
                         nodeParents[childIdx] = i
                     }
                 }
+                val skinIdx = nodeObj.optInt("skin", -1)
                 val localMat = computeNodeLocalMatrix(nodeObj)
-                nodeList.add(NodeInfo(i, nodeName, meshIdx, localMat, children))
+                nodeList.add(NodeInfo(i, nodeName, meshIdx, localMat, children, skinIdx))
             }
         }
 
@@ -261,34 +263,45 @@ object GlbParser {
             }
             
             if (subMesh == null && node.meshIndex >= 0 && node.meshIndex < meshes.length()) {
-                val subPositions = mutableListOf<Float>()
-                val subNormals = mutableListOf<Float>()
-                val subColors = mutableListOf<Float>()
-                val subIndices = mutableListOf<Short>()
                 val meshObj = meshes.getJSONObject(node.meshIndex)
-                
-                parseAndAppendMeshPrimitives(
-                    meshObj = meshObj,
-                    materialsArray = materialsArray,
-                    worldMat = Mat4().identity(), // local coordinate space
-                    accessors = accessors,
-                    bufferViews = bufferViews,
-                    binBuffer = binBuffer,
-                    allPositions = subPositions,
-                    allNormals = subNormals,
-                    allColors = subColors,
-                    allIndices = subIndices,
-                    totalVertexCount = 0
-                )
-                if (subPositions.isNotEmpty()) {
-                    subMesh = Mesh(
-                        name = "${node.name}_mesh",
-                        vertices = subPositions.toFloatArray(),
-                        normals = subNormals.toFloatArray(),
-                        colors = subColors.toFloatArray(),
-                        texCoords = null,
-                        indices = if (subIndices.isNotEmpty()) subIndices.toShortArray() else null
+                val prims = meshObj.optJSONArray("primitives")
+                // Check if this mesh primitive is part of a skinned skeleton (has JOINTS_0 or skin reference)
+                val isSkinnedMesh = skinJoints != null && (node.skinIndex >= 0 || (prims != null && (0 until prims.length()).any {
+                    prims.getJSONObject(it).optJSONObject("attributes")?.has("JOINTS_0") == true
+                }))
+
+                // Skinned meshes are already partitioned into bonePositions for joint animation.
+                // Only create rigid submeshes for non-skinned models or accessories (e.g. static weapons, hats, props)
+                // to prevent duplicating a static T-pose mesh on top of the animated character!
+                if (!isSkinnedMesh) {
+                    val subPositions = mutableListOf<Float>()
+                    val subNormals = mutableListOf<Float>()
+                    val subColors = mutableListOf<Float>()
+                    val subIndices = mutableListOf<Short>()
+                    
+                    parseAndAppendMeshPrimitives(
+                        meshObj = meshObj,
+                        materialsArray = materialsArray,
+                        worldMat = Mat4().identity(), // local coordinate space
+                        accessors = accessors,
+                        bufferViews = bufferViews,
+                        binBuffer = binBuffer,
+                        allPositions = subPositions,
+                        allNormals = subNormals,
+                        allColors = subColors,
+                        allIndices = subIndices,
+                        totalVertexCount = 0
                     )
+                    if (subPositions.isNotEmpty()) {
+                        subMesh = Mesh(
+                            name = "${node.name}_mesh",
+                            vertices = subPositions.toFloatArray(),
+                            normals = subNormals.toFloatArray(),
+                            colors = subColors.toFloatArray(),
+                            texCoords = null,
+                            indices = if (subIndices.isNotEmpty()) subIndices.toShortArray() else null
+                        )
+                    }
                 }
             }
             glbNodes.add(

@@ -3,23 +3,23 @@ package com.example.engine3d.importer
 import org.json.JSONObject
 
 data class PlayerConfig(
-    val characterName: String = "Cyber Hero GLB",
-    val modelFile: String = "karakter.glb",
-    val scaleX: Float = 0.4f,
-    val scaleY: Float = 0.4f,
-    val scaleZ: Float = 0.4f,
+    val characterName: String = "Farmer Pete",
+    val modelFile: String = "farmer_harvest_moon.glb",
+    val scaleX: Float = 1.0f,
+    val scaleY: Float = 1.0f,
+    val scaleZ: Float = 1.0f,
     val rotationOffsetYDeg: Float = 0f,
-    val heightOffset: Float = 0f,
-    val collisionRadius: Float = 0.6f,
-    val collisionHeight: Float = 1.8f,
+    val heightOffset: Float = -0.10f,
+    val collisionRadius: Float = 0.5f,
+    val collisionHeight: Float = 1.5f,
     val walkSpeed: Float = 6.5f,
     val runMultiplier: Float = 1.6f,
     val jumpImpulse: Float = 11.5f,
-    val animIdleName: String = "anim_idle",
-    val animWalkName: String = "anim_walk",
-    val animRunName: String = "anim_run",
-    val animJumpName: String = "anim_jump",
-    val animSlashName: String = "anim_slash"
+    val animIdleName: String = "idle",
+    val animWalkName: String = "Walk",
+    val animRunName: String = "Walk",
+    val animJumpName: String = "jump",
+    val animSlashName: String = "slash"
 ) {
     fun toJson(): String {
         val obj = JSONObject()
@@ -62,13 +62,13 @@ data class PlayerConfig(
                 val anims = obj.optJSONObject("animations")
 
                 PlayerConfig(
-                    characterName = obj.optString("characterName", "Cyber Hero GLB"),
-                    modelFile = obj.optString("modelFile", "karakter.glb"),
-                    scaleX = obj.optDouble("scaleX", 0.4).toFloat(),
-                    scaleY = obj.optDouble("scaleY", 0.4).toFloat(),
-                    scaleZ = obj.optDouble("scaleZ", 0.4).toFloat(),
+                    characterName = obj.optString("characterName", "Farmer Pete"),
+                    modelFile = obj.optString("modelFile", "farmer_harvest_moon.glb"),
+                    scaleX = obj.optDouble("scaleX", 1.0).toFloat(),
+                    scaleY = obj.optDouble("scaleY", 1.0).toFloat(),
+                    scaleZ = obj.optDouble("scaleZ", 1.0).toFloat(),
                     rotationOffsetYDeg = obj.optDouble("rotationOffsetYDeg", 0.0).toFloat(),
-                    heightOffset = obj.optDouble("heightOffset", 0.0).toFloat(),
+                    heightOffset = obj.optDouble("heightOffset", -0.10).toFloat(),
                     collisionRadius = col?.optDouble("radius", 0.6)?.toFloat() ?: obj.optDouble("collisionRadius", 0.6).toFloat(),
                     collisionHeight = col?.optDouble("height", 1.8)?.toFloat() ?: obj.optDouble("collisionHeight", 1.8).toFloat(),
                     walkSpeed = mov?.optDouble("walkSpeed", 6.5)?.toFloat() ?: obj.optDouble("walkSpeed", 6.5).toFloat(),

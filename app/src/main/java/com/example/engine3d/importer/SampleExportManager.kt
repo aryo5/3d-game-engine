@@ -102,7 +102,7 @@ class SampleExportManager(
         }
 
         val activePlayerConfig = (customModelManager?.playerConfig ?: PlayerConfig()).copy(
-            modelFile = if (activeCharName != "cyber_knight_default") activeCharName else "karakter.glb"
+            modelFile = if (activeCharName != "cyber_knight_default") activeCharName else "farmer_harvest_moon.glb"
         )
         files["player_config.json"] = activePlayerConfig.toJson()
 

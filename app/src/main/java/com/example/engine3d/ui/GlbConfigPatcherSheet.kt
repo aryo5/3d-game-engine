@@ -1,6 +1,5 @@
 package com.example.engine3d.ui
 
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -11,11 +10,13 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,10 +24,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,6 +50,13 @@ import com.example.engine3d.physics.PhysicsEngine
 import com.example.engine3d.physics.WorldBarrier
 import com.example.engine3d.renderer.EngineSettings
 import com.example.engine3d.terrain.TerrainMesh
+
+enum class CentralStudioTab(val title: String, val icon: ImageVector) {
+    MODELS("Model GLB", Icons.Default.FolderOpen),
+    ANIMATIONS("Animasi", Icons.Default.PlayArrow),
+    PHYSICS("Ukuran & Fisika", Icons.Default.Tune),
+    MAP_RADAR("Map Radar", Icons.Default.Place)
+}
 
 enum class CharacterAnimSlot(val key: String, val title: String, val icon: String, val description: String) {
     IDLE("idle", "Berdiri Diam (IDLE)", "🧍", "Saat pemain diam tanpa bergerak"),
@@ -79,14 +87,16 @@ fun GlbConfigPatcherSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
-
+    var activeTab by remember { mutableStateOf(CentralStudioTab.MODELS) }
     var selectedModel by remember { mutableStateOf<ImportedModelEntry?>(null) }
-    
-    // Automatically select first model if available
+
+    // Otomatis pilih model pertama yang ada bila belum terpilih
     LaunchedEffect(customModelManager.importedModels) {
         if (selectedModel == null && customModelManager.importedModels.isNotEmpty()) {
-            selectedModel = customModelManager.importedModels.first()
+            val activeChar = customModelManager.importedModels.firstOrNull {
+                it.fileName.equals(customModelManager.activeCharacterFileName, ignoreCase = true)
+            }
+            selectedModel = activeChar ?: customModelManager.importedModels.first()
         }
     }
 
@@ -98,7 +108,7 @@ fun GlbConfigPatcherSheet(
     var slashBind by remember { mutableStateOf("") }
     var manualModelTypeOverride by remember { mutableStateOf<ModelTarget?>(null) }
 
-    // Model configuration offset states (Gaya Jalangkung Anti-Tenggelam / Melayang)
+    // Model configuration offset states (Anti-Jalangkung / Melayang)
     var charScale by remember { mutableStateOf(1.2f) }
     var rotationOffset by remember { mutableStateOf(0f) }
     var heightOffset by remember { mutableStateOf(0f) }
@@ -108,7 +118,6 @@ fun GlbConfigPatcherSheet(
     var runMultiplier by remember { mutableStateOf(1.6f) }
     var jumpImpulse by remember { mutableStateOf(11.5f) }
 
-    var activePickingSlot by remember { mutableStateOf<CharacterAnimSlot?>(null) }
     var clipForQuickAssign by remember { mutableStateOf<String?>(null) }
 
     fun cleanClipDisplayName(raw: String): String {
@@ -199,14 +208,10 @@ fun GlbConfigPatcherSheet(
     // Map patcher states
     var activeTool by remember { mutableStateOf(PatcherTool.SET_SPAWN) }
     var customPortalTargetGbl by remember { mutableStateOf("interior.glb") }
-    var scaleMultiplier by remember { mutableStateOf(6f) } // width/depth of placed blocks
-    
-    // Canvas dimensions mapping
+    var scaleMultiplier by remember { mutableStateOf(6f) }
     val worldMin = -120f
     val worldMax = 120f
     val worldSize = worldMax - worldMin
-
-    // Forces canvas recomposition when elements are added
     var mapUpdateTrigger by remember { mutableStateOf(0) }
 
     Dialog(
@@ -224,11 +229,9 @@ fun GlbConfigPatcherSheet(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 18.dp, vertical = 12.dp)
-                    .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                // Top header
+                // Top Header (Fixed at top)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -238,16 +241,29 @@ fun GlbConfigPatcherSheet(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Build, contentDescription = null, tint = Color(0xFF00E5FF))
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(Color(0x3300E5FF), CircleShape)
+                                .border(1.dp, Color(0xFF00E5FF), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Build,
+                                contentDescription = null,
+                                tint = Color(0xFF00E5FF),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                         Column {
                             Text(
-                                text = "Pusat Hub Pintar GLB & Patcher Konfigurasi",
+                                text = "Central Studio Hub",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                                 color = Color.White
                             )
                             Text(
-                                text = "Autodeteksi isi file GLB, petakan animasi secara visual, serta rancang collision map & portal langsung.",
+                                text = "Pusat Konfigurasi GLB, Animasi Gerak, Fisika & Map",
                                 fontSize = 10.sp,
                                 color = Color(0xFF76FF03)
                             )
@@ -256,376 +272,466 @@ fun GlbConfigPatcherSheet(
 
                     Button(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.height(34.dp)
                     ) {
                         Text("✖ Tutup", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                // 1. CHOOSE ACTIVE GLB MODEL
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF131E33)),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(12.dp))
+                Spacer(Modifier.height(8.dp))
+
+                // Active Model Indicator Bar (Always visible)
+                val currentModel = selectedModel
+                Surface(
+                    color = Color(0xFF101726),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color(0xFF1E2B45)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "📦 Pilih File GLB Untuk Dikonfigurasi / Dipatch",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = Color(0xFF00E5FF)
-                        )
-
-                        if (customModelManager.importedModels.isEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("📦 Model Aktif:", fontSize = 11.sp, color = Color(0xFF90A4AE))
                             Text(
-                                text = "⚠️ Belum ada file GLB kustom yang diimpor. Silakan buka 'Pusat Impor & Kustomisasi Aset' di lobby terlebih dahulu untuk memuat file GLB Anda.",
-                                color = Color(0xFFFFB74D),
-                                fontSize = 11.sp
+                                text = currentModel?.fileName ?: "(Belum ada model dipilih)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (currentModel != null) Color(0xFF00E5FF) else Color(0xFFFFB74D)
                             )
-                        } else {
-                            // Quick Button for Default Farmer Harvest Moon GLB
-                            val defaultFarmerEntry = customModelManager.importedModels.firstOrNull { it.fileName.equals("farmer_harvest_moon.glb", ignoreCase = true) }
-                            if (defaultFarmerEntry != null) {
-                                Button(
-                                    onClick = {
-                                        selectedModel = defaultFarmerEntry
-                                        customModelManager.setActiveCharacter(defaultFarmerEntry, updatePlayerConfig = true)
-                                        customModelManager.activeCustomCharacterMesh = defaultFarmerEntry.mesh
-                                        Toast.makeText(context, "👨‍🌾 Karakter Farmer Harvest Moon diaktifkan!", Toast.LENGTH_SHORT).show()
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
-                                    modifier = Modifier.fillMaxWidth().height(36.dp)
-                                ) {
-                                    Text("👨‍🌾 Aktifkan Karakter Default: Farmer Harvest Moon", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                }
-                            }
+                        }
 
-                            // Model selection chips
-                            Text(text = "Daftar GLB Terdeteksi:", fontSize = 11.sp, color = Color(0xFF90A4AE))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        if (currentModel != null) {
+                            val isChar = (manualModelTypeOverride ?: currentModel.target) == ModelTarget.CHARACTER
+                            Box(
+                                modifier = Modifier
+                                    .background(if (isChar) Color(0xFF1565C0) else Color(0xFF2E7D32), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                customModelManager.importedModels.forEach { model ->
-                                    val isSelected = selectedModel == model
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { selectedModel = model },
-                                        label = { Text(model.fileName, fontSize = 10.sp) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFF76FF03),
-                                            selectedLabelColor = Color.Black,
-                                            containerColor = Color(0xFF1E2B47),
-                                            labelColor = Color.White
-                                        )
-                                    )
-                                }
+                                Text(
+                                    text = if (isChar) "🧍 KARAKTER" else "🗺️ TERRAIN",
+                                    fontSize = 9.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
                 }
 
-                // 2. MODEL TYPE ANALYSIS & OPTIONS PANEL
-                selectedModel?.let { model ->
-                    val hasAnimations = model.mesh.animationClips.isNotEmpty()
-                    val isMapModel = (manualModelTypeOverride ?: model.target) == ModelTarget.TERRAIN
+                Spacer(Modifier.height(8.dp))
 
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF101726)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            // Autodetected results
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "🔍 Hasil Analisis Otomatis File GLB",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = Color.White
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .background(if (isMapModel) Color(0xFF2E7D32) else Color(0xFF1565C0), RoundedCornerShape(12.dp))
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                // Studio Tab Navigation
+                TabRow(
+                    selectedTabIndex = activeTab.ordinal,
+                    containerColor = Color(0xFF101827),
+                    contentColor = Color(0xFF00E5FF),
+                    indicator = { tabPositions ->
+                        if (activeTab.ordinal < tabPositions.size) {
+                            TabRowDefaults.SecondaryIndicator(
+                                Modifier.tabIndicatorOffset(tabPositions[activeTab.ordinal]),
+                                color = Color(0xFF00E5FF)
+                            )
+                        }
+                    }
+                ) {
+                    CentralStudioTab.values().forEach { tab ->
+                        val isSelected = activeTab == tab
+                        Tab(
+                            selected = isSelected,
+                            onClick = { activeTab = tab },
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text(
-                                        text = if (isMapModel) "🗺️ MODEL TERRAIN/MAP" else "🧍 MODEL KARAKTER / HERO",
-                                        color = Color.White,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
+                                    Icon(
+                                        tab.icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp),
+                                        tint = if (isSelected) Color(0xFF00E5FF) else Color(0xFF90A4AE)
                                     )
-                                }
-                            }
-
-                            Text(
-                                text = "Nama File: ${model.fileName} • Format: ${model.format} • Vertex Count: ${model.mesh.vertexCount} • Anim Clips: ${model.mesh.animationClips.size}",
-                                fontSize = 11.sp,
-                                color = Color(0xFF90A4AE)
-                            )
-
-                            Text(
-                                text = "Pilih Peran Model Ini Secara Manual (Sangat Penting):",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                listOf(
-                                    ModelTarget.CHARACTER to "🧍 Karakter / Hero",
-                                    ModelTarget.TERRAIN to "🗺️ Permukaan / Terrain"
-                                ).forEach { (targetType, label) ->
-                                    val isCurrent = (manualModelTypeOverride ?: model.target) == targetType
-                                    FilterChip(
-                                        selected = isCurrent,
-                                        onClick = {
-                                            manualModelTypeOverride = targetType
-                                            if (targetType == ModelTarget.TERRAIN) {
-                                                customModelManager.setActiveTerrain(model, terrainMesh)
-                                            } else {
-                                                customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
-                                            }
-                                        },
-                                        label = { Text(label, fontSize = 11.sp) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = if (targetType == ModelTarget.TERRAIN) Color(0xFF76FF03) else Color(0xFF00E5FF),
-                                            selectedLabelColor = Color.Black,
-                                            containerColor = Color(0xFF1E2B47),
-                                            labelColor = Color.White
-                                        ),
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-
-                            // Dedicated Overwrite Default Controls
-                            val isPrimaryChar = customModelManager.activeCharacterFileName.equals(model.fileName, ignoreCase = true)
-                            val isPrimaryTerrain = customModelManager.activeTerrainFileName.equals(model.fileName, ignoreCase = true)
-
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1220)),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFFFD600).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(
-                                        text = "⚡ Kontrol Overwrite Penuh (Hilangkan Konflik Aset Bawaan):",
+                                        tab.title,
                                         fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFFFD600)
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) Color(0xFF00E5FF) else Color(0xFF90A4AE)
                                     )
-                                    Text(
-                                        text = "Tombol ini mengganti total hero atau permukaan bukit bawaan dengan aset import Anda secara permanen.",
-                                        fontSize = 9.sp,
-                                        color = Color(0xFFB0BEC5)
-                                    )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Button(
-                                            onClick = {
-                                                customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
-                                                customModelManager.activeCustomCharacterMesh = model.mesh
-                                                Toast.makeText(context, "👑 Model '${model.fileName}' kini aktif menggantikan Karakter Hero Default!", Toast.LENGTH_SHORT).show()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isPrimaryChar) Color(0xFF00E5FF) else Color(0xFF1E2B47)
-                                            ),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Text(
-                                                text = if (isPrimaryChar) "👑 Hero Utama (Aktif)" else "⭐ Overwrite Hero Default",
-                                                color = if (isPrimaryChar) Color.Black else Color.White,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-
-                                        Button(
-                                            onClick = {
-                                                customModelManager.setActiveTerrain(model, terrainMesh)
-                                                terrainMesh.setCustomMesh(model.mesh)
-                                                Toast.makeText(context, "🗺️ Model '${model.fileName}' kini aktif menggantikan Permukaan/Terrain Default!", Toast.LENGTH_SHORT).show()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isPrimaryTerrain) Color(0xFF76FF03) else Color(0xFF1E2B47)
-                                            ),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Text(
-                                                text = if (isPrimaryTerrain) "🗺️ Map Utama (Aktif)" else "⭐ Overwrite Map Default",
-                                                color = if (isPrimaryTerrain) Color.Black else Color.White,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
                                 }
                             }
+                        )
+                    }
+                }
 
-                            Divider(color = Color(0xFF1F2B45))
+                Spacer(Modifier.height(10.dp))
 
-                            // 2A. CHARACTER ANIMATION BINDER PANEL
-                            if (!isMapModel || hasAnimations) {
-                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "🏃 Pemetaan & Penyambungan Animasi Karakter",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp,
-                                                color = Color(0xFF76FF03)
-                                            )
-                                            Text(
-                                                text = "Hubungkan klip animasi GLB ke status gerakan fisik game.",
-                                                fontSize = 10.sp,
-                                                color = Color(0xFFB0BEC5)
-                                            )
-                                        }
+                // Scrollable Content per Tab (Each tab has its own localized, tidy scroll)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    when (activeTab) {
+                        CentralStudioTab.MODELS -> {
+                            // TAB 1: MODEL GLB SELECTION & OVERWRITE
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF131E33)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "📦 Pilih File GLB Untuk Dikonfigurasi",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = Color(0xFF00E5FF)
+                                    )
 
-                                        if (model.mesh.animationClips.isNotEmpty()) {
-                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                Button(
-                                                    onClick = {
-                                                        runAutoDetect(model.mesh.animationClips.map { it.name })
-                                                        Toast.makeText(context, "⚡ Deteksi otomatis klip berhasil diterapkan!", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                                    modifier = Modifier.height(34.dp)
-                                                ) {
-                                                    Text("⚡ Auto-Match", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                                                }
-
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        idleBind = ""
-                                                        walkBind = ""
-                                                        runBind = ""
-                                                        jumpBind = ""
-                                                        slashBind = ""
-                                                        clipForQuickAssign = null
-                                                        Toast.makeText(context, "Binding animasi direset", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                                                    modifier = Modifier.height(34.dp)
-                                                ) {
-                                                    Text("Reset", color = Color(0xFFFF5252), fontSize = 10.sp)
-                                                }
-                                            }
-                                        }
-
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .background(Color(0xFF1E2B47), RoundedCornerShape(8.dp))
-                                                .padding(10.dp),
-                                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Text(
-                                                "Satu-Ketuk Preset Animasi Cepat (Gaya Mixamo / Blender / Synty):",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFFFFD600)
-                                            )
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                val clips = model.mesh.animationClips.map { it.name }
-                                                
-                                                // 1. Mixamo Preset
-                                                Button(
-                                                    onClick = {
-                                                        idleBind = clips.firstOrNull { it.contains("idle", ignoreCase = true) } ?: clips.firstOrNull() ?: ""
-                                                        walkBind = clips.firstOrNull { it.contains("walk", ignoreCase = true) } ?: clips.firstOrNull() ?: ""
-                                                        runBind = clips.firstOrNull { it.contains("run", ignoreCase = true) || it.contains("sprint", ignoreCase = true) } ?: walkBind
-                                                        jumpBind = clips.firstOrNull { it.contains("jump", ignoreCase = true) || it.contains("leap", ignoreCase = true) } ?: idleBind
-                                                        slashBind = clips.firstOrNull { it.contains("attack", ignoreCase = true) || it.contains("slash", ignoreCase = true) || it.contains("hit", ignoreCase = true) } ?: idleBind
-                                                        Toast.makeText(context, "Preset Mixamo diterapkan!", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
-                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                                    modifier = Modifier.height(28.dp)
-                                                ) {
-                                                    Text("🏃 Mixamo Style", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                                }
-
-                                                // 2. Blender / Unity Capitalized
-                                                Button(
-                                                    onClick = {
-                                                        idleBind = clips.firstOrNull { it == "Idle" || it == "IDLE" || it.contains("idle") } ?: ""
-                                                        walkBind = clips.firstOrNull { it == "Walk" || it == "WALK" || it.contains("walk") } ?: ""
-                                                        runBind = clips.firstOrNull { it == "Run" || it == "RUN" || it.contains("run") } ?: walkBind
-                                                        jumpBind = clips.firstOrNull { it == "Jump" || it == "JUMP" || it.contains("jump") } ?: idleBind
-                                                        slashBind = clips.firstOrNull { it == "Attack" || it == "Slash" || it.contains("attack") } ?: idleBind
-                                                        Toast.makeText(context, "Preset Blender/Unity diterapkan!", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
-                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                                    modifier = Modifier.height(28.dp)
-                                                ) {
-                                                    Text("🎨 Blender / Unity Rig", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                                }
-
-                                                // 3. Reset to Standard System Defaults (For fallback or unrigged custom)
-                                                Button(
-                                                    onClick = {
-                                                        idleBind = "anim_idle"
-                                                        walkBind = "anim_walk"
-                                                        runBind = "anim_run"
-                                                        jumpBind = "anim_jump"
-                                                        slashBind = "anim_slash"
-                                                        Toast.makeText(context, "Direset ke nama animasi bawaan sistem!", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD84315)),
-                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                                    modifier = Modifier.height(28.dp)
-                                                ) {
-                                                    Text("⚙️ Bawaan Sistem", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if (model.mesh.animationClips.isEmpty()) {
+                                    if (customModelManager.importedModels.isEmpty()) {
                                         Text(
-                                            text = "ℹ️ Tidak ditemukan klip animasi internal di file GLB ini. Karakter ini akan beranimasi secara prosedural.",
-                                            fontSize = 10.sp,
-                                            color = Color(0xFFFFB74D)
+                                            text = "⚠️ Belum ada file GLB kustom yang diimpor. Buka 'Pusat Impor & Kustomisasi Aset' di lobby untuk memuat file GLB Anda.",
+                                            color = Color(0xFFFFB74D),
+                                            fontSize = 11.sp
                                         )
                                     } else {
-                                        val clipNames = model.mesh.animationClips.map { it.name }
+                                        // Quick Button for Default Farmer Harvest Moon
+                                        val defaultFarmer = customModelManager.importedModels.firstOrNull {
+                                            it.fileName.equals("farmer_harvest_moon.glb", ignoreCase = true)
+                                        }
+                                        if (defaultFarmer != null) {
+                                            Button(
+                                                onClick = {
+                                                    selectedModel = defaultFarmer
+                                                    customModelManager.setActiveCharacter(defaultFarmer, updatePlayerConfig = true)
+                                                    customModelManager.activeCustomCharacterMesh = defaultFarmer.mesh
+                                                    Toast.makeText(context, "👨‍🌾 Karakter Farmer Harvest Moon diaktifkan!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
+                                                modifier = Modifier.fillMaxWidth().height(36.dp)
+                                            ) {
+                                                Text(
+                                                    "👨‍🌾 Aktifkan Karakter Default: Farmer Harvest Moon",
+                                                    color = Color.Black,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                        }
 
-                                        // Horizontal scrollable chips for all clips
-                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        // HORIZONTALLY SCROLLABLE CHIPS (Never clipped or pushed outside area)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Daftar GLB Terdeteksi (${customModelManager.importedModels.size} file):",
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF90A4AE)
+                                            )
+                                            Text(
+                                                text = "Geser ke samping →",
+                                                fontSize = 9.sp,
+                                                color = Color(0xFF00E5FF)
+                                            )
+                                        }
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .horizontalScroll(rememberScrollState()),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            customModelManager.importedModels.forEach { model ->
+                                                val isSelected = selectedModel == model
+                                                val isChar = customModelManager.activeCharacterFileName.equals(model.fileName, ignoreCase = true)
+                                                val isTerrain = customModelManager.activeTerrainFileName.equals(model.fileName, ignoreCase = true)
+
+                                                FilterChip(
+                                                    selected = isSelected,
+                                                    onClick = { selectedModel = model },
+                                                    label = {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            if (isChar) Text("👑", fontSize = 10.sp)
+                                                            if (isTerrain) Text("🗺️", fontSize = 10.sp)
+                                                            Text(model.fileName, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                                        }
+                                                    },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = Color(0xFF00E5FF),
+                                                        selectedLabelColor = Color.Black,
+                                                        containerColor = Color(0xFF1E2B47),
+                                                        labelColor = Color.White
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Active Model Card & Role Selector
+                            selectedModel?.let { model ->
+                                val isMapModel = (manualModelTypeOverride ?: model.target) == ModelTarget.TERRAIN
+                                val isPrimaryChar = customModelManager.activeCharacterFileName.equals(model.fileName, ignoreCase = true)
+                                val isPrimaryTerrain = customModelManager.activeTerrainFileName.equals(model.fileName, ignoreCase = true)
+
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF101726)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            text = "🔍 Rincian Model: ${model.fileName}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color.White
+                                        )
+
+                                        Text(
+                                            text = "Format: ${model.format} • Vertex: ${model.mesh.vertexCount} • Klip Animasi: ${model.mesh.animationClips.size}",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF90A4AE)
+                                        )
+
+                                        Text(
+                                            text = "Tentukan Peran Model Ini:",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            listOf(
+                                                ModelTarget.CHARACTER to "🧍 Karakter / Hero",
+                                                ModelTarget.TERRAIN to "🗺️ Permukaan / Terrain"
+                                            ).forEach { (targetType, label) ->
+                                                val isCurrent = (manualModelTypeOverride ?: model.target) == targetType
+                                                FilterChip(
+                                                    selected = isCurrent,
+                                                    onClick = {
+                                                        manualModelTypeOverride = targetType
+                                                        if (targetType == ModelTarget.TERRAIN) {
+                                                            customModelManager.setActiveTerrain(model, terrainMesh)
+                                                        } else {
+                                                            customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
+                                                        }
+                                                    },
+                                                    label = { Text(label, fontSize = 11.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = if (targetType == ModelTarget.TERRAIN) Color(0xFF76FF03) else Color(0xFF00E5FF),
+                                                        selectedLabelColor = Color.Black,
+                                                        containerColor = Color(0xFF1E2B47),
+                                                        labelColor = Color.White
+                                                    ),
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                            }
+                                        }
+
+                                        HorizontalDivider(color = Color(0xFF1E2B47), modifier = Modifier.padding(vertical = 4.dp))
+
+                                        Text(
+                                            text = "⚡ Kontrol Jadikan Aset Utama (Overwrite):",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFFFD600)
+                                        )
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Button(
+                                                onClick = {
+                                                    customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
+                                                    customModelManager.activeCustomCharacterMesh = model.mesh
+                                                    Toast.makeText(context, "👑 Model '${model.fileName}' aktif sebagai Hero Utama!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = if (isPrimaryChar) Color(0xFF00E5FF) else Color(0xFF1E2B47)
+                                                ),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(
+                                                    text = if (isPrimaryChar) "👑 Hero Utama (Aktif)" else "⭐ Overwrite Hero",
+                                                    color = if (isPrimaryChar) Color.Black else Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+
+                                            Button(
+                                                onClick = {
+                                                    customModelManager.setActiveTerrain(model, terrainMesh)
+                                                    terrainMesh.setCustomMesh(model.mesh)
+                                                    Toast.makeText(context, "🗺️ Model '${model.fileName}' aktif sebagai Map Utama!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = if (isPrimaryTerrain) Color(0xFF76FF03) else Color(0xFF1E2B47)
+                                                ),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(
+                                                    text = if (isPrimaryTerrain) "🗺️ Map Utama (Aktif)" else "⭐ Overwrite Map",
+                                                    color = if (isPrimaryTerrain) Color.Black else Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        CentralStudioTab.ANIMATIONS -> {
+                            // TAB 2: ANIMATION BINDING
+                            val model = selectedModel
+                            if (model == null) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF131E33)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        "Pilih file GLB terlebih dahulu pada tab 'Model GLB'.",
+                                        modifier = Modifier.padding(16.dp),
+                                        color = Color(0xFFFFB74D),
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            } else {
+                                val clips = model.mesh.animationClips.map { it.name }
+
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF101726)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            text = "🏃 Pemetaan & Penyambungan Animasi Karakter",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF76FF03)
+                                        )
+                                        Text(
+                                            text = "Model: ${model.fileName} (${clips.size} klip animasi ditemukan)",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFFB0BEC5)
+                                        )
+
+                                        // Preset Buttons in a Clean Horizontal Scroll Row
+                                        Text(
+                                            text = "Preset Cepat:",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFFFD600)
+                                        )
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .horizontalScroll(rememberScrollState()),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Button(
+                                                onClick = {
+                                                    runAutoDetect(clips)
+                                                    Toast.makeText(context, "⚡ Deteksi otomatis klip berhasil!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(30.dp)
+                                            ) {
+                                                Text("⚡ Auto-Match", color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            }
+
+                                            Button(
+                                                onClick = {
+                                                    idleBind = clips.firstOrNull { it.contains("idle", ignoreCase = true) } ?: clips.firstOrNull() ?: ""
+                                                    walkBind = clips.firstOrNull { it.contains("walk", ignoreCase = true) } ?: clips.firstOrNull() ?: ""
+                                                    runBind = clips.firstOrNull { it.contains("run", ignoreCase = true) || it.contains("sprint", ignoreCase = true) } ?: walkBind
+                                                    jumpBind = clips.firstOrNull { it.contains("jump", ignoreCase = true) || it.contains("leap", ignoreCase = true) } ?: idleBind
+                                                    slashBind = clips.firstOrNull { it.contains("attack", ignoreCase = true) || it.contains("slash", ignoreCase = true) || it.contains("hit", ignoreCase = true) } ?: idleBind
+                                                    Toast.makeText(context, "Preset Mixamo diterapkan!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(30.dp)
+                                            ) {
+                                                Text("🏃 Mixamo Style", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            }
+
+                                            Button(
+                                                onClick = {
+                                                    idleBind = clips.firstOrNull { it == "Idle" || it == "IDLE" || it.contains("idle") } ?: ""
+                                                    walkBind = clips.firstOrNull { it == "Walk" || it == "WALK" || it.contains("walk") } ?: ""
+                                                    runBind = clips.firstOrNull { it == "Run" || it == "RUN" || it.contains("run") } ?: walkBind
+                                                    jumpBind = clips.firstOrNull { it == "Jump" || it == "JUMP" || it.contains("jump") } ?: idleBind
+                                                    slashBind = clips.firstOrNull { it == "Attack" || it == "Slash" || it.contains("attack") } ?: idleBind
+                                                    Toast.makeText(context, "Preset Blender/Unity diterapkan!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(30.dp)
+                                            ) {
+                                                Text("🎨 Blender/Unity", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            }
+
+                                            OutlinedButton(
+                                                onClick = {
+                                                    idleBind = ""
+                                                    walkBind = ""
+                                                    runBind = ""
+                                                    jumpBind = ""
+                                                    slashBind = ""
+                                                    clipForQuickAssign = null
+                                                    Toast.makeText(context, "Binding direset", Toast.LENGTH_SHORT).show()
+                                                },
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(30.dp)
+                                            ) {
+                                                Text("Reset", color = Color(0xFFFF5252), fontSize = 9.sp)
+                                            }
+                                        }
+
+                                        // Horizontal Clips Selector
+                                        if (clips.isNotEmpty()) {
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Text(
-                                                    text = "Klip Animasi Internal GLB (${clipNames.size} klip - Ketuk klip untuk pasang cepat):",
+                                                    text = "Klip Internal GLB (Ketuk untuk pasang cepat):",
                                                     fontSize = 10.sp,
                                                     color = Color.White,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                                 Text(
-                                                    text = "Geser ke samping →",
+                                                    text = "Geser →",
                                                     fontSize = 9.sp,
-                                                    color = Color(0xFF80D8FF)
+                                                    color = Color(0xFF00E5FF)
                                                 )
                                             }
 
@@ -635,7 +741,7 @@ fun GlbConfigPatcherSheet(
                                                     .horizontalScroll(rememberScrollState()),
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
-                                                clipNames.forEach { name ->
+                                                clips.forEach { name ->
                                                     val cleanName = cleanClipDisplayName(name)
                                                     val assignedBadge = when (name) {
                                                         idleBind -> "IDLE"
@@ -658,45 +764,19 @@ fun GlbConfigPatcherSheet(
                                                         shape = RoundedCornerShape(6.dp)
                                                     ) {
                                                         Row(
-                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                                                             verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                         ) {
-                                                            Icon(
-                                                                Icons.Default.PlayArrow,
-                                                                contentDescription = null,
-                                                                tint = if (assignedBadge != null) Color(0xFF76FF03) else Color(0xFF00E5FF),
-                                                                modifier = Modifier.size(12.dp)
-                                                            )
-                                                            Column {
-                                                                Text(
-                                                                    text = cleanName,
-                                                                    fontSize = 11.sp,
-                                                                    color = Color.White,
-                                                                    fontWeight = FontWeight.Bold
-                                                                )
-                                                                if (cleanName != name) {
-                                                                    Text(
-                                                                        text = name,
-                                                                        fontSize = 8.sp,
-                                                                        color = Color(0xFF80D8FF).copy(alpha = 0.6f),
-                                                                        fontFamily = FontFamily.Monospace,
-                                                                        maxLines = 1
-                                                                    )
-                                                                }
-                                                            }
+                                                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = if (assignedBadge != null) Color(0xFF76FF03) else Color(0xFF00E5FF), modifier = Modifier.size(12.dp))
+                                                            Text(cleanName, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                                             if (assignedBadge != null) {
                                                                 Box(
                                                                     modifier = Modifier
                                                                         .background(Color(0xFF76FF03), RoundedCornerShape(3.dp))
-                                                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                                                        .padding(horizontal = 3.dp, vertical = 1.dp)
                                                                 ) {
-                                                                    Text(
-                                                                        text = assignedBadge,
-                                                                        fontSize = 8.sp,
-                                                                        color = Color.Black,
-                                                                        fontWeight = FontWeight.Bold
-                                                                    )
+                                                                    Text(assignedBadge, fontSize = 8.sp, color = Color.Black, fontWeight = FontWeight.Bold)
                                                                 }
                                                             }
                                                         }
@@ -704,37 +784,28 @@ fun GlbConfigPatcherSheet(
                                                 }
                                             }
 
-                                            // INLINE Quick Assign Bar (Never uses popup AlertDialog!)
+                                            // Quick Assign Bar
                                             if (clipForQuickAssign != null) {
                                                 val qClip = clipForQuickAssign!!
                                                 val qClean = cleanClipDisplayName(qClip)
-                                                Card(
-                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF162A45)),
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(8.dp))
-                                                        .padding(vertical = 4.dp)
+                                                Surface(
+                                                    color = Color(0xFF162A45),
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    border = BorderStroke(1.dp, Color(0xFF00E5FF)),
+                                                    modifier = Modifier.fillMaxWidth()
                                                 ) {
-                                                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                                         Row(
                                                             modifier = Modifier.fillMaxWidth(),
                                                             horizontalArrangement = Arrangement.SpaceBetween,
                                                             verticalAlignment = Alignment.CenterVertically
                                                         ) {
-                                                            Text(
-                                                                text = "⚡ Pasang Klip '$qClean' ke Status:",
-                                                                fontSize = 11.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = Color(0xFF00E5FF)
-                                                            )
-                                                            IconButton(
-                                                                onClick = { clipForQuickAssign = null },
-                                                                modifier = Modifier.size(24.dp)
-                                                            ) {
-                                                                Icon(Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                            Text("⚡ Pasang '$qClean' ke Slot:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF00E5FF))
+                                                            IconButton(onClick = { clipForQuickAssign = null }, modifier = Modifier.size(20.dp)) {
+                                                                Icon(Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                                                             }
                                                         }
+
                                                         Row(
                                                             modifier = Modifier
                                                                 .fillMaxWidth()
@@ -755,24 +826,19 @@ fun GlbConfigPatcherSheet(
                                                                             CharacterAnimSlot.IDLE -> idleBind = qClip
                                                                             CharacterAnimSlot.WALK -> walkBind = qClip
                                                                             CharacterAnimSlot.RUN -> runBind = qClip
-                                                                            CharacterAnimSlot.JUMP -> jumpBind = qClip
+                                                                            CharacterAnimSlot.JUMP -> jumpBind == qClip
                                                                             CharacterAnimSlot.SLASH -> slashBind = qClip
                                                                         }
                                                                         clipForQuickAssign = null
-                                                                        Toast.makeText(context, "✓ Klip '$qClean' dipasang ke ${slot.title}", Toast.LENGTH_SHORT).show()
+                                                                        Toast.makeText(context, "✓ Dipasang ke ${slot.title}", Toast.LENGTH_SHORT).show()
                                                                     },
                                                                     colors = ButtonDefaults.buttonColors(
                                                                         containerColor = if (isSlotSet) Color(0xFF2E7D32) else Color(0xFF00E5FF)
                                                                     ),
-                                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                                                    modifier = Modifier.height(30.dp)
+                                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                                    modifier = Modifier.height(26.dp)
                                                                 ) {
-                                                                    Text(
-                                                                        "${slot.icon} ${slot.key.uppercase()}",
-                                                                        color = if (isSlotSet) Color.White else Color.Black,
-                                                                        fontSize = 9.sp,
-                                                                        fontWeight = FontWeight.Bold
-                                                                    )
+                                                                    Text("${slot.icon} ${slot.key.uppercase()}", color = if (isSlotSet) Color.White else Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                                                 }
                                                             }
                                                         }
@@ -783,9 +849,9 @@ fun GlbConfigPatcherSheet(
 
                                         Spacer(Modifier.height(4.dp))
 
-                                        // Action Slots Bind Cards (Inline Selection - No Dialogs)
+                                        // Detailed Bind Cards
                                         Text(
-                                            text = "Slot Status Gerakan Karakter (Ketuk 'Pilih Klip' untuk memilih):",
+                                            text = "Slot Status Gerakan Karakter:",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White
@@ -797,7 +863,7 @@ fun GlbConfigPatcherSheet(
                                                 slotIcon = "🧍",
                                                 slotDescription = "Saat pemain diam tanpa input",
                                                 currentValue = idleBind,
-                                                availableClips = clipNames,
+                                                availableClips = clips,
                                                 cleanClipDisplayName = ::cleanClipDisplayName,
                                                 onSelectClip = { idleBind = it },
                                                 onClearClick = { idleBind = "" }
@@ -807,7 +873,7 @@ fun GlbConfigPatcherSheet(
                                                 slotIcon = "🚶",
                                                 slotDescription = "Saat joystick digerakkan santai",
                                                 currentValue = walkBind,
-                                                availableClips = clipNames,
+                                                availableClips = clips,
                                                 cleanClipDisplayName = ::cleanClipDisplayName,
                                                 onSelectClip = { walkBind = it },
                                                 onClearClick = { walkBind = "" }
@@ -815,9 +881,9 @@ fun GlbConfigPatcherSheet(
                                             AnimationBindCard(
                                                 slotTitle = "Berlari Cepat (RUN)",
                                                 slotIcon = "🏃",
-                                                slotDescription = "Saat tombol sprint aktif / lari cepat",
+                                                slotDescription = "Saat tombol sprint aktif",
                                                 currentValue = runBind,
-                                                availableClips = clipNames,
+                                                availableClips = clips,
                                                 cleanClipDisplayName = ::cleanClipDisplayName,
                                                 onSelectClip = { runBind = it },
                                                 onClearClick = { runBind = "" }
@@ -825,9 +891,9 @@ fun GlbConfigPatcherSheet(
                                             AnimationBindCard(
                                                 slotTitle = "Melompat (JUMP)",
                                                 slotIcon = "🦘",
-                                                slotDescription = "Saat tombol lompat ditekan / melayang",
+                                                slotDescription = "Saat di udara / melompat",
                                                 currentValue = jumpBind,
-                                                availableClips = clipNames,
+                                                availableClips = clips,
                                                 cleanClipDisplayName = ::cleanClipDisplayName,
                                                 onSelectClip = { jumpBind = it },
                                                 onClearClick = { jumpBind = "" }
@@ -835,182 +901,16 @@ fun GlbConfigPatcherSheet(
                                             AnimationBindCard(
                                                 slotTitle = "Menyerang (SLASH / ATTACK)",
                                                 slotIcon = "⚔️",
-                                                slotDescription = "Saat tombol aksi serang ditekan",
+                                                slotDescription = "Saat tombol serang ditekan",
                                                 currentValue = slashBind,
-                                                availableClips = clipNames,
+                                                availableClips = clips,
                                                 cleanClipDisplayName = ::cleanClipDisplayName,
                                                 onSelectClip = { slashBind = it },
                                                 onClearClick = { slashBind = "" }
                                             )
                                         }
 
-                                        // Section: Penyesuaian Ukuran, Tinggi & Fisika Karakter (Anti-Melayang / Jalangkung)
-                                        Card(
-                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF162032)),
-                                            shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(10.dp))
-                                        ) {
-                                            Column(
-                                                modifier = Modifier.padding(12.dp),
-                                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                ) {
-                                                    Text("📏", fontSize = 16.sp)
-                                                    Text(
-                                                        "Penyesuaian Skala & Posisi Model 3D",
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 13.sp,
-                                                        color = Color(0xFF00E5FF)
-                                                    )
-                                                }
-
-                                                Text(
-                                                    "Bila model karakter Anda melayang seperti jalangkung atau terkubur, sesuaikan Tinggi Offset (Y) di bawah ini agar kakinya pas menempel di tanah.",
-                                                    fontSize = 10.sp,
-                                                    color = Color(0xFFB0BEC5),
-                                                    lineHeight = 14.sp
-                                                )
-
-                                                // Slider: Skala Karakter (charScale)
-                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text("Skala / Ukuran Model 3D:", fontSize = 11.sp)
-                                                        Text("${"%.2f".format(charScale)}x", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                                    }
-                                                    Slider(
-                                                        value = charScale,
-                                                        onValueChange = { charScale = it },
-                                                        valueRange = 0.3f..3.5f,
-                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
-                                                    )
-                                                }
-
-                                                // Slider: Tinggi Offset (heightOffset) -> SOLVES JALANGKUNG MELAYANG
-                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text("Tinggi Offset (Y) - Anti Melayang:", fontSize = 11.sp)
-                                                        Text("${"%.2f".format(heightOffset)} meter", color = Color(0xFF76FF03), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                                    }
-                                                    Slider(
-                                                        value = heightOffset,
-                                                        onValueChange = { heightOffset = it },
-                                                        valueRange = -2.5f..2.5f,
-                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF76FF03), activeTrackColor = Color(0xFF76FF03))
-                                                    )
-                                                }
-
-                                                // Slider: Rotasi Offset (rotationOffset)
-                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text("Rotasi Offset Hadap Depan (Y-Axis):", fontSize = 11.sp)
-                                                        Text("${rotationOffset.toInt()}°", color = Color(0xFFFFD600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                                    }
-                                                    Slider(
-                                                        value = rotationOffset,
-                                                        onValueChange = { rotationOffset = it },
-                                                        valueRange = 0f..360f,
-                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
-                                                    )
-                                                }
-
-                                                // Slider: Radius Fisika Tabrakan (collisionRadius)
-                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text("Radius Kolisi Tabrakan Fisika:", fontSize = 11.sp)
-                                                        Text("${"%.2f".format(collisionRadius)}m", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                                    }
-                                                    Slider(
-                                                        value = collisionRadius,
-                                                        onValueChange = { collisionRadius = it },
-                                                        valueRange = 0.2f..2.0f,
-                                                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White)
-                                                    )
-                                                }
-
-                                                // Slider: Tinggi Fisika Tabrakan (collisionHeight)
-                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text("Tinggi Kolisi Tabrakan Fisika:", fontSize = 11.sp)
-                                                        Text("${"%.2f".format(collisionHeight)}m", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                                    }
-                                                    Slider(
-                                                        value = collisionHeight,
-                                                        onValueChange = { collisionHeight = it },
-                                                        valueRange = 0.5f..3.5f,
-                                                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White)
-                                                    )
-                                                }
-
-                                                // Slider: Kecepatan Jalan (walkSpeed)
-                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text("Kecepatan Berjalan Karakter:", fontSize = 11.sp)
-                                                        Text("${"%.1f".format(walkSpeed)} m/s", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                                    }
-                                                    Slider(
-                                                        value = walkSpeed,
-                                                        onValueChange = { walkSpeed = it },
-                                                        valueRange = 2.0f..15.0f,
-                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
-                                                    )
-                                                }
-
-                                                // Slider: Multiplier Kecepatan Lari (runMultiplier)
-                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text("Multiplier Lari Cepat (Sprint):", fontSize = 11.sp)
-                                                        Text("${"%.1f".format(runMultiplier)}x", color = Color(0xFF76FF03), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                                    }
-                                                    Slider(
-                                                        value = runMultiplier,
-                                                        onValueChange = { runMultiplier = it },
-                                                        valueRange = 1.1f..2.5f,
-                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFF76FF03), activeTrackColor = Color(0xFF76FF03))
-                                                    )
-                                                }
-
-                                                // Slider: Kekuatan Lompatan (jumpImpulse)
-                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text("Kekuatan Dorongan Melompat:", fontSize = 11.sp)
-                                                        Text("${"%.1f".format(jumpImpulse)}", color = Color(0xFFFFD600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                                    }
-                                                    Slider(
-                                                        value = jumpImpulse,
-                                                        onValueChange = { jumpImpulse = it },
-                                                        valueRange = 5.0f..20.0f,
-                                                        colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
-                                                    )
-                                                }
-                                            }
-                                        }
+                                        Spacer(Modifier.height(4.dp))
 
                                         Button(
                                             onClick = {
@@ -1036,28 +936,213 @@ fun GlbConfigPatcherSheet(
                                                 customModelManager.savePlayerConfig(config)
                                                 customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
                                                 customModelManager.activeCustomCharacterMesh = model.mesh
-                                                Toast.makeText(context, "✓ Berhasil Menyimpan & Menghubungkan Animasi Karakter!", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, "✓ Berhasil Menyimpan & Menghubungkan Animasi!", Toast.LENGTH_SHORT).show()
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(46.dp)
+                                                .height(44.dp)
                                                 .testTag("apply_animations_patch_button")
                                         ) {
-                                            Text(
-                                                "✓ Simpan & Hubungkan Animasi Karakter",
-                                                color = Color.Black,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 12.sp
-                                            )
+                                            Text("✓ Simpan & Hubungkan Animasi Karakter", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
                                     }
                                 }
                             }
+                        }
 
-                            // 2B. MAP CONFIG & SOLID BLOCK COLLISION RADAR PATCHER
-                            if (isMapModel) {
-                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CentralStudioTab.PHYSICS -> {
+                            // TAB 3: MODEL SCALE, HEIGHT OFFSET (ANTI-JALANGKUNG), & PHYSICS
+                            val model = selectedModel
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF131E33)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text("📏", fontSize = 16.sp)
+                                        Text(
+                                            "Penyesuaian Skala & Posisi (Anti-Jalangkung)",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF00E5FF)
+                                        )
+                                    }
+
+                                    Text(
+                                        "Atur Tinggi Offset (Y) agar kaki karakter pas menempel di tanah dan tidak melayang.",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFFB0BEC5)
+                                    )
+
+                                    // 1. Skala Model
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Skala / Ukuran Model 3D:", fontSize = 11.sp, color = Color.White)
+                                            Text("${"%.2f".format(charScale)}x", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                        Slider(
+                                            value = charScale,
+                                            onValueChange = { charScale = it },
+                                            valueRange = 0.3f..3.5f,
+                                            colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
+                                        )
+                                    }
+
+                                    // 2. Tinggi Offset Y (Anti-Melayang)
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Tinggi Offset (Y) - Anti-Melayang:", fontSize = 11.sp, color = Color.White)
+                                            Text("${"%.2f".format(heightOffset)} meter", color = Color(0xFF76FF03), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                        Slider(
+                                            value = heightOffset,
+                                            onValueChange = { heightOffset = it },
+                                            valueRange = -2.5f..2.5f,
+                                            colors = SliderDefaults.colors(thumbColor = Color(0xFF76FF03), activeTrackColor = Color(0xFF76FF03))
+                                        )
+                                    }
+
+                                    // 3. Rotasi Offset
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Rotasi Offset Hadap Depan (Y-Axis):", fontSize = 11.sp, color = Color.White)
+                                            Text("${rotationOffset.toInt()}°", color = Color(0xFFFFD600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                        Slider(
+                                            value = rotationOffset,
+                                            onValueChange = { rotationOffset = it },
+                                            valueRange = 0f..360f,
+                                            colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
+                                        )
+                                    }
+
+                                    HorizontalDivider(color = Color(0xFF1E2B47), modifier = Modifier.padding(vertical = 4.dp))
+
+                                    Text(
+                                        "🛡️ Kolisi Tabrakan & Gerak Karakter:",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF76FF03)
+                                    )
+
+                                    // 4. Radius Kolisi
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Radius Kolisi Tabrakan Fisika:", fontSize = 11.sp, color = Color.White)
+                                            Text("${"%.2f".format(collisionRadius)}m", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                        Slider(
+                                            value = collisionRadius,
+                                            onValueChange = { collisionRadius = it },
+                                            valueRange = 0.2f..2.0f,
+                                            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White)
+                                        )
+                                    }
+
+                                    // 5. Tinggi Kolisi
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Tinggi Kolisi Tabrakan Fisika:", fontSize = 11.sp, color = Color.White)
+                                            Text("${"%.2f".format(collisionHeight)}m", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                        Slider(
+                                            value = collisionHeight,
+                                            onValueChange = { collisionHeight = it },
+                                            valueRange = 0.5f..3.5f,
+                                            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White)
+                                        )
+                                    }
+
+                                    // 6. Kecepatan Jalan
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Kecepatan Jalan:", fontSize = 11.sp, color = Color.White)
+                                            Text("${"%.1f".format(walkSpeed)} m/s", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                        Slider(
+                                            value = walkSpeed,
+                                            onValueChange = { walkSpeed = it },
+                                            valueRange = 2.0f..15.0f,
+                                            colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
+                                        )
+                                    }
+
+                                    // 7. Multiplier Lari
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Multiplier Lari Sprint:", fontSize = 11.sp, color = Color.White)
+                                            Text("${"%.1f".format(runMultiplier)}x", color = Color(0xFF76FF03), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                        Slider(
+                                            value = runMultiplier,
+                                            onValueChange = { runMultiplier = it },
+                                            valueRange = 1.1f..2.5f,
+                                            colors = SliderDefaults.colors(thumbColor = Color(0xFF76FF03), activeTrackColor = Color(0xFF76FF03))
+                                        )
+                                    }
+
+                                    // 8. Dorongan Lompatan
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Kekuatan Dorongan Melompat:", fontSize = 11.sp, color = Color.White)
+                                            Text("${"%.1f".format(jumpImpulse)}", color = Color(0xFFFFD600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                        Slider(
+                                            value = jumpImpulse,
+                                            onValueChange = { jumpImpulse = it },
+                                            valueRange = 5.0f..20.0f,
+                                            colors = SliderDefaults.colors(thumbColor = Color(0xFFFFD600), activeTrackColor = Color(0xFFFFD600))
+                                        )
+                                    }
+
+                                    Spacer(Modifier.height(4.dp))
+
+                                    Button(
+                                        onClick = {
+                                            if (model != null) {
+                                                val config = customModelManager.playerConfig.copy(
+                                                    characterName = model.fileName.substringBeforeLast("."),
+                                                    modelFile = model.fileName,
+                                                    scaleX = charScale,
+                                                    scaleY = charScale,
+                                                    scaleZ = charScale,
+                                                    rotationOffsetYDeg = rotationOffset,
+                                                    heightOffset = heightOffset,
+                                                    collisionRadius = collisionRadius,
+                                                    collisionHeight = collisionHeight,
+                                                    walkSpeed = walkSpeed,
+                                                    runMultiplier = runMultiplier,
+                                                    jumpImpulse = jumpImpulse
+                                                )
+                                                customModelManager.savePlayerConfig(config)
+                                                customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
+                                            }
+                                            Toast.makeText(context, "✓ Berhasil Menyimpan Pengaturan Skala & Fisika!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                                        modifier = Modifier.fillMaxWidth().height(42.dp)
+                                    ) {
+                                        Text("✓ Simpan Skala & Fisika Karakter", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        CentralStudioTab.MAP_RADAR -> {
+                            // TAB 4: MAP & RADAR ORBIT PATCHER
+                            val model = selectedModel
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF101726)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(
                                         text = "🗺️ Map Patcher Visual & Bintik Radar Orbit",
                                         fontWeight = FontWeight.Bold,
@@ -1065,7 +1150,7 @@ fun GlbConfigPatcherSheet(
                                         color = Color(0xFF00E5FF)
                                     )
                                     Text(
-                                        text = "Tampilan orbit dari atas. Ketuk pada peta visual di bawah untuk langsung menempatkan titik spawn, zona pembatas tabrakan solid, atau portal pintu pindah.",
+                                        text = "Ketuk radar visual di bawah untuk menempatkan titik spawn, zona pembatas tabrakan solid, atau portal pintu.",
                                         fontSize = 10.sp,
                                         color = Color(0xFFB0BEC5)
                                     )
@@ -1077,7 +1162,7 @@ fun GlbConfigPatcherSheet(
                                     ) {
                                         listOf(
                                             PatcherTool.SET_SPAWN to "📍 Set Spawn",
-                                            PatcherTool.ADD_SOLID_BLOCK to "🧱 Blok Solid (Wall)",
+                                            PatcherTool.ADD_SOLID_BLOCK to "🧱 Blok Solid",
                                             PatcherTool.ADD_PORTAL to "🌀 Tambah Portal"
                                         ).forEach { (tool, label) ->
                                             Button(
@@ -1085,7 +1170,8 @@ fun GlbConfigPatcherSheet(
                                                 colors = ButtonDefaults.buttonColors(
                                                     containerColor = if (activeTool == tool) Color(0xFF00E5FF) else Color(0xFF1E2B45)
                                                 ),
-                                                modifier = Modifier.weight(1f)
+                                                modifier = Modifier.weight(1f),
+                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
                                             ) {
                                                 Text(
                                                     text = label,
@@ -1097,7 +1183,7 @@ fun GlbConfigPatcherSheet(
                                         }
                                     }
 
-                                    // Block scale / Target file parameters depending on tool
+                                    // Parameter per tool
                                     when (activeTool) {
                                         PatcherTool.ADD_SOLID_BLOCK -> {
                                             Row(
@@ -1105,123 +1191,114 @@ fun GlbConfigPatcherSheet(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
-                                                Text("Lebar Blok Pembatas: ${scaleMultiplier.toInt()}m", fontSize = 11.sp, color = Color.White)
+                                                Text("Lebar Blok: ${scaleMultiplier.toInt()}m", fontSize = 11.sp, color = Color.White)
                                                 Slider(
                                                     value = scaleMultiplier,
                                                     onValueChange = { scaleMultiplier = it },
                                                     valueRange = 2f..16f,
-                                                    modifier = Modifier.width(180.dp)
+                                                    modifier = Modifier.width(160.dp)
                                                 )
                                             }
                                         }
                                         PatcherTool.ADD_PORTAL -> {
-                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Text("Pilih Target Pintu / Portal Teleportasi:", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                                
-                                                var portalExpanded by remember { mutableStateOf(false) }
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .background(Color(0xFF1E2B45), RoundedCornerShape(6.dp))
-                                                        .border(1.dp, Color(0xFF37474F), RoundedCornerShape(6.dp))
-                                                        .clickable { portalExpanded = true }
-                                                        .padding(10.dp)
+                                            var portalExpanded by remember { mutableStateOf(false) }
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(Color(0xFF1E2B45), RoundedCornerShape(6.dp))
+                                                    .border(1.dp, Color(0xFF37474F), RoundedCornerShape(6.dp))
+                                                    .clickable { portalExpanded = true }
+                                                    .padding(8.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text(
-                                                            text = if (customPortalTargetGbl == "null") "❌ Datar Null (Hanya trigger rintangan/flat)" else "🗺️ $customPortalTargetGbl",
-                                                            fontSize = 11.sp,
-                                                            color = if (customPortalTargetGbl == "null") Color(0xFFFF5252) else Color(0xFF00E5FF)
-                                                        )
-                                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.White)
-                                                    }
-                                                    
-                                                    DropdownMenu(
-                                                        expanded = portalExpanded,
-                                                        onDismissRequest = { portalExpanded = false },
-                                                        modifier = Modifier.background(Color(0xFF101726))
-                                                    ) {
+                                                    Text(
+                                                        text = if (customPortalTargetGbl == "null") "❌ Tanpa Teleport" else "🗺️ Target: $customPortalTargetGbl",
+                                                        fontSize = 11.sp,
+                                                        color = Color(0xFF00E5FF)
+                                                    )
+                                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.White)
+                                                }
+
+                                                DropdownMenu(
+                                                    expanded = portalExpanded,
+                                                    onDismissRequest = { portalExpanded = false },
+                                                    modifier = Modifier.background(Color(0xFF101726))
+                                                ) {
+                                                    DropdownMenuItem(
+                                                        text = { Text("❌ Tanpa Teleport", color = Color.White, fontSize = 11.sp) },
+                                                        onClick = {
+                                                            customPortalTargetGbl = "null"
+                                                            portalExpanded = false
+                                                        }
+                                                    )
+                                                    customModelManager.importedModels.forEach { m ->
                                                         DropdownMenuItem(
-                                                            text = { Text("❌ Datar Null (Tanpa Teleport)", color = Color.White, fontSize = 11.sp) },
+                                                            text = { Text("🗺️ ${m.fileName}", color = Color.White, fontSize = 11.sp) },
                                                             onClick = {
-                                                                customPortalTargetGbl = "null"
+                                                                customPortalTargetGbl = m.fileName
                                                                 portalExpanded = false
                                                             }
                                                         )
-                                                        customModelManager.importedModels.forEach { m ->
-                                                            DropdownMenuItem(
-                                                                text = { Text("🗺️ ${m.fileName}", color = Color.White, fontSize = 11.sp) },
-                                                                onClick = {
-                                                                    customPortalTargetGbl = m.fileName
-                                                                    portalExpanded = false
-                                                                }
-                                                            )
-                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                         PatcherTool.SET_SPAWN -> {
-                                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                Text("Posisikan Spawn Player Secara Cepat:", fontSize = 11.sp, color = Color.White)
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Button(
+                                                    onClick = {
+                                                        playerPos.set(0f, terrainMesh.heightQuery.sampleSurface(0f, 0f).height + 1f, 0f)
+                                                        mapUpdateTrigger++
+                                                        Toast.makeText(context, "📍 Spawn ke Pusat (0, 0)", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2B45)),
+                                                    modifier = Modifier.weight(1f)
                                                 ) {
-                                                    Button(
-                                                        onClick = {
-                                                            playerPos.set(0f, terrainMesh.heightQuery.sampleSurface(0f, 0f).height + 1f, 0f)
-                                                            mapUpdateTrigger++
-                                                            Toast.makeText(context, "📍 Spawn diset ke Pusat Peta (0, 0)", Toast.LENGTH_SHORT).show()
-                                                        },
-                                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2B45)),
-                                                        modifier = Modifier.weight(1f)
-                                                    ) {
-                                                        Text("Spawn Tengah (0,0)", fontSize = 10.sp)
-                                                    }
-                                                    
-                                                    Button(
-                                                        onClick = {
-                                                            val maxB = 110f
-                                                            playerPos.set(maxB, terrainMesh.heightQuery.sampleSurface(maxB, maxB).height + 1f, maxB)
-                                                            mapUpdateTrigger++
-                                                            Toast.makeText(context, "📍 Spawn diset ke Batas Maksimal (110, 110)", Toast.LENGTH_SHORT).show()
-                                                        },
-                                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2B45)),
-                                                        modifier = Modifier.weight(1f)
-                                                    ) {
-                                                        Text("Batas Maksimal (110,110)", fontSize = 10.sp)
-                                                    }
+                                                    Text("Spawn Pusat (0,0)", fontSize = 10.sp)
+                                                }
+
+                                                Button(
+                                                    onClick = {
+                                                        val maxB = 110f
+                                                        playerPos.set(maxB, terrainMesh.heightQuery.sampleSurface(maxB, maxB).height + 1f, maxB)
+                                                        mapUpdateTrigger++
+                                                        Toast.makeText(context, "📍 Spawn ke Batas (110, 110)", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2B45)),
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Text("Spawn Batas (110,110)", fontSize = 10.sp)
                                                 }
                                             }
                                         }
                                     }
 
-                                    // VISUAL RADAR CANVAS (ORBIT VIEW FROM ABOVE)
+                                    // RADAR CANVAS (Bounded cleanly so it fits on screen without pushing anything off)
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
+                                            .heightIn(max = 260.dp)
                                             .aspectRatio(1f)
+                                            .align(Alignment.CenterHorizontally)
                                             .background(Color(0xFF070B12), RoundedCornerShape(8.dp))
                                             .border(1.5.dp, Color(0xFF00E5FF), RoundedCornerShape(8.dp))
                                             .pointerInput(mapUpdateTrigger) {
                                                 detectTapGestures { offset ->
-                                                    // Map canvas pixel coordinate to 3D world space coordinates
-                                                    val size = Size(size.width.toFloat(), size.height.toFloat())
-                                                    val wx = (offset.x / size.width) * worldSize + worldMin
-                                                    val wz = (offset.y / size.height) * worldSize + worldMin
-
-                                                    val s = terrainMesh.heightQuery.sampleSurface(wx, wz)
-                                                    val wy = s.height
+                                                    val wx = (offset.x / size.width.toFloat()) * worldSize + worldMin
+                                                    val wz = (offset.y / size.height.toFloat()) * worldSize + worldMin
+                                                    val wy = terrainMesh.heightQuery.sampleSurface(wx, wz).height
 
                                                     when (activeTool) {
                                                         PatcherTool.SET_SPAWN -> {
                                                             playerPos.set(wx, wy + 1f, wz)
-                                                            Toast.makeText(context, "📍 Titik Lahir Player dipindahkan ke (${String.format("%.1f", wx)}, ${String.format("%.1f", wz)})", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "📍 Titik Lahir dipindahkan ke (${String.format("%.1f", wx)}, ${String.format("%.1f", wz)})", Toast.LENGTH_SHORT).show()
                                                         }
                                                         PatcherTool.ADD_SOLID_BLOCK -> {
                                                             val bId = "patched_wall_${System.currentTimeMillis()}"
@@ -1235,7 +1312,7 @@ fun GlbConfigPatcherSheet(
                                                                 warningMessage = "🚫 Batas Blokir: Solid Block!"
                                                             )
                                                             barrierManager.addBarrier(barrier)
-                                                            Toast.makeText(context, "🧱 Blok Solid ukuran ${scaleMultiplier.toInt()}m ditambahkan!", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "🧱 Blok Solid ${scaleMultiplier.toInt()}m ditambahkan!", Toast.LENGTH_SHORT).show()
                                                         }
                                                         PatcherTool.ADD_PORTAL -> {
                                                             val portalId = "patched_portal_${System.currentTimeMillis()}"
@@ -1248,7 +1325,7 @@ fun GlbConfigPatcherSheet(
                                                                 promptText = "[Buka Pintu] Masuk Ke $customPortalTargetGbl"
                                                             )
                                                             interactionSystem.interactables.add(portal)
-                                                            Toast.makeText(context, "🌀 Portal Teleportasi ke $customPortalTargetGbl terdaftar!", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "🌀 Portal ke $customPortalTargetGbl terdaftar!", Toast.LENGTH_SHORT).show()
                                                         }
                                                     }
                                                     mapUpdateTrigger++
@@ -1260,7 +1337,6 @@ fun GlbConfigPatcherSheet(
                                             val cx = canvasSize.width / 2f
                                             val cy = canvasSize.height / 2f
 
-                                            // Draw concentric radar range circles
                                             val rings = listOf(0.2f, 0.4f, 0.6f, 0.8f, 0.95f)
                                             rings.forEach { r ->
                                                 drawCircle(
@@ -1271,7 +1347,6 @@ fun GlbConfigPatcherSheet(
                                                 )
                                             }
 
-                                            // Draw horizontal and vertical radar crosshair lines
                                             drawLine(
                                                 color = Color(0x2200E5FF),
                                                 start = Offset(0f, cy),
@@ -1285,8 +1360,7 @@ fun GlbConfigPatcherSheet(
                                                 strokeWidth = 1f
                                             )
 
-                                            // Draw topographic topographic dots outline of terrain mesh!
-                                            // Downsample to prevent canvas lag
+                                            // Draw terrain sample dots
                                             val terrainVerts = terrainMesh.mesh.vertices
                                             if (terrainVerts.isNotEmpty()) {
                                                 val vertSize = terrainVerts.size
@@ -1295,21 +1369,16 @@ fun GlbConfigPatcherSheet(
                                                 while (i < vertSize - 2) {
                                                     val wx = terrainVerts[i]
                                                     val wz = terrainVerts[i + 2]
-                                                    
                                                     val offset = Offset(
                                                         x = ((wx - worldMin) / worldSize) * canvasSize.width,
                                                         y = ((wz - worldMin) / worldSize) * canvasSize.height
                                                     )
-                                                    drawCircle(
-                                                        color = Color(0x3376FF03),
-                                                        radius = 1.5f,
-                                                        center = offset
-                                                    )
+                                                    drawCircle(color = Color(0x3376FF03), radius = 1.5f, center = offset)
                                                     i += stepSize
                                                 }
                                             }
 
-                                            // Draw boundaries / limits box
+                                            // Boundary
                                             val limMin = -115f
                                             val limMax = 115f
                                             val bOffsetMin = Offset(((limMin - worldMin) / worldSize) * canvasSize.width, ((limMin - worldMin) / worldSize) * canvasSize.height)
@@ -1321,7 +1390,7 @@ fun GlbConfigPatcherSheet(
                                                 style = Stroke(width = 2f)
                                             )
 
-                                            // Draw solid barriers
+                                            // Solid barriers
                                             barrierManager.barriers.forEach { b ->
                                                 if (b.type == BarrierType.WALL_BARRIER) {
                                                     val halfX = b.size.x * 0.5f
@@ -1336,7 +1405,7 @@ fun GlbConfigPatcherSheet(
                                                 }
                                             }
 
-                                            // Draw teleportation portals with distinct glowing rings
+                                            // Portals
                                             interactionSystem.interactables.forEach { item ->
                                                 val pOffset = Offset(((item.position.x - worldMin) / worldSize) * canvasSize.width, ((item.position.z - worldMin) / worldSize) * canvasSize.height)
                                                 val isPortal = item.targetTeleportPos != null ||
@@ -1345,27 +1414,17 @@ fun GlbConfigPatcherSheet(
                                                     item.type == InteractableType.HOUSE_DOOR_EXIT
 
                                                 if (isPortal) {
-                                                    drawCircle(color = Color(0x66E040FB), radius = 12f, center = pOffset)
-                                                    drawCircle(color = Color(0xFF00E5FF), radius = 7f, center = pOffset, style = Stroke(2f))
-                                                    drawCircle(color = Color.White, radius = 3f, center = pOffset)
+                                                    drawCircle(color = Color(0x66E040FB), radius = 10f, center = pOffset)
+                                                    drawCircle(color = Color(0xFF00E5FF), radius = 6f, center = pOffset, style = Stroke(2f))
                                                 } else {
-                                                    drawCircle(color = Color(0xFFFFD600), radius = 5f, center = pOffset)
-                                                    drawCircle(color = Color.Black, radius = 2f, center = pOffset)
+                                                    drawCircle(color = Color(0xFFFFD600), radius = 4f, center = pOffset)
                                                 }
                                             }
 
-                                            // Draw Player Start Point
+                                            // Player start position
                                             val pOffset = Offset(((playerPos.x - worldMin) / worldSize) * canvasSize.width, ((playerPos.z - worldMin) / worldSize) * canvasSize.height)
-                                            drawCircle(
-                                                color = Color(0xFF76FF03),
-                                                radius = 10f,
-                                                center = pOffset
-                                            )
-                                            drawCircle(
-                                                color = Color.Black,
-                                                radius = 3f,
-                                                center = pOffset
-                                            )
+                                            drawCircle(color = Color(0xFF76FF03), radius = 8f, center = pOffset)
+                                            drawCircle(color = Color.Black, radius = 3f, center = pOffset)
                                         }
                                     }
 
@@ -1378,7 +1437,7 @@ fun GlbConfigPatcherSheet(
                                                 barrierManager.barriers.removeAll { !it.id.startsWith("world_limit") }
                                                 interactionSystem.interactables.removeAll { !it.id.startsWith("portal_") && !it.id.startsWith("house_") }
                                                 mapUpdateTrigger++
-                                                Toast.makeText(context, "🧹 Objek & rintangan bukit bawaan dibersihkan untuk peta kustom!", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, "🧹 Objek & rintangan bukit bawaan dibersihkan!", Toast.LENGTH_SHORT).show()
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
                                             modifier = Modifier.weight(1f)
@@ -1388,12 +1447,14 @@ fun GlbConfigPatcherSheet(
 
                                         Button(
                                             onClick = {
-                                                customModelManager.setActiveTerrain(model, terrainMesh)
-                                                terrainMesh.setCustomMesh(model.mesh)
-                                                Toast.makeText(context, "✓ Sukses Mempatch & Menyimpan Config Map ke Game!", Toast.LENGTH_SHORT).show()
+                                                if (model != null) {
+                                                    customModelManager.setActiveTerrain(model, terrainMesh)
+                                                    terrainMesh.setCustomMesh(model.mesh)
+                                                }
+                                                Toast.makeText(context, "✓ Sukses Mempatch & Menyimpan Config Map!", Toast.LENGTH_SHORT).show()
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                                            modifier = Modifier.weight(1.3f).testTag("save_map_patch_button")
+                                            modifier = Modifier.weight(1.2f).testTag("save_map_patch_button")
                                         ) {
                                             Text("Patch & Simpan Map", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                                         }
@@ -1445,7 +1506,7 @@ fun AnimationBindCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(slotIcon, fontSize = 20.sp)
+                    Text(slotIcon, fontSize = 18.sp)
                     Column {
                         Text(
                             text = slotTitle,
@@ -1457,19 +1518,10 @@ fun AnimationBindCard(
                             val clean = cleanClipDisplayName(currentValue)
                             Text(
                                 text = "✓ $clean",
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF76FF03)
                             )
-                            if (clean != currentValue) {
-                                Text(
-                                    text = currentValue,
-                                    fontSize = 8.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = Color(0xFF80D8FF).copy(alpha = 0.7f),
-                                    maxLines = 1
-                                )
-                            }
                         } else {
                             Text(
                                 text = "(Belum dipilih - Animasi Prosedural)",
@@ -1487,13 +1539,13 @@ fun AnimationBindCard(
                     if (currentValue.isNotEmpty()) {
                         IconButton(
                             onClick = onClearClick,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(30.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Hapus binding",
                                 tint = Color(0xFFFF5252),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(14.dp)
                             )
                         }
                     }
@@ -1503,8 +1555,8 @@ fun AnimationBindCard(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isExpanded) Color(0xFF006064) else if (currentValue.isEmpty()) Color(0xFF00E5FF) else Color(0xFF1E2B45)
                         ),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        modifier = Modifier.height(34.dp)
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.height(30.dp)
                     ) {
                         Text(
                             text = if (isExpanded) "Tutup ▴" else if (currentValue.isEmpty()) "Pilih Klip ▾" else "Ganti ▾",
@@ -1516,9 +1568,9 @@ fun AnimationBindCard(
                 }
             }
 
-            // Inline Expansion Drawer - Lists all clips without opening any popup window!
+            // Inline Expansion Drawer
             if (isExpanded) {
-                Divider(color = Color(0xFF263238))
+                HorizontalDivider(color = Color(0xFF263238))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = "Daftar Klip Model (Ketuk klip untuk memilih langsung):",
@@ -1534,7 +1586,6 @@ fun AnimationBindCard(
                             color = Color(0xFF90A4AE)
                         )
                     } else {
-                        // Chips/Buttons for each available clip
                         availableClips.forEach { clip ->
                             val cleanName = cleanClipDisplayName(clip)
                             val isSelected = currentValue == clip
@@ -1552,7 +1603,7 @@ fun AnimationBindCard(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
@@ -1565,25 +1616,14 @@ fun AnimationBindCard(
                                             Icons.Default.PlayArrow,
                                             contentDescription = null,
                                             tint = if (isSelected) Color(0xFF76FF03) else Color(0xFF00E5FF),
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(12.dp)
                                         )
-                                        Column {
-                                            Text(
-                                                text = cleanName,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isSelected) Color(0xFF76FF03) else Color.White
-                                            )
-                                            if (cleanName != clip) {
-                                                Text(
-                                                    text = clip,
-                                                    fontSize = 8.sp,
-                                                    color = Color(0xFF80D8FF).copy(alpha = 0.6f),
-                                                    fontFamily = FontFamily.Monospace,
-                                                    maxLines = 1
-                                                )
-                                            }
-                                        }
+                                        Text(
+                                            text = cleanName,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) Color(0xFF76FF03) else Color.White
+                                        )
                                     }
                                     if (isSelected) {
                                         Text("✓ Terpilih", color = Color(0xFF76FF03), fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -1595,7 +1635,6 @@ fun AnimationBindCard(
                         }
                     }
 
-                    // Clear / Disable option
                     Surface(
                         onClick = {
                             onClearClick()
@@ -1616,7 +1655,6 @@ fun AnimationBindCard(
                         }
                     }
 
-                    // Optional manual custom text field
                     if (!showCustomInput) {
                         TextButton(
                             onClick = { showCustomInput = true },

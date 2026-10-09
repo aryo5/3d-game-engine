@@ -1,84 +1,38 @@
 package com.example.engine3d.ui
 
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Landscape
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.CheckCircle
-import com.example.engine3d.importer.StoragePermissionHelper
-import android.os.Build
-import androidx.compose.runtime.DisposableEffect
-import java.io.File
-import java.io.FileOutputStream
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Surface
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import com.example.engine3d.actions.InteractableType
-import com.example.engine3d.actions.WorldInteractable
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.engine3d.actions.ActionManager
-import com.example.engine3d.actions.CharacterAction
 import com.example.engine3d.importer.BatchImportManager
 import com.example.engine3d.importer.BatchImportReport
 import com.example.engine3d.importer.CustomModelManager
@@ -87,6 +41,7 @@ import com.example.engine3d.importer.GlbParser
 import com.example.engine3d.importer.ImportedModelEntry
 import com.example.engine3d.importer.ModelTarget
 import com.example.engine3d.importer.SampleExportManager
+import com.example.engine3d.importer.StoragePermissionHelper
 import com.example.engine3d.npc.NpcBehavior
 import com.example.engine3d.npc.NpcEntity
 import com.example.engine3d.npc.NpcManager
@@ -94,7 +49,15 @@ import com.example.engine3d.physics.BarrierManager
 import com.example.engine3d.physics.BarrierType
 import com.example.engine3d.physics.WorldBarrier
 import com.example.engine3d.terrain.TerrainMesh
-import com.example.engine3d.terrain.TerrainPreset
+import java.io.File
+import java.io.FileOutputStream
+
+enum class AssetHubTab(val title: String, val icon: ImageVector) {
+    FILES("Impor & Storage", Icons.Default.FileUpload),
+    MODELS("Model Terdaftar", Icons.Default.FolderOpen),
+    TERRAIN("Terrain & OBB", Icons.Default.Landscape),
+    NPCS("NPC & Rintangan", Icons.Default.People)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,7 +73,8 @@ fun AssetManagerSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var activeTab by remember { mutableStateOf(AssetHubTab.FILES) }
+
     val sampleExportManager = remember {
         SampleExportManager(
             context = context,
@@ -150,27 +114,19 @@ fun AssetManagerSheet(
         hasStoragePermission = isGranted || !StoragePermissionHelper.needsRuntimePermission()
         hasAllFilesAccess = StoragePermissionHelper.hasAllFilesAccess(context)
         if (isGranted) {
-            Toast.makeText(context, "✓ Izin penyimpanan aktif! Ekspor langsung dan pembaca berkas siap digunakan.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "✓ Izin penyimpanan aktif!", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, "Izin penyimpanan belum aktif. Anda dapat mengaktifkannya kapan saja melalui tombol perizinan.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Izin penyimpanan belum aktif.", Toast.LENGTH_LONG).show()
         }
     }
 
-    // Otomatis minta izin penyimpanan saat menu pusat impor / aset dibuka
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
-            storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }
-    }
-
-    // Refresh status izin saat sheet aktif
-    androidx.compose.runtime.DisposableEffect(Unit) {
+    DisposableEffect(Unit) {
         hasStoragePermission = StoragePermissionHelper.isStoragePermissionGranted(context)
         hasAllFilesAccess = StoragePermissionHelper.hasAllFilesAccess(context)
         onDispose { }
     }
 
-    // 1. SAF Folder Tree Picker Launcher
+    // SAF Launchers
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { treeUri: Uri? ->
@@ -181,19 +137,6 @@ fun AssetManagerSheet(
         }
     }
 
-    // SAF Folder Tree Picker Launcher for Export Target
-    val exportFolderPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { treeUri: Uri? ->
-        if (treeUri != null) {
-            val msg = sampleExportManager.exportToDocumentTree(treeUri)
-            lastExportMessage = msg
-            fileAccessConfig.lastWriteSummary = msg
-            Toast.makeText(context, "✓ Berhasil mengekspor ke folder pilihan!", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    // 2. ZIP Archive Picker Launcher
     val zipPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { zipUri: Uri? ->
@@ -204,7 +147,6 @@ fun AssetManagerSheet(
         }
     }
 
-    // 3. OBB File Picker Launcher
     val obbPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { obbUri: Uri? ->
@@ -215,7 +157,6 @@ fun AssetManagerSheet(
         }
     }
 
-    // 4. Single File Picker Launcher (.glb/.obj)
     val modelPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -227,27 +168,6 @@ fun AssetManagerSheet(
                     onTerrainChanged()
                 }
                 onModelImported(entry)
-            }
-        }
-    }
-
-    // 5. Config JSON File Picker Launcher
-    val jsonConfigPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                val inputStream = context.contentResolver.openInputStream(uri)
-                val tempFile = File(context.cacheDir, "temp_area_config.json")
-                FileOutputStream(tempFile).use { fos -> inputStream?.copyTo(fos) }
-                inputStream?.close()
-
-                val report = BatchImportReport()
-                batchImportManager.parseAreaConfigFile(tempFile, report)
-                lastBatchReport = report
-                onTerrainChanged()
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -267,11 +187,9 @@ fun AssetManagerSheet(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 18.dp, vertical = 12.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                // Top Navigation Bar (Locks full screen, never dismisses on swipe down)
+                // 1. Top Header Bar (Fixed)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -279,533 +197,686 @@ fun AssetManagerSheet(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
-                        Icon(Icons.Default.Folder, contentDescription = null, tint = Color(0xFF00E5FF))
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(Color(0x3300E5FF), CircleShape)
+                                .border(1.dp, Color(0xFF00E5FF), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Folder, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(18.dp))
+                        }
                         Column {
                             Text(
-                                text = "Pusat Hub Aset & Konfigurasi Area GLB",
+                                text = "Pusat Hub Aset & Impor GLB",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = Color.White
+                                fontSize = 15.sp,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Layar Terkunci Stabil (Tidak akan tertutup saat diusap ke bawah)",
+                                text = "Kelola Model 3D, Arsip ZIP/OBB, Terrain & NPC",
                                 fontSize = 10.sp,
-                                color = Color(0xFF76FF03)
+                                color = Color(0xFF76FF03),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { showFormatGuide = true }) {
-                            Icon(Icons.Default.Info, contentDescription = "Panduan OBB & Format", tint = Color(0xFF80D8FF))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(onClick = { showFormatGuide = true }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Info, contentDescription = "Panduan Format", tint = Color(0xFF80D8FF), modifier = Modifier.size(18.dp))
                         }
                         Button(
                             onClick = onDismiss,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
                         ) {
-                            Text("✖ Tutup Studio", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("✖ Tutup", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
-                // Permission Request & Status Banner
-                if (!hasStoragePermission || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess)) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B0E)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.border(1.dp, Color(0xFFFFB74D), RoundedCornerShape(10.dp))
+                Spacer(Modifier.height(6.dp))
+
+                // 2. Active Model Status Quick Banner
+                val activeHeroName = customModelManager.importedModels.firstOrNull { it.mesh == customModelManager.activeCustomCharacterMesh }?.fileName ?: "Farmer (Bawaan)"
+                val activeMapName = customModelManager.importedModels.firstOrNull { it.mesh == customModelManager.activeCustomTerrainMesh }?.fileName ?: "Procedural Island"
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF101726),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x4400E5FF))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFFFFB74D))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Izin Akses Penyimpanan File",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    color = Color(0xFFFFCC80)
-                                )
-                                Text(
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-                                        "Berikan izin agar aplikasi dapat memindai GLB dan membaca konfigurasi dari folder publik HP tanpa kendala."
-                                    else
-                                        "Memerlukan izin penyimpanan untuk membaca dan menulis berkas model GLB secara langsung.",
-                                    fontSize = 10.sp,
-                                    color = Color.White
-                                )
-                            }
-                            Button(
-                                onClick = {
-                                    if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
-                                        storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess) {
-                                        StoragePermissionHelper.launchAllFilesAccessSettings(context)
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB74D)),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text("Berikan Izin", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("👑 Hero:", fontSize = 10.sp, color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold)
+                            Text(activeHeroName, fontSize = 10.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("🗺️ Map:", fontSize = 10.sp, color = Color(0xFF76FF03), fontWeight = FontWeight.Bold)
+                            Text(activeMapName, fontSize = 10.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
 
-            // Export success banner
-            if (lastExportMessage != null) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1B5E20)),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text(
-                        text = lastExportMessage!!,
-                        color = Color(0xFFB9F6CA),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
-            }
+                Spacer(Modifier.height(8.dp))
 
-            // Batch import report banner
-            if (lastBatchReport != null) {
-                val rep = lastBatchReport!!
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF004D40)),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "✓ Batch Import Selesai!",
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF76FF03),
-                            fontSize = 13.sp
-                        )
-                        Text(
-                            text = "${rep.glbCount} GLB • ${rep.objCount} OBJ • ${rep.actionCount} Aksi • ${rep.npcCount} NPC • ${rep.barrierCount} Batas",
-                            color = Color.White,
-                            fontSize = 11.sp
-                        )
-                        if (rep.details.isNotEmpty()) {
-                            Text(
-                                text = rep.details.joinToString("\n"),
-                                color = Color(0xFFE0F2F1),
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace
+                // 3. Tab Navigation Bar (Scrollable to prevent truncation on any screen)
+                ScrollableTabRow(
+                    selectedTabIndex = activeTab.ordinal,
+                    containerColor = Color(0xFF101827),
+                    contentColor = Color(0xFF00E5FF),
+                    edgePadding = 4.dp,
+                    indicator = { tabPositions ->
+                        if (activeTab.ordinal < tabPositions.size) {
+                            TabRowDefaults.SecondaryIndicator(
+                                Modifier.tabIndicatorOffset(tabPositions[activeTab.ordinal]),
+                                color = Color(0xFF00E5FF)
                             )
                         }
                     }
-                }
-            }
-
-            // SECTION FILE ACCESS: ARSITEKTUR FOCUS FOLDER PATH & WRITE FOLDER PATH
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1B2E)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.border(1.5.dp, Color(0xFF00E5FF), RoundedCornerShape(12.dp))
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color(0xFF00E5FF))
-                        Text(
-                            text = "Arsitektur File Access: Focus Path & Write Path",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color(0xFF00E5FF)
+                    AssetHubTab.values().forEach { tab ->
+                        val isSelected = activeTab == tab
+                        Tab(
+                            selected = isSelected,
+                            onClick = { activeTab = tab },
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        tab.icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = if (isSelected) Color(0xFF00E5FF) else Color(0xFF90A4AE)
+                                    )
+                                    Text(
+                                        tab.title,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) Color(0xFF00E5FF) else Color(0xFF90A4AE),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                         )
-                    }
-
-                    Text(
-                        text = "Kelola folder utama untuk BACA/PINDAI file GLB & Konfigurasi (Focus Path) serta folder tujuan TULIS/EKSPOR hasil sampel & script Python (Write Path).",
-                        fontSize = 11.sp,
-                        color = Color(0xFFB0BEC5)
-                    )
-
-                    // 1. FOCUS FOLDER PATH (READ / SCAN)
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF16233B), RoundedCornerShape(8.dp))
-                            .padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "📥 FOCUS FOLDER PATH (Folder Fokus Baca & Pindai)",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = Color(0xFF76FF03)
-                        )
-
-                        OutlinedTextField(
-                            value = focusPathInput,
-                            onValueChange = {
-                                focusPathInput = it
-                                fileAccessConfig.focusFolderPath = it
-                            },
-                            label = { Text("Path Folder Fokus (GLB, Config, Area)", fontSize = 11.sp) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        // Quick Presets
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            listOf(
-                                "/sdcard/Download/Apex3D" to "Apex3D",
-                                "/sdcard/Download/Termux_GLB" to "Termux",
-                                "/sdcard/Download" to "Download",
-                                "${context.filesDir.absolutePath}/ApexAssets" to "Internal"
-                            ).forEach { (presetPath, label) ->
-                                FilterChip(
-                                    selected = focusPathInput == presetPath,
-                                    onClick = {
-                                        focusPathInput = presetPath
-                                        fileAccessConfig.focusFolderPath = presetPath
-                                    },
-                                    label = { Text(label, fontSize = 9.sp) }
-                                )
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Button(
-                                onClick = { showInAppFocusFolderPicker = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF263238)),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Folder, contentDescription = null, tint = Color(0xFF00E5FF))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Pilih Folder", color = Color.White, fontSize = 10.sp)
-                            }
-
-                            Button(
-                                onClick = {
-                                    val rep = batchImportManager.scanDirectFolderPath(focusPathInput)
-                                    lastBatchReport = rep
-                                    fileAccessConfig.lastScanSummary = "${rep.glbCount} GLB, ${rep.objCount} OBJ terdeteksi"
-                                    onTerrainChanged()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.FileUpload, contentDescription = null, tint = Color.Black)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Pindai Focus Path", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                            }
-                        }
-
-                        // Tombol Pemeta File Kustom jika nama file config/model berbeda
-                        Button(
-                            onClick = { showCustomFileSelector = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Tune, contentDescription = null, tint = Color.Black)
-                            Spacer(Modifier.width(4.dp))
-                            Text("📌 Pemilih & Pemeta File Kustom (Beda Nama File)", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                        }
-                    }
-
-                    // 2. WRITE FOLDER PATH (EXPORT TARGET)
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF1E2A45), RoundedCornerShape(8.dp))
-                            .padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "📤 WRITE FOLDER PATH (Folder Tulis & Ekspor Sampel/Guide)",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = Color(0xFFFFD600)
-                        )
-
-                        Text(
-                            text = "💡 Folder 'Download/Apex3D' otomatis dibuat di Pengelola File / Aplikasi Files HP Anda. Semua file dapat langsung diakses & diedit.",
-                            fontSize = 10.sp,
-                            color = Color(0xFFB0BEC5)
-                        )
-
-                        OutlinedTextField(
-                            value = writePathInput,
-                            onValueChange = {
-                                writePathInput = it
-                                fileAccessConfig.writeFolderPath = it
-                            },
-                            label = { Text("Path Target Tulis / Ekspor", fontSize = 11.sp) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        // Quick Presets & SAF Picker Button
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            listOf(
-                                "/sdcard/Download/Apex3D" to "Download/Apex3D",
-                                "/sdcard/Download/Termux_GLB" to "Termux",
-                                "${context.filesDir.absolutePath}/ApexExports" to "Internal"
-                            ).forEach { (presetPath, label) ->
-                                FilterChip(
-                                    selected = writePathInput == presetPath,
-                                    onClick = {
-                                        writePathInput = presetPath
-                                        fileAccessConfig.writeFolderPath = presetPath
-                                    },
-                                    label = { Text(label, fontSize = 9.sp) }
-                                )
-                            }
-
-                            Spacer(Modifier.weight(1f))
-
-                            Button(
-                                onClick = { showInAppWriteFolderPicker = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                modifier = Modifier.height(32.dp)
-                            ) {
-                                Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color.Black, modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Pilih Folder", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 9.sp)
-                            }
-                        }
-
-                        // Export Actions
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = false)
-                                    lastExportMessage = msg
-                                    fileAccessConfig.lastWriteSummary = msg
-                                    Toast.makeText(context, "✓ Berhasil mengekspor ke folder Download/Apex3D!", Toast.LENGTH_SHORT).show()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD600)),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.FileDownload, contentDescription = null, tint = Color.Black)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Ekspor Sampel & Guide", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                            }
-
-                            Button(
-                                onClick = {
-                                    val msg = sampleExportManager.exportPythonScriptOnly(writePathInput)
-                                    lastExportMessage = msg
-                                    fileAccessConfig.lastWriteSummary = msg
-                                    Toast.makeText(context, "✓ Script Python berhasil diekspor!", Toast.LENGTH_SHORT).show()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Psychology, contentDescription = null, tint = Color.Black)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Ekspor Script Python", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                            }
-                        }
                     }
                 }
-            }
 
-            // SECTION 0: DAFTAR FILE GLB TERDETEKSI & ATUR PERAN (KARAKTER / MAP / RUMAH / PROP)
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF162238)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.border(1.5.dp, Color(0xFF00E5FF), RoundedCornerShape(12.dp))
-            ) {
+                Spacer(Modifier.height(8.dp))
+
+                // 4. Bounded Tab Content (Isolated scroll per tab)
                 Column(
-                    modifier = Modifier.padding(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color(0xFF00E5FF))
-                        Text(
-                            text = "Atur Peran Model GLB Terdeteksi (${customModelManager.importedModels.size} Model)",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Color(0xFF00E5FF)
-                        )
-                    }
-
-                    Text(
-                        text = "Pilih peruntukan setiap file .GLB (Terrain, Karakter Player Hero, Bangunan/Rumah, atau Interior).",
-                        fontSize = 11.sp,
-                        color = Color(0xFFB0BEC5)
-                    )
-
-                    if (customModelManager.importedModels.isEmpty()) {
-                        Text(
-                            text = "Belum ada file GLB terdaftar. Klik 'Pilih Folder (Termux)' atau 'Impor File GLB' di bawah untuk membaca file 3D Anda.",
-                            fontSize = 11.sp,
-                            color = Color(0xFFFFB74D),
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    } else {
-                        customModelManager.importedModels.forEach { entry ->
-                            val isTerrainActive = customModelManager.activeCustomTerrainMesh == entry.mesh
-                            val isCharActive = customModelManager.activeCustomCharacterMesh == entry.mesh
-
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = when {
-                                        isCharActive -> Color(0xFF1B3A4B)
-                                        isTerrainActive -> Color(0xFF1B4D2E)
-                                        else -> Color(0xFF101726)
+                    when (activeTab) {
+                        AssetHubTab.FILES -> {
+                            // TAB 1: FILE IMPORT & STORAGE PERMISSIONS
+                            if (!hasStoragePermission || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess)) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1B0E)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.border(1.dp, Color(0xFFFFB74D), RoundedCornerShape(10.dp))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFFFFB74D))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Izin Akses Penyimpanan File", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFFFFCC80))
+                                            Text(
+                                                "Berikan izin agar engine dapat membaca model GLB dari memori perangkat.",
+                                                fontSize = 10.sp,
+                                                color = Color.White
+                                            )
+                                        }
+                                        Button(
+                                            onClick = {
+                                                if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
+                                                    storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess) {
+                                                    StoragePermissionHelper.launchAllFilesAccessSettings(context)
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB74D)),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(30.dp)
+                                        ) {
+                                            Text("Beri Izin", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
                                     }
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth().border(
-                                    width = 1.dp,
-                                    color = when {
-                                        isCharActive -> Color(0xFF00E5FF)
-                                        isTerrainActive -> Color(0xFF76FF03)
-                                        else -> Color(0xFF263238)
-                                    },
+                                }
+                            }
+
+                            // Notification Reports
+                            lastBatchReport?.let { report ->
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1B5E20)),
                                     shape = RoundedCornerShape(8.dp)
-                                )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            "✓ Berhasil memuat ${report.glbCount + report.objCount} model 3D!",
+                                            fontSize = 11.sp,
+                                            color = Color.White,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(onClick = { lastBatchReport = null }, modifier = Modifier.size(22.dp)) {
+                                            Icon(Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                        }
+                                    }
+                                }
+                            }
+
+                            lastExportMessage?.let { msg ->
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF004D40)),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(msg, fontSize = 11.sp, color = Color.White, modifier = Modifier.weight(1f))
+                                        IconButton(onClick = { lastExportMessage = null }, modifier = Modifier.size(22.dp)) {
+                                            Icon(Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Folder Fokus & Target Tulis Card
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1B2E)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.border(1.dp, Color(0xFF1E2B47), RoundedCornerShape(10.dp))
                             ) {
                                 Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("📁 Folder Fokus & Penyimpanan In-App", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF00E5FF))
+
+                                    OutlinedTextField(
+                                        value = focusPathInput,
+                                        onValueChange = { focusPathInput = it; fileAccessConfig.focusFolderPath = it },
+                                        label = { Text("Path Folder Fokus (GLB, Config)", fontSize = 10.sp) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { showInAppFocusFolderPicker = true },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF263238)),
+                                            modifier = Modifier.weight(1f).height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("Pilih Folder", color = Color.White, fontSize = 10.sp)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                val rep = batchImportManager.scanDirectFolderPath(focusPathInput)
+                                                lastBatchReport = rep
+                                                onTerrainChanged()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
+                                            modifier = Modifier.weight(1f).height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("Pindai Path", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                        }
+                                    }
+
+                                    Button(
+                                        onClick = { showCustomFileSelector = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                                        modifier = Modifier.fillMaxWidth().height(32.dp),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("📌 Pemilih & Pemeta File Kustom", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                    }
+                                }
+                            }
+
+                            // Quick File Pickers Card
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF131E33)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.border(1.dp, Color(0xFF1E2B47), RoundedCornerShape(10.dp))
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("📥 Impor File Mandiri (.GLB, .OBJ, .ZIP)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF76FF03))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                selectedTarget = ModelTarget.CHARACTER
+                                                modelPickerLauncher.launch("*/*")
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                                            modifier = Modifier.weight(1f).height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.FileUpload, contentDescription = null, tint = Color.Black, modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(3.dp))
+                                            Text("GLB Hero", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                selectedTarget = ModelTarget.TERRAIN
+                                                modelPickerLauncher.launch("*/*")
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
+                                            modifier = Modifier.weight(1f).height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.FileUpload, contentDescription = null, tint = Color.Black, modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(3.dp))
+                                            Text("GLB Map", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { zipPickerLauncher.launch("application/zip") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF263238)),
+                                            modifier = Modifier.weight(1f).height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.Archive, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(3.dp))
+                                            Text("Arsip .ZIP", color = Color.White, fontSize = 10.sp)
+                                        }
+
+                                        Button(
+                                            onClick = { folderPickerLauncher.launch(null) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF263238)),
+                                            modifier = Modifier.weight(1f).height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color(0xFFFFD600), modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(3.dp))
+                                            Text("Folder SAF", color = Color.White, fontSize = 10.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        AssetHubTab.MODELS -> {
+                            // TAB 2: REGISTERED MODELS & ROLE MAPPING
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF162238)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = "📄 ${entry.fileName}",
+                                            text = "📦 Model GLB Terdaftar (${customModelManager.importedModels.size})",
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            color = Color.White
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF00E5FF)
                                         )
                                         Text(
-                                            text = when {
-                                                isCharActive -> "🧍 KARAKTER AKTIF"
-                                                isTerrainActive -> "🗺️ MAP TERRAIN AKTIF"
-                                                else -> "📦 ${entry.target.name}"
-                                            },
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = when {
-                                                isCharActive -> Color(0xFF00E5FF)
-                                                isTerrainActive -> Color(0xFF76FF03)
-                                                else -> Color(0xFFFFD600)
-                                            }
+                                            text = "Atur peran Hero / Map",
+                                            fontSize = 9.sp,
+                                            color = Color(0xFFB0BEC5)
                                         )
                                     }
 
-                                    // Role Action Buttons
+                                    if (customModelManager.importedModels.isEmpty()) {
+                                        Surface(
+                                            color = Color(0xFF101726),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(16.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFFFFB74D), modifier = Modifier.size(28.dp))
+                                                Text(
+                                                    text = "Belum ada file GLB kustom terdaftar.",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFFFFB74D)
+                                                )
+                                                Text(
+                                                    text = "Buka tab 'Impor & Storage' untuk menambahkan model GLB/OBJ dari memori perangkat.",
+                                                    fontSize = 10.sp,
+                                                    color = Color(0xFFB0BEC5)
+                                                )
+                                                Button(
+                                                    onClick = { activeTab = AssetHubTab.FILES },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                                                    modifier = Modifier.height(28.dp),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("Ke Tab Impor ➔", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        customModelManager.importedModels.forEach { entry ->
+                                            val isTerrainActive = customModelManager.activeCustomTerrainMesh == entry.mesh
+                                            val isCharActive = customModelManager.activeCustomCharacterMesh == entry.mesh
+
+                                            Card(
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = when {
+                                                        isCharActive -> Color(0xFF1B3A4B)
+                                                        isTerrainActive -> Color(0xFF1B4D2E)
+                                                        else -> Color(0xFF101726)
+                                                    }
+                                                ),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.fillMaxWidth().border(
+                                                    width = 1.dp,
+                                                    color = when {
+                                                        isCharActive -> Color(0xFF00E5FF)
+                                                        isTerrainActive -> Color(0xFF76FF03)
+                                                        else -> Color(0xFF263238)
+                                                    },
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                            ) {
+                                                Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = "📄 ${entry.fileName}",
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 12.sp,
+                                                            color = Color.White,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.weight(1f, fill = false)
+                                                        )
+                                                        Text(
+                                                            text = when {
+                                                                isCharActive -> "👑 HERO AKTIF"
+                                                                isTerrainActive -> "🗺️ MAP AKTIF"
+                                                                else -> "📦 ${entry.target.name}"
+                                                            },
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = when {
+                                                                isCharActive -> Color(0xFF00E5FF)
+                                                                isTerrainActive -> Color(0xFF76FF03)
+                                                                else -> Color(0xFFFFD600)
+                                                            }
+                                                        )
+                                                    }
+
+                                                    Text(
+                                                        text = "Format: ${entry.format} • ${entry.mesh.vertexCount} Vertices",
+                                                        fontSize = 9.sp,
+                                                        color = Color(0xFF90A4AE),
+                                                        fontFamily = FontFamily.Monospace
+                                                    )
+
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                                    ) {
+                                                        Button(
+                                                            onClick = {
+                                                                customModelManager.setActiveCharacter(entry, updatePlayerConfig = true)
+                                                                customModelManager.activeCustomCharacterMesh = entry.mesh
+                                                                lastExportMessage = "✓ '${entry.fileName}' aktif sebagai Karakter Pemain!"
+                                                            },
+                                                            colors = ButtonDefaults.buttonColors(
+                                                                containerColor = if (isCharActive) Color(0xFF00E5FF) else Color(0xFF263238)
+                                                            ),
+                                                            modifier = Modifier.weight(1f).height(30.dp),
+                                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text("🧍 Set Hero", fontSize = 9.sp, color = if (isCharActive) Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                                                        }
+
+                                                        Button(
+                                                            onClick = {
+                                                                customModelManager.setActiveTerrain(entry, terrainMesh)
+                                                                terrainMesh.setCustomMesh(entry.mesh)
+                                                                onTerrainChanged()
+                                                                lastExportMessage = "✓ '${entry.fileName}' aktif sebagai Terrain Map!"
+                                                            },
+                                                            colors = ButtonDefaults.buttonColors(
+                                                                containerColor = if (isTerrainActive) Color(0xFF76FF03) else Color(0xFF263238)
+                                                            ),
+                                                            modifier = Modifier.weight(1f).height(30.dp),
+                                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text("🗺️ Set Map", fontSize = 9.sp, color = if (isTerrainActive) Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = { customModelManager.deleteModel(entry) },
+                                                            modifier = Modifier.size(30.dp)
+                                                        ) {
+                                                            Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color(0xFFFF5252), modifier = Modifier.size(16.dp))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        AssetHubTab.TERRAIN -> {
+                            // TAB 3: TERRAIN EXPORT & OBB PACKS
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2842)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.border(1.dp, Color(0xFFFFD600).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("🗺️ Ekspor Paket Sampel Lengkap & OBB", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFFD600))
+                                    Text(
+                                        "Ekspor paket sampel berisi kontur terrain 3D, NPC, jurus aksi, dan batas rintangan yang siap diedit di Blender/PC.",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFFECEFF1)
+                                    )
+
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        // Set Karakter Player (Overwrite Default)
                                         Button(
                                             onClick = {
-                                                customModelManager.setActiveCharacter(entry, updatePlayerConfig = true)
-                                                customModelManager.activeCustomCharacterMesh = entry.mesh
-                                                lastExportMessage = "✓ '${entry.fileName}' diaktifkan & menggantikan Karakter Pemain Utama!"
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isCharActive) Color(0xFF00E5FF) else Color(0xFF263238)
-                                            ),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Text(
-                                                "🧍 Set Karakter",
-                                                fontSize = 10.sp,
-                                                color = if (isCharActive) Color.Black else Color.White,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-
-                                        // Set Terrain Map (Overwrite Default)
-                                        Button(
-                                            onClick = {
-                                                customModelManager.setActiveTerrain(entry, terrainMesh)
-                                                terrainMesh.setCustomMesh(entry.mesh)
+                                                val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = false)
+                                                lastExportMessage = msg
+                                                val rep = batchImportManager.scanLocalAssetFolder()
+                                                lastBatchReport = rep
                                                 onTerrainChanged()
-                                                lastExportMessage = "✓ '${entry.fileName}' diaktifkan & menggantikan Map Terrain Utama!"
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isTerrainActive) Color(0xFF76FF03) else Color(0xFF263238)
-                                            ),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Text(
-                                                "🗺️ Set Terrain",
-                                                fontSize = 10.sp,
-                                                color = if (isTerrainActive) Color.Black else Color.White,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-
-                                        // Set Rumah + Pintu Masuk
-                                        Button(
-                                            onClick = {
-                                                // Create House Enter/Exit portal interactable
-                                                val houseDoor = WorldInteractable(
-                                                    id = "house_door_${System.currentTimeMillis()}",
-                                                    name = "Rumah GLB (${entry.fileName})",
-                                                    type = InteractableType.HOUSE_DOOR_ENTER,
-                                                    position = com.example.engine3d.math.Vec3(106.8f, 15.6f, 103.3f),
-                                                    targetTeleportPos = com.example.engine3d.math.Vec3(250.0f, 1.5f, 250.0f),
-                                                    promptText = "[Buka Pintu] Masuk Ke Rumah GLB"
-                                                )
-                                                val exitDoor = WorldInteractable(
-                                                    id = "house_exit_${System.currentTimeMillis()}",
-                                                    name = "Pintu Keluar Rumah",
-                                                    type = InteractableType.HOUSE_DOOR_EXIT,
-                                                    position = com.example.engine3d.math.Vec3(250.0f, 1.5f, 250.0f),
-                                                    targetTeleportPos = com.example.engine3d.math.Vec3(106.8f, 15.6f, 108.0f),
-                                                    promptText = "[Buka Pintu] Keluar Ke Desa"
-                                                )
-                                                val houseBarrier = WorldBarrier(
-                                                    id = "house_wall_${System.currentTimeMillis()}",
-                                                    name = "Dinding ${entry.fileName}",
-                                                    type = BarrierType.WALL_BARRIER,
-                                                    position = com.example.engine3d.math.Vec3(106.8f, 15.6f, 103.3f),
-                                                    size = com.example.engine3d.math.Vec3(8f, 5f, 8f),
-                                                    isPassable = false
-                                                )
-                                                barrierManager.barriers.add(houseBarrier)
-                                                lastExportMessage = "✓ Rumah '${entry.fileName}' terpasang + Pintu Pindah 'Masuk/Keluar Rumah' & Tembok Tabrakan terdaftar!"
+                                                Toast.makeText(context, "✓ Berhasil mengekspor paket .ZIP!", Toast.LENGTH_SHORT).show()
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD600)),
-                                            modifier = Modifier.weight(1f)
+                                            modifier = Modifier.weight(1f).height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
-                                            Text("🏠 Set Rumah", fontSize = 10.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                                            Icon(Icons.Default.FileDownload, contentDescription = null, tint = Color.Black, modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(3.dp))
+                                            Text("Ekspor .ZIP", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                                         }
 
-                                        // Delete
-                                        IconButton(
-                                            onClick = { customModelManager.deleteModel(entry) },
-                                            modifier = Modifier.size(32.dp)
+                                        Button(
+                                            onClick = {
+                                                val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = true)
+                                                lastExportMessage = msg
+                                                val rep = batchImportManager.scanLocalAssetFolder()
+                                                lastBatchReport = rep
+                                                onTerrainChanged()
+                                                Toast.makeText(context, "✓ Berhasil mengekspor paket .OBB!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                                            modifier = Modifier.weight(1f).height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color(0xFFFF5252))
+                                            Icon(Icons.Default.Archive, contentDescription = null, tint = Color.Black, modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(3.dp))
+                                            Text("Ekspor .OBB", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                                         }
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { obbPickerLauncher.launch("*/*") },
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF80D8FF)),
+                                        modifier = Modifier.fillMaxWidth().height(32.dp),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(Icons.Default.FileUpload, contentDescription = null, tint = Color(0xFF80D8FF), modifier = Modifier.size(13.dp))
+                                        Spacer(Modifier.width(3.dp))
+                                        Text("Impor Arsip .OBB dari HP", fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        AssetHubTab.NPCS -> {
+                            // TAB 4: NPCS & BARRIERS
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A233A)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.border(1.dp, Color(0xFF1E2B47), RoundedCornerShape(10.dp))
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("🚧 Batas Jalan & Rintangan", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFF5252))
+                                        Button(
+                                            onClick = { showBarrierCreator = true },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
+                                            modifier = Modifier.height(28.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                            Spacer(Modifier.width(2.dp))
+                                            Text("Tambah", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                        }
+                                    }
+
+                                    // List active barriers
+                                    if (barrierManager.barriers.isNotEmpty()) {
+                                        barrierManager.barriers.forEach { b ->
+                                            Surface(
+                                                color = Color(0xFF101726),
+                                                shape = RoundedCornerShape(6.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(b.name, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                        Text("Tipe: ${b.type.name} • (${b.position.x.toInt()}, ${b.position.z.toInt()})", fontSize = 9.sp, color = Color(0xFF90A4AE))
+                                                    }
+                                                    IconButton(onClick = { barrierManager.barriers.remove(b) }, modifier = Modifier.size(24.dp)) {
+                                                        Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color(0xFFFF5252), modifier = Modifier.size(14.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Text("Belum ada rintangan terpasang.", fontSize = 10.sp, color = Color(0xFF90A4AE))
+                                    }
+
+                                    HorizontalDivider(color = Color(0xFF263238), modifier = Modifier.padding(vertical = 2.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("👥 Karakter NPC & Dialog", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF76FF03))
+                                        Button(
+                                            onClick = { showNpcCreator = true },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
+                                            modifier = Modifier.height(28.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(12.dp))
+                                            Spacer(Modifier.width(2.dp))
+                                            Text("Buat NPC", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                        }
+                                    }
+
+                                    if (npcManager.npcs.isNotEmpty()) {
+                                        npcManager.npcs.forEach { npc ->
+                                            Surface(
+                                                color = Color(0xFF101726),
+                                                shape = RoundedCornerShape(6.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text("${npc.name} [${npc.role}]", fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = Color(0xFF76FF03), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                        Text("\"${npc.dialogues.firstOrNull() ?: ""}\"", fontSize = 9.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    }
+                                                    IconButton(onClick = { npcManager.removeNpc(npc) }, modifier = Modifier.size(24.dp)) {
+                                                        Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color(0xFFFF5252), modifier = Modifier.size(14.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Text("Belum ada NPC terpasang.", fontSize = 10.sp, color = Color(0xFF90A4AE))
                                     }
                                 }
                             }
@@ -813,316 +884,26 @@ fun AssetManagerSheet(
                     }
                 }
             }
-
-            // SECTION CONFIG: MANAJEMEN & PEMILIH FILE KONFIGURASI AREA (area_config.json)
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B283E)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.border(1.5.dp, Color(0xFF76FF03), RoundedCornerShape(12.dp))
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF76FF03))
-                        Text(
-                            text = "Pemilih & Pembuat File Config (`area_config.json`)",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Color(0xFF76FF03)
-                        )
-                    }
-
-                    Text(
-                        text = "Simpan atau muat file konfigurasi area multi-GLB, peruntukan role, serta titik pintu pindah ('Masuk/Keluar Rumah') secara instan.",
-                        fontSize = 11.sp,
-                        color = Color(0xFFECEFF1)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { jsonConfigPickerLauncher.launch("application/json") },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.FileUpload, contentDescription = null, tint = Color.Black)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Pilih / Muat Config JSON", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
-                                    storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                                } else {
-                                    val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = false)
-                                    lastExportMessage = msg
-                                    Toast.makeText(context, "✓ Berhasil mengekspor!", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.FileDownload, contentDescription = null, tint = Color.Black)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Simpan Config JSON", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-
-            // SECTION 1: Ekspor Sample Lengkap (.ZIP / .OBB)
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2842)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.border(1.5.dp, Color(0xFFFFD600), RoundedCornerShape(12.dp))
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.Archive, contentDescription = null, tint = Color(0xFFFFD600))
-                        Text(
-                            text = "Ekspor Sampel Lengkap & Paket OBB",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Color(0xFFFFD600)
-                        )
-                    }
-
-                    Text(
-                        text = "Ekspor paket sampel berisi kontur terrain 3D, jurus aksi, NPC, batas jalan/blokir, dan panduan. Siap diedit di Blender/PC!",
-                        fontSize = 11.sp,
-                        color = Color(0xFFECEFF1)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
-                                    storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                                } else {
-                                    val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = false)
-                                    lastExportMessage = msg
-                                    val rep = batchImportManager.scanLocalAssetFolder()
-                                    lastBatchReport = rep
-                                    onTerrainChanged()
-                                    Toast.makeText(context, "✓ Berhasil mengekspor paket .ZIP!", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD600)),
-                            modifier = Modifier.weight(1f).testTag("export_sample_zip_button")
-                        ) {
-                            Icon(Icons.Default.FileDownload, contentDescription = null, tint = Color.Black)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Ekspor .ZIP", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                if (StoragePermissionHelper.needsRuntimePermission() && !hasStoragePermission) {
-                                    storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                                } else {
-                                    val msg = sampleExportManager.exportToCustomDirectory(writePathInput, isObb = true)
-                                    lastExportMessage = msg
-                                    val rep = batchImportManager.scanLocalAssetFolder()
-                                    lastBatchReport = rep
-                                    onTerrainChanged()
-                                    Toast.makeText(context, "✓ Berhasil mengekspor paket .OBB!", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                            modifier = Modifier.weight(1f).testTag("export_sample_obb_button")
-                        ) {
-                            Icon(Icons.Default.Archive, contentDescription = null, tint = Color.Black)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Ekspor .OBB", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-                    }
-
-                    // Button Import OBB
-                    OutlinedButton(
-                        onClick = { obbPickerLauncher.launch("*/*") },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF80D8FF)),
-                        modifier = Modifier.fillMaxWidth().testTag("import_obb_button")
-                    ) {
-                        Icon(Icons.Default.FileUpload, contentDescription = null, tint = Color(0xFF80D8FF))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Import / Muat File .OBB dari HP", fontSize = 11.sp)
-                    }
-                }
-            }
-
-            // SECTION 2: Kelakuan Batas Jalan, Blokir Jalan & Speed Pads
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A233A)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.Block, contentDescription = null, tint = Color(0xFFFF5252))
-                        Text("Batas Jalan & Blokir Objek (Zone / Barriers)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
-
-                    Text(
-                        text = "Atur batas area, tembok tak kasat mata pemblokir jalan, pelat turbo akselerasi, serta pelat pelontar loncatan (Jump Pad).",
-                        fontSize = 11.sp,
-                        color = Color(0xFFB0BEC5)
-                    )
-
-                    Button(
-                        onClick = { showBarrierCreator = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252)),
-                        modifier = Modifier.fillMaxWidth().testTag("add_custom_barrier_button")
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Tambah Batas / Blokir Jalan Baru", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                    }
-
-                    // List active barriers
-                    Text("Daftar Batas Jalan di Dunia:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                    barrierManager.barriers.forEach { b ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFF101726), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(b.name, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Color.White)
-                                Text(
-                                    "Tipe: ${b.type.name} • Solid: ${!b.isPassable} • Pos: (${b.position.x.toInt()}, ${b.position.z.toInt()})",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFF90A4AE)
-                                )
-                            }
-                            IconButton(onClick = { barrierManager.barriers.remove(b) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color(0xFFFF5252))
-                            }
-                        }
-                    }
-                }
-            }
-
-            // SECTION 3: Batch Folder & ZIP
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF162136)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text("Pindai Folder / Arsip Eksternal", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { showInAppFocusFolderPicker = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Folder, contentDescription = null, tint = Color.Black)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Pilih Folder", color = Color.Black, fontSize = 11.sp)
-                        }
-
-                        Button(
-                            onClick = { zipPickerLauncher.launch("application/zip") },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF263238)),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Archive, contentDescription = null, tint = Color(0xFF00E5FF))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Buka ZIP", color = Color.White, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-
-            // SECTION 4: NPCs & Terrain
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A233A)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.People, contentDescription = null, tint = Color(0xFF76FF03))
-                        Text("Karakter NPC & Dialog", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
-
-                    Button(
-                        onClick = { showNpcCreator = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Buat NPC Baru di Peta", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
         }
     }
-}
 
-    // Dialog Panduan OBB & Format File
+    // Modal Panduan Format
     if (showFormatGuide) {
         AlertDialog(
             onDismissRequest = { showFormatGuide = false },
-            title = { Text("Penjelasan File OBB & Format Sampel", fontWeight = FontWeight.Bold) },
+            title = { Text("Penjelasan File OBB & Format Sampel", fontWeight = FontWeight.Bold, fontSize = 14.sp) },
             text = {
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        "1. APAKAH FILE .OBB BISA DIGUNAKAN?\n" +
-                        "Ya! Di engine game mobile, file .OBB (Opaque Binary Blob) pada dasarnya adalah ARSIP ZIP terpaket.\n" +
-                        "Kamu bisa menyimpan puluhan model 3D (.glb, .obj), suara, dan file konfigurasi kelakuan (.json) ke dalam 1 file .obb tunggal.\n" +
-                        "Apex Engine memiliki dekompresor bawaan yang membaca file .obb secara instan tanpa perlu ekstrak manual.",
+                        "1. FILE .OBB:\nDi engine Apex3D, file .OBB adalah arsip terpaket yang berisi model 3D (.glb, .obj), suara, dan konfigurasi (.json) yang dibaca langsung secara instan.",
                         fontSize = 11.sp,
                         color = Color(0xFFCFD8DC)
                     )
                     Text(
-                        "2. KELAKUAN BATAS JALAN & BLOKIR OBJEK:\n" +
-                        "• WALL_BARRIER: Tembok solid yang memblokir karakter dari jalan rusak / area terkunci.\n" +
-                        "• SPEED_BOOST_PAD: Pelat jalur jalan yang melipatgandakan kecepatan lari.\n" +
-                        "• BOUNCE_PAD: Pelat pelontar yang melempar karakter melintasi tebing jurang.\n" +
-                        "• KILL_ZONE: Zona jurang batas yang mengembalikan posisi pemain.",
+                        "2. RINTANGAN & ZONA:\n• WALL_BARRIER: Tembok solid pemblokir jalan.\n• SPEED_BOOST_PAD: Pelat pengganda kecepatan.\n• BOUNCE_PAD: Pelat pelontar loncatan tinggi.",
                         fontSize = 11.sp,
                         color = Color(0xFF80D8FF)
                     )
@@ -1130,13 +911,13 @@ fun AssetManagerSheet(
             },
             confirmButton = {
                 Button(onClick = { showFormatGuide = false }) {
-                    Text("Tutup")
+                    Text("Tutup", fontSize = 11.sp)
                 }
             }
         )
     }
 
-    // Dialog Tambah Batas Jalan / Blokir
+    // Dialog Tambah Batas Jalan
     if (showBarrierCreator) {
         var barrierName by remember { mutableStateOf("Barikade Gerbang") }
         var barrierType by remember { mutableStateOf(BarrierType.WALL_BARRIER) }
@@ -1147,17 +928,20 @@ fun AssetManagerSheet(
 
         AlertDialog(
             onDismissRequest = { showBarrierCreator = false },
-            title = { Text("Buat Batas Jalan / Blokir Baru", fontWeight = FontWeight.Bold) },
+            title = { Text("Buat Batas Jalan Baru", fontWeight = FontWeight.Bold, fontSize = 14.sp) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = barrierName,
                         onValueChange = { barrierName = it },
-                        label = { Text("Nama Rintangan / Batas") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Nama Rintangan", fontSize = 10.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
-                    Text("Tipe Batas:", fontSize = 12.sp, color = Color(0xFF00E5FF))
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         listOf(
                             BarrierType.WALL_BARRIER to "Tembok Blokir",
                             BarrierType.SPEED_BOOST_PAD to "Speed Pad",
@@ -1174,28 +958,32 @@ fun AssetManagerSheet(
                         OutlinedTextField(
                             value = barrierX,
                             onValueChange = { barrierX = it },
-                            label = { Text("Posisi X") },
-                            modifier = Modifier.weight(1f)
+                            label = { Text("Posisi X", fontSize = 10.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
                         )
                         OutlinedTextField(
                             value = barrierZ,
                             onValueChange = { barrierZ = it },
-                            label = { Text("Posisi Z") },
-                            modifier = Modifier.weight(1f)
+                            label = { Text("Posisi Z", fontSize = 10.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
                         )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = barrierSizeX,
                             onValueChange = { barrierSizeX = it },
-                            label = { Text("Lebar (X)") },
-                            modifier = Modifier.weight(1f)
+                            label = { Text("Lebar (X)", fontSize = 10.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
                         )
                         OutlinedTextField(
                             value = barrierSizeZ,
                             onValueChange = { barrierSizeZ = it },
-                            label = { Text("Panjang (Z)") },
-                            modifier = Modifier.weight(1f)
+                            label = { Text("Panjang (Z)", fontSize = 10.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
                         )
                     }
                 }
@@ -1221,12 +1009,12 @@ fun AssetManagerSheet(
                         showBarrierCreator = false
                     }
                 ) {
-                    Text("Pasang Batas")
+                    Text("Pasang Batas", fontSize = 11.sp)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showBarrierCreator = false }) {
-                    Text("Batal")
+                    Text("Batal", fontSize = 11.sp)
                 }
             }
         )
@@ -1240,25 +1028,27 @@ fun AssetManagerSheet(
 
         AlertDialog(
             onDismissRequest = { showNpcCreator = false },
-            title = { Text("Buat NPC Baru", fontWeight = FontWeight.Bold) },
+            title = { Text("Buat NPC Baru", fontWeight = FontWeight.Bold, fontSize = 14.sp) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = npcName,
                         onValueChange = { npcName = it },
-                        label = { Text("Nama NPC") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Nama NPC", fontSize = 10.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
                     OutlinedTextField(
                         value = npcRole,
                         onValueChange = { npcRole = it },
-                        label = { Text("Peran") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Peran", fontSize = 10.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
                     OutlinedTextField(
                         value = npcDialogue,
                         onValueChange = { npcDialogue = it },
-                        label = { Text("Dialog") },
+                        label = { Text("Dialog", fontSize = 10.sp) },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -1278,18 +1068,18 @@ fun AssetManagerSheet(
                         showNpcCreator = false
                     }
                 ) {
-                    Text("Pasang NPC")
+                    Text("Pasang NPC", fontSize = 11.sp)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showNpcCreator = false }) {
-                    Text("Batal")
+                    Text("Batal", fontSize = 11.sp)
                 }
             }
         )
     }
 
-    // Dialog Pemilih & Pemeta File Kustom jika nama file config/model berbeda
+    // Custom File Selector Dialog
     if (showCustomFileSelector) {
         val detectedFiles = remember(focusPathInput) {
             batchImportManager.listFilesInFolderPath(focusPathInput)
@@ -1299,128 +1089,74 @@ fun AssetManagerSheet(
             onDismissRequest = { showCustomFileSelector = false },
             title = {
                 Column {
-                    Text("📌 Pemeta File Kustom dalam Folder", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("📌 Pemeta File Kustom", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Text("Focus Path: $focusPathInput", fontSize = 10.sp, color = Color(0xFF00E5FF))
                 }
             },
             text = {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        "Pilih dan sesuaikan fungsi file jika nama file config atau model 3D dalam folder Anda menggunakan nama kustom/berbeda:",
-                        fontSize = 11.sp,
-                        color = Color(0xFFCFD8DC)
-                    )
-
                     if (detectedFiles.isEmpty()) {
                         Text(
-                            "Tidak ada file GLB, OBJ, atau JSON terdeteksi di '$focusPathInput'. Silakan pastikan folder berisi file yang ingin Anda muat.",
+                            "Tidak ada file GLB, OBJ, atau JSON terdeteksi di '$focusPathInput'.",
                             fontSize = 11.sp,
                             color = Color(0xFFFFB74D)
                         )
                     } else {
-                        // 1. FILE CONFIG JSON
-                        val jsonFiles = detectedFiles.filter { it.extension.lowercase() == "json" }
-                        if (jsonFiles.isNotEmpty()) {
-                            Text("📄 FILE KONFIGURASI JSON TERDETEKSI:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF76FF03))
-                            jsonFiles.forEach { f ->
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF101726)),
-                                    modifier = Modifier.fillMaxWidth()
+                        val modelFiles = detectedFiles.filter { it.extension.lowercase() in listOf("glb", "obj") }
+                        modelFiles.forEach { f ->
+                            Surface(
+                                color = Color(0xFF162238),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text(f.name, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Color.White)
-                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Button(
-                                                onClick = {
-                                                    val msg = batchImportManager.applyCustomAreaConfigFile(f)
-                                                    lastExportMessage = msg
-                                                    onTerrainChanged()
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text("📜 Config Area", fontSize = 9.sp, color = Color.Black, fontWeight = FontWeight.Bold)
-                                            }
-                                            Button(
-                                                onClick = {
-                                                    val msg = batchImportManager.applyCustomPlayerConfigFile(f)
-                                                    lastExportMessage = msg
-                                                    onTerrainChanged()
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text("🧍 Config Hero", fontSize = 9.sp, color = Color.Black, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // 2. FILE MODEL 3D GLB / OBJ
-                        val modelFiles = detectedFiles.filter {
-                            val ext = it.extension.lowercase()
-                            ext == "glb" || ext == "obj"
-                        }
-                        if (modelFiles.isNotEmpty()) {
-                            Text("📦 MODEL 3D GLB / OBJ TERDETEKSI:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF00E5FF))
-                            modelFiles.forEach { f ->
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF162238)),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                    Text(f.name, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Button(
+                                            onClick = {
+                                                try {
+                                                    val mesh = GlbParser.parse(java.io.FileInputStream(f), f.name)
+                                                    if (mesh != null) {
+                                                        customModelManager.activeCustomTerrainMesh = mesh
+                                                        terrainMesh.setCustomMesh(mesh)
+                                                        onTerrainChanged()
+                                                        lastExportMessage = "✓ '${f.name}' aktif sebagai Terrain!"
+                                                    }
+                                                } catch (e: Exception) {
+                                                    lastExportMessage = "❌ Error: ${e.localizedMessage}"
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(26.dp)
                                         ) {
-                                            Text(f.name, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
-                                            Text("${f.length() / 1024} KB", fontSize = 10.sp, color = Color(0xFFB0BEC5))
+                                            Text("Map", fontSize = 9.sp, color = Color.Black, fontWeight = FontWeight.Bold)
                                         }
-                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Button(
-                                                onClick = {
-                                                    try {
-                                                        val mesh = GlbParser.parse(java.io.FileInputStream(f), f.name)
-                                                        if (mesh != null) {
-                                                            customModelManager.activeCustomTerrainMesh = mesh
-                                                            terrainMesh.setCustomMesh(mesh)
-                                                            onTerrainChanged()
-                                                            lastExportMessage = "✓ Model '${f.name}' diaktifkan sebagai Terrain Map!"
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        lastExportMessage = "❌ Error: ${e.localizedMessage}"
-                                                    }
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF76FF03)),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text("🗺️ Set Terrain", fontSize = 9.sp, color = Color.Black, fontWeight = FontWeight.Bold)
-                                            }
 
-                                            Button(
-                                                onClick = {
-                                                    try {
-                                                        val mesh = GlbParser.parse(java.io.FileInputStream(f), f.name)
-                                                        if (mesh != null) {
-                                                            customModelManager.activeCustomCharacterMesh = mesh
-                                                            lastExportMessage = "✓ Model '${f.name}' diaktifkan sebagai Karakter Player!"
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        lastExportMessage = "❌ Error: ${e.localizedMessage}"
+                                        Button(
+                                            onClick = {
+                                                try {
+                                                    val mesh = GlbParser.parse(java.io.FileInputStream(f), f.name)
+                                                    if (mesh != null) {
+                                                        customModelManager.activeCustomCharacterMesh = mesh
+                                                        lastExportMessage = "✓ '${f.name}' aktif sebagai Karakter!"
                                                     }
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text("🧍 Set Hero", fontSize = 9.sp, color = Color.Black, fontWeight = FontWeight.Bold)
-                                            }
+                                                } catch (e: Exception) {
+                                                    lastExportMessage = "❌ Error: ${e.localizedMessage}"
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(26.dp)
+                                        ) {
+                                            Text("Hero", fontSize = 9.sp, color = Color.Black, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
@@ -1431,7 +1167,7 @@ fun AssetManagerSheet(
             },
             confirmButton = {
                 Button(onClick = { showCustomFileSelector = false }) {
-                    Text("Selesai")
+                    Text("Selesai", fontSize = 11.sp)
                 }
             }
         )

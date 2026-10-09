@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashOn
@@ -52,6 +55,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -105,6 +111,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 fun EngineScreen(
@@ -229,6 +236,8 @@ fun EngineScreen(
     // Joystick Touch Offsets
     var joystickThumbOffset by remember { mutableStateOf(Offset.Zero) }
     var isSprintLocked by remember { mutableStateOf(false) }
+    var isCleanHudMode by remember { mutableStateOf(true) }
+    var isSecondaryTrayExpanded by remember { mutableStateOf(false) }
 
     // Interaction & NPC Proximity State
     val nearbyObject = interactionSystem.currentNearbyObject
@@ -468,16 +477,18 @@ fun EngineScreen(
                         }
 
                         HudControlId.CROUCH -> {
-                            HudCircularButton(
-                                icon = Icons.Default.ArrowDownward,
-                                label = if (physicsEngine.isCrouched) "Berdiri" else "Jongkok",
-                                size = currentSize,
-                                posX = posX,
-                                posY = posY,
-                                alpha = cfg.alpha,
-                                bgColor = if (physicsEngine.isCrouched) Color(0xCCFFD600) else Color(0x7737474F),
-                                onClick = { physicsEngine.isCrouched = !physicsEngine.isCrouched }
-                            )
+                            if (!isCleanHudMode) {
+                                HudCircularButton(
+                                    icon = Icons.Default.ArrowDownward,
+                                    label = if (physicsEngine.isCrouched) "Berdiri" else "Jongkok",
+                                    size = currentSize,
+                                    posX = posX,
+                                    posY = posY,
+                                    alpha = cfg.alpha,
+                                    bgColor = if (physicsEngine.isCrouched) Color(0xCCFFD600) else Color(0x7737474F),
+                                    onClick = { physicsEngine.isCrouched = !physicsEngine.isCrouched }
+                                )
+                            }
                         }
 
                         HudControlId.ATTACK -> {
@@ -494,29 +505,33 @@ fun EngineScreen(
                         }
 
                         HudControlId.ACTION_SLAM -> {
-                            HudCircularButton(
-                                icon = Icons.Default.Terrain,
-                                label = actionManager.secondaryAction.name,
-                                size = currentSize,
-                                posX = posX,
-                                posY = posY,
-                                alpha = cfg.alpha,
-                                bgColor = Color(0xCCFF9100),
-                                onClick = { actionManager.triggerAction(actionManager.secondaryAction) }
-                            )
+                            if (!isCleanHudMode) {
+                                HudCircularButton(
+                                    icon = Icons.Default.Terrain,
+                                    label = actionManager.secondaryAction.name,
+                                    size = currentSize,
+                                    posX = posX,
+                                    posY = posY,
+                                    alpha = cfg.alpha,
+                                    bgColor = Color(0xCCFF9100),
+                                    onClick = { actionManager.triggerAction(actionManager.secondaryAction) }
+                                )
+                            }
                         }
 
                         HudControlId.ACTION_DASH -> {
-                            HudCircularButton(
-                                icon = Icons.Default.Speed,
-                                label = actionManager.utilityAction.name,
-                                size = currentSize,
-                                posX = posX,
-                                posY = posY,
-                                alpha = cfg.alpha,
-                                bgColor = Color(0xCC76FF03),
-                                onClick = { actionManager.triggerAction(actionManager.utilityAction) }
-                            )
+                            if (!isCleanHudMode) {
+                                HudCircularButton(
+                                    icon = Icons.Default.Speed,
+                                    label = actionManager.utilityAction.name,
+                                    size = currentSize,
+                                    posX = posX,
+                                    posY = posY,
+                                    alpha = cfg.alpha,
+                                    bgColor = Color(0xCC76FF03),
+                                    onClick = { actionManager.triggerAction(actionManager.utilityAction) }
+                                )
+                            }
                         }
 
                         HudControlId.INTERACT -> {
@@ -552,82 +567,233 @@ fun EngineScreen(
 
                         HudControlId.EXPANDED_MENU -> {
                             HudCircularButton(
-                                icon = Icons.Default.Apps,
-                                label = if (isExpandedMenuOpen) "Tutup" else "Menu",
+                                icon = if (isSecondaryTrayExpanded) Icons.Default.Close else Icons.Default.Bolt,
+                                label = if (isSecondaryTrayExpanded) "Tutup" else "Aksi+",
                                 size = currentSize,
                                 posX = posX,
                                 posY = posY,
                                 alpha = cfg.alpha,
-                                bgColor = if (isExpandedMenuOpen) Color(0xFFFFD600) else Color(0xAAFF9100),
+                                bgColor = if (isSecondaryTrayExpanded) Color(0xFFFF5252) else Color(0xDDFF9100),
                                 iconTint = Color.Black,
                                 textColor = Color.Black,
-                                onClick = { isExpandedMenuOpen = !isExpandedMenuOpen }
+                                onClick = {
+                                    isSecondaryTrayExpanded = !isSecondaryTrayExpanded
+                                    isExpandedMenuOpen = false
+                                }
                             )
                         }
 
                         HudControlId.CAMERA_SWITCH -> {
-                            val modeLabel = when (currentCameraMode) {
-                                CameraPresetMode.DYNAMIC_EXPLORATION -> "AC Cam"
-                                CameraPresetMode.STEALTH_CROUCH -> "Stealth"
-                                CameraPresetMode.COMBAT_FOCUS -> "Tempur"
-                                CameraPresetMode.EAGLE_PANORAMA -> "Elang"
-                                CameraPresetMode.FIRST_PERSON -> "FPP"
-                            }
-                            val modeBgColor = when (currentCameraMode) {
-                                CameraPresetMode.DYNAMIC_EXPLORATION -> Color(0x9900E5FF)
-                                CameraPresetMode.STEALTH_CROUCH -> Color(0x9976FF03)
-                                CameraPresetMode.COMBAT_FOCUS -> Color(0x99FF3D00)
-                                CameraPresetMode.EAGLE_PANORAMA -> Color(0x99FFD600)
-                                CameraPresetMode.FIRST_PERSON -> Color(0x889C27B0)
-                            }
-                            HudCircularButton(
-                                icon = Icons.Default.SwitchVideo,
-                                label = modeLabel,
-                                size = currentSize,
-                                posX = posX,
-                                posY = posY,
-                                alpha = cfg.alpha,
-                                bgColor = modeBgColor,
-                                iconTint = if (currentCameraMode == CameraPresetMode.DYNAMIC_EXPLORATION || currentCameraMode == CameraPresetMode.EAGLE_PANORAMA) Color.Black else Color.White,
-                                textColor = if (currentCameraMode == CameraPresetMode.DYNAMIC_EXPLORATION || currentCameraMode == CameraPresetMode.EAGLE_PANORAMA) Color.Black else Color.White,
-                                onClick = {
-                                    currentCameraMode = renderer.camera.cycleCameraMode()
+                            if (!isCleanHudMode) {
+                                val modeLabel = when (currentCameraMode) {
+                                    CameraPresetMode.DYNAMIC_EXPLORATION -> "AC Cam"
+                                    CameraPresetMode.STEALTH_CROUCH -> "Stealth"
+                                    CameraPresetMode.COMBAT_FOCUS -> "Tempur"
+                                    CameraPresetMode.EAGLE_PANORAMA -> "Elang"
+                                    CameraPresetMode.FIRST_PERSON -> "FPP"
                                 }
-                            )
+                                val modeBgColor = when (currentCameraMode) {
+                                    CameraPresetMode.DYNAMIC_EXPLORATION -> Color(0x9900E5FF)
+                                    CameraPresetMode.STEALTH_CROUCH -> Color(0x9976FF03)
+                                    CameraPresetMode.COMBAT_FOCUS -> Color(0x99FF3D00)
+                                    CameraPresetMode.EAGLE_PANORAMA -> Color(0x99FFD600)
+                                    CameraPresetMode.FIRST_PERSON -> Color(0x889C27B0)
+                                }
+                                HudCircularButton(
+                                    icon = Icons.Default.SwitchVideo,
+                                    label = modeLabel,
+                                    size = currentSize,
+                                    posX = posX,
+                                    posY = posY,
+                                    alpha = cfg.alpha,
+                                    bgColor = modeBgColor,
+                                    iconTint = if (currentCameraMode == CameraPresetMode.DYNAMIC_EXPLORATION || currentCameraMode == CameraPresetMode.EAGLE_PANORAMA) Color.Black else Color.White,
+                                    textColor = if (currentCameraMode == CameraPresetMode.DYNAMIC_EXPLORATION || currentCameraMode == CameraPresetMode.EAGLE_PANORAMA) Color.Black else Color.White,
+                                    onClick = {
+                                        currentCameraMode = renderer.camera.cycleCameraMode()
+                                    }
+                                )
+                            }
                         }
 
                         HudControlId.FLASHLIGHT -> {
-                            HudCircularButton(
-                                icon = Icons.Default.Highlight,
-                                label = "Lampu",
-                                size = currentSize,
-                                posX = posX,
-                                posY = posY,
-                                alpha = cfg.alpha,
-                                bgColor = Color(0x77263238),
-                                onClick = {
-                                    if (renderer.lighting.pointLights.isNotEmpty()) {
-                                        val light = renderer.lighting.pointLights[0]
-                                        light.intensity = if (light.intensity > 0.1f) 0.0f else 2.5f
+                            if (!isCleanHudMode) {
+                                HudCircularButton(
+                                    icon = Icons.Default.Highlight,
+                                    label = "Lampu",
+                                    size = currentSize,
+                                    posX = posX,
+                                    posY = posY,
+                                    alpha = cfg.alpha,
+                                    bgColor = Color(0x77263238),
+                                    onClick = {
+                                        if (renderer.lighting.pointLights.isNotEmpty()) {
+                                            val light = renderer.lighting.pointLights[0]
+                                            light.intensity = if (light.intensity > 0.1f) 0.0f else 2.5f
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
 
                         HudControlId.RESET_POS -> {
-                            HudCircularButton(
-                                icon = Icons.Default.RestartAlt,
-                                label = "Reset",
-                                size = currentSize,
-                                posX = posX,
-                                posY = posY,
-                                alpha = cfg.alpha,
-                                bgColor = Color(0x77263238),
-                                onClick = { physicsEngine.resetCharacterPosition() }
-                            )
+                            if (!isCleanHudMode) {
+                                HudCircularButton(
+                                    icon = Icons.Default.RestartAlt,
+                                    label = "Reset",
+                                    size = currentSize,
+                                    posX = posX,
+                                    posY = posY,
+                                    alpha = cfg.alpha,
+                                    bgColor = Color(0x77263238),
+                                    onClick = { physicsEngine.resetCharacterPosition() }
+                                )
+                            }
                         }
                         else -> {
                             // Non-button system HUD elements handled below
+                        }
+                    }
+                }
+
+                // 2b. Menu Lipat Aksi Sekunder (Collapsible Action Tray)
+                if (isSecondaryTrayExpanded) {
+                    val expMenuCfg = hudConfigs[HudControlId.EXPANDED_MENU]
+                    val trayOriginX = if (expMenuCfg != null) (expMenuCfg.xPercent * screenW - 140f).coerceIn(10f, (screenW - 290f).coerceAtLeast(10f)) else (screenW - 290f).coerceAtLeast(10f)
+                    val trayOriginY = if (expMenuCfg != null) (expMenuCfg.yPercent * screenH - 110f).coerceIn(40f, (screenH - 160f).coerceAtLeast(40f)) else (screenH - 180f).coerceAtLeast(40f)
+
+                    Surface(
+                        modifier = Modifier
+                            .offset { IntOffset(trayOriginX.dp.roundToPx(), trayOriginY.dp.roundToPx()) }
+                            .widthIn(min = 250.dp, max = 290.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xF20B1322),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF00E5FF)),
+                        shadowElevation = 8.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Icon(Icons.Default.Bolt, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(14.dp))
+                                    Text("⚡ Menu Aksi Cepat", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF00E5FF))
+                                }
+                                IconButton(onClick = { isSecondaryTrayExpanded = false }, modifier = Modifier.size(20.dp)) {
+                                    Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White, modifier = Modifier.size(14.dp))
+                                }
+                            }
+
+                            // Baris 1: Dash, Slam, Jongkok
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        actionManager.triggerAction(actionManager.utilityAction)
+                                        isSecondaryTrayExpanded = false
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f).height(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Speed, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(2.dp))
+                                    Text("Dash", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        actionManager.triggerAction(actionManager.secondaryAction)
+                                        isSecondaryTrayExpanded = false
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f).height(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Terrain, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(2.dp))
+                                    Text("Slam", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+
+                                Button(
+                                    onClick = { physicsEngine.isCrouched = !physicsEngine.isCrouched },
+                                    colors = ButtonDefaults.buttonColors(containerColor = if (physicsEngine.isCrouched) Color(0xFFFFD600) else Color(0xFF37474F)),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f).height(32.dp)
+                                ) {
+                                    Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = if (physicsEngine.isCrouched) Color.Black else Color.White, modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(2.dp))
+                                    Text(if (physicsEngine.isCrouched) "Berdiri" else "Jongkok", fontSize = 10.sp, color = if (physicsEngine.isCrouched) Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            // Baris 2: Kamera, Senter, Reset Posisi
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                val cameraLabel = when (currentCameraMode) {
+                                    CameraPresetMode.DYNAMIC_EXPLORATION -> "AC Cam"
+                                    CameraPresetMode.STEALTH_CROUCH -> "Stealth"
+                                    CameraPresetMode.COMBAT_FOCUS -> "Tempur"
+                                    CameraPresetMode.EAGLE_PANORAMA -> "Elang"
+                                    CameraPresetMode.FIRST_PERSON -> "FPP"
+                                }
+                                Button(
+                                    onClick = { currentCameraMode = renderer.camera.cycleCameraMode() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00838F)),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f).height(32.dp)
+                                ) {
+                                    Icon(Icons.Default.SwitchVideo, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(2.dp))
+                                    Text(cameraLabel, fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+
+                                val hasLightOn = renderer.lighting.pointLights.any { it.intensity > 0.1f }
+                                Button(
+                                    onClick = {
+                                        if (renderer.lighting.pointLights.isNotEmpty()) {
+                                            val light = renderer.lighting.pointLights[0]
+                                            light.intensity = if (light.intensity > 0.1f) 0.0f else 2.5f
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = if (hasLightOn) Color(0xFFFBC02D) else Color(0xFF455A64)),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f).height(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Highlight, contentDescription = null, tint = if (hasLightOn) Color.Black else Color(0xFFFFD600), modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(2.dp))
+                                    Text("Senter", fontSize = 10.sp, color = if (hasLightOn) Color.Black else Color(0xFFFFD600), fontWeight = FontWeight.Bold)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        physicsEngine.resetCharacterPosition()
+                                        isSecondaryTrayExpanded = false
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f).height(32.dp)
+                                ) {
+                                    Icon(Icons.Default.RestartAlt, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(2.dp))
+                                    Text("Reset Pos", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
                 }
@@ -841,9 +1007,10 @@ fun EngineScreen(
                             modifier = Modifier
                                 .background(Color(0xD0101726), CircleShape)
                                 .border(1.dp, Color(0xFF00E5FF), CircleShape)
+                                .size(34.dp)
                                 .testTag("back_to_lobby_button")
                         ) {
-                            Icon(Icons.Default.Home, contentDescription = "Kembali ke Lobby", tint = Color(0xFF00E5FF))
+                            Icon(Icons.Default.Home, contentDescription = "Kembali ke Lobby", tint = Color(0xFF00E5FF), modifier = Modifier.size(18.dp))
                         }
 
                         // Performance stats widget
@@ -854,21 +1021,35 @@ fun EngineScreen(
                                 presetName = settings.activePreset.name.take(7)
                             )
                         }
+
+                        // Quick Clean Mode Toggle Chip
+                        FilterChip(
+                            selected = isCleanHudMode,
+                            onClick = { isCleanHudMode = !isCleanHudMode },
+                            label = { Text(if (isCleanHudMode) "✨ Mode Bersih" else "🎛️ Mode Penuh", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF00E5FF),
+                                selectedLabelColor = Color.Black,
+                                containerColor = Color(0xCC101726),
+                                labelColor = Color.White
+                            ),
+                            modifier = Modifier.height(28.dp)
+                        )
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        // HUD Control Editor Button
+                        // GLB Studio Config Button
                         Button(
-                            onClick = { isEditHudMode = true },
+                            onClick = { showGlbConfigSheet = true },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
                             shape = RoundedCornerShape(20.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
-                            modifier = Modifier.testTag("open_hud_editor_button")
+                            modifier = Modifier.height(32.dp).testTag("open_glb_config_button")
                         ) {
-                            Icon(Icons.Default.VideogameAsset, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.Build, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Editor HUD", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            Text("Studio GLB", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
 
                         // Graphics Settings Button
@@ -878,25 +1059,11 @@ fun EngineScreen(
                             shape = RoundedCornerShape(20.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD600)),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
-                            modifier = Modifier.testTag("open_graphics_sheet_button")
+                            modifier = Modifier.height(32.dp).testTag("open_graphics_sheet_button")
                         ) {
-                            Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFFFFD600), modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFFFFD600), modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
                             Text("Grafis", color = Color(0xFFFFD600), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-
-                        // GLB Character & Animation Binding Button
-                        Button(
-                            onClick = { showGlbConfigSheet = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
-                            shape = RoundedCornerShape(20.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
-                            modifier = Modifier.testTag("open_glb_config_button")
-                        ) {
-                            Icon(Icons.Default.Build, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Binding GLB", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
 
                         // World Map Button
@@ -912,9 +1079,21 @@ fun EngineScreen(
                             shape = RoundedCornerShape(20.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF76FF03)),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
-                            modifier = Modifier.testTag("open_world_map_button")
+                            modifier = Modifier.height(32.dp).testTag("open_world_map_button")
                         ) {
                             Text("🗺️ Peta ($portalCount)", color = Color(0xFF76FF03), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+
+                        // HUD Control Editor Button (Compact IconButton)
+                        IconButton(
+                            onClick = { isEditHudMode = true },
+                            modifier = Modifier
+                                .background(Color(0xD0101726), CircleShape)
+                                .border(1.dp, Color(0xFF00E5FF), CircleShape)
+                                .size(32.dp)
+                                .testTag("open_hud_editor_button")
+                        ) {
+                            Icon(Icons.Default.VideogameAsset, contentDescription = "Editor HUD", tint = Color(0xFF00E5FF), modifier = Modifier.size(16.dp))
                         }
                     }
                 }

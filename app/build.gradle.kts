@@ -22,11 +22,6 @@ android {
     versionName = customVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    
-    // Split APK untuk ARM64 saja (mengurangi ukuran)
-    ndk {
-      abiFilters.add("arm64-v8a")
-    }
   }
 
   signingConfigs {

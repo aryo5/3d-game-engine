@@ -32,6 +32,9 @@ data class HudElementConfig(
     var alpha: Float = 0.85f, // 0.2 .. 1.0
     var isEnabled: Boolean = true
 ) {
+    val percentX: Float get() = xPercent
+    val percentY: Float get() = yPercent
+
     fun copy(): HudElementConfig = HudElementConfig(id, xPercent, yPercent, scale, alpha, isEnabled)
 }
 

@@ -5,6 +5,7 @@ import com.example.engine3d.core.GlbAnimationClip
 import com.example.engine3d.core.GlbNode
 import com.example.engine3d.core.KeyframeChannel
 import com.example.engine3d.core.Mesh
+import com.example.engine3d.core.SkinDef
 import com.example.engine3d.math.Mat4
 import kotlin.math.pow
 import org.json.JSONArray
@@ -154,24 +155,35 @@ object GlbParser {
         }
 
         val skinsArray = json.optJSONArray("skins")
-        val skinObj = if (skinsArray != null && skinsArray.length() > 0) skinsArray.optJSONObject(0) else null
-        val skinJointsJson = skinObj?.optJSONArray("joints")
-        val ibmAccessorIdx = skinObj?.optInt("inverseBindMatrices", -1) ?: -1
-        val skinJoints = if (skinJointsJson != null) {
-            IntArray(skinJointsJson.length()) { skinJointsJson.getInt(it) }
-        } else null
+        val parsedSkins = mutableListOf<SkinDef>()
+        if (skinsArray != null) {
+            for (s in 0 until skinsArray.length()) {
+                val sObj = skinsArray.getJSONObject(s)
+                val sJointsJson = sObj.optJSONArray("joints")
+                val sIbmIdx = sObj.optInt("inverseBindMatrices", -1)
+                val sJoints = if (sJointsJson != null) {
+                    IntArray(sJointsJson.length()) { sJointsJson.getInt(it) }
+                } else IntArray(0)
 
-        val inverseBindMatrices: Array<Mat4>? = if (skinJoints != null && ibmAccessorIdx >= 0) {
-            val rawIbm = extractFloatArray(ibmAccessorIdx, accessors, bufferViews, binBuffer)
-            if (rawIbm != null && rawIbm.size >= skinJoints.size * 16) {
-                Array(skinJoints.size) { j ->
-                    val m = Mat4()
-                    val slice = FloatArray(16)
-                    System.arraycopy(rawIbm, j * 16, slice, 0, 16)
-                    m.set(slice)
-                }
-            } else null
-        } else null
+                val sIbm: Array<Mat4> = if (sJoints.isNotEmpty() && sIbmIdx >= 0) {
+                    val rawIbm = extractFloatArray(sIbmIdx, accessors, bufferViews, binBuffer)
+                    if (rawIbm != null && rawIbm.size >= sJoints.size * 16) {
+                        Array(sJoints.size) { j ->
+                            val m = Mat4()
+                            val slice = FloatArray(16)
+                            System.arraycopy(rawIbm, j * 16, slice, 0, 16)
+                            m.set(slice)
+                        }
+                    } else Array(sJoints.size) { Mat4().identity() }
+                } else Array(sJoints.size) { Mat4().identity() }
+
+                parsedSkins.add(SkinDef(sJoints, sIbm))
+            }
+        }
+
+        val primarySkin = parsedSkins.firstOrNull()
+        val skinJoints = primarySkin?.joints
+        val inverseBindMatrices = primarySkin?.inverseBindMatrices
 
         val allPositions = mutableListOf<Float>()
         val allNormals = mutableListOf<Float>()
@@ -179,6 +191,7 @@ object GlbParser {
         val allIndices = mutableListOf<Short>()
         val allJoints = mutableListOf<Int>()
         val allWeights = mutableListOf<Float>()
+        val allVertexSkinIndices = mutableListOf<Int>()
         var totalVertexCount = 0
 
         val nodesWithMesh = nodeList.filter { it.meshIndex >= 0 && it.meshIndex < meshes.length() }
@@ -187,10 +200,19 @@ object GlbParser {
             for (node in nodesWithMesh) {
                 val worldMat = nodeWorldMatrices[node.index] ?: Mat4().identity()
                 val meshObj = meshes.getJSONObject(node.meshIndex)
+                val nodeSkinIdx = if (node.skinIndex >= 0 && node.skinIndex < parsedSkins.size) {
+                    node.skinIndex
+                } else if (parsedSkins.isNotEmpty()) {
+                    0
+                } else {
+                    -1
+                }
+
                 totalVertexCount = parseAndAppendMeshPrimitives(
                     meshObj = meshObj,
                     materialsArray = materialsArray,
                     worldMat = worldMat,
+                    nodeSkinIdx = nodeSkinIdx,
                     accessors = accessors,
                     bufferViews = bufferViews,
                     binBuffer = binBuffer,
@@ -200,6 +222,7 @@ object GlbParser {
                     allIndices = allIndices,
                     allJoints = allJoints,
                     allWeights = allWeights,
+                    allVertexSkinIndices = allVertexSkinIndices,
                     totalVertexCount = totalVertexCount
                 )
             }
@@ -210,6 +233,7 @@ object GlbParser {
                     meshObj = meshObj,
                     materialsArray = materialsArray,
                     worldMat = Mat4().identity(),
+                    nodeSkinIdx = if (parsedSkins.isNotEmpty()) 0 else -1,
                     accessors = accessors,
                     bufferViews = bufferViews,
                     binBuffer = binBuffer,
@@ -219,6 +243,7 @@ object GlbParser {
                     allIndices = allIndices,
                     allJoints = allJoints,
                     allWeights = allWeights,
+                    allVertexSkinIndices = allVertexSkinIndices,
                     totalVertexCount = totalVertexCount
                 )
             }
@@ -244,7 +269,7 @@ object GlbParser {
             )
         }
 
-        val hasSkinning = skinJoints != null && allWeights.isNotEmpty()
+        val hasSkinning = parsedSkins.isNotEmpty() && allWeights.isNotEmpty()
 
         return Mesh(
             name = name,
@@ -260,7 +285,9 @@ object GlbParser {
             vertexJoints = if (hasSkinning) allJoints.toIntArray() else null,
             vertexWeights = if (hasSkinning) allWeights.toFloatArray() else null,
             skinJointNodes = skinJoints,
-            inverseBindMatrices = inverseBindMatrices
+            inverseBindMatrices = inverseBindMatrices,
+            skins = if (hasSkinning) parsedSkins else null,
+            vertexSkinIndices = if (hasSkinning && allVertexSkinIndices.isNotEmpty()) allVertexSkinIndices.toIntArray() else null
         )
     }
 
@@ -268,6 +295,7 @@ object GlbParser {
         meshObj: JSONObject,
         materialsArray: JSONArray?,
         worldMat: Mat4,
+        nodeSkinIdx: Int,
         accessors: JSONArray,
         bufferViews: JSONArray,
         binBuffer: ByteBuffer,
@@ -277,11 +305,13 @@ object GlbParser {
         allIndices: MutableList<Short>,
         allJoints: MutableList<Int>,
         allWeights: MutableList<Float>,
+        allVertexSkinIndices: MutableList<Int>,
         totalVertexCount: Int
     ): Int {
         var currentVertexCount = totalVertexCount
         val primitives = meshObj.optJSONArray("primitives") ?: return currentVertexCount
         val m = worldMat.data
+        val isSkinnedNode = nodeSkinIdx >= 0
 
         for (p in 0 until primitives.length()) {
             val prim = primitives.getJSONObject(p)
@@ -345,9 +375,11 @@ object GlbParser {
                 val vy = rawPositions[i * 3 + 1]
                 val vz = rawPositions[i * 3 + 2]
 
-                val tx = m[0] * vx + m[4] * vy + m[8] * vz + m[12]
-                val ty = m[1] * vx + m[5] * vy + m[9] * vz + m[13]
-                val tz = m[2] * vx + m[6] * vy + m[10] * vz + m[14]
+                // For skinned nodes, positions remain in bind space (skin matrices evaluate to world space).
+                // For static unskinned nodes, multiply by worldMat.
+                val tx = if (isSkinnedNode) vx else m[0] * vx + m[4] * vy + m[8] * vz + m[12]
+                val ty = if (isSkinnedNode) vy else m[1] * vx + m[5] * vy + m[9] * vz + m[13]
+                val tz = if (isSkinnedNode) vz else m[2] * vx + m[6] * vy + m[10] * vz + m[14]
 
                 allPositions.add(tx)
                 allPositions.add(ty)
@@ -357,20 +389,32 @@ object GlbParser {
                 val ny = rawNormals[i * 3 + 1]
                 val nz = rawNormals[i * 3 + 2]
 
-                var tnx = m[0] * nx + m[4] * ny + m[8] * nz
-                var tny = m[1] * nx + m[5] * ny + m[9] * nz
-                var tnz = m[2] * nx + m[6] * ny + m[10] * nz
-
-                val len = kotlin.math.sqrt(tnx * tnx + tny * tny + tnz * tnz)
-                if (len > 0.0001f) {
-                    tnx /= len; tny /= len; tnz /= len
+                if (isSkinnedNode) {
+                    allNormals.add(nx)
+                    allNormals.add(ny)
+                    allNormals.add(nz)
                 } else {
-                    tny = 1f
+                    var tnx = m[0] * nx + m[4] * ny + m[8] * nz
+                    var tny = m[1] * nx + m[5] * ny + m[9] * nz
+                    var tnz = m[2] * nx + m[6] * ny + m[10] * nz
+
+                    val len = kotlin.math.sqrt(tnx * tnx + tny * tny + tnz * tnz)
+                    if (len > 0.0001f) {
+                        tnx /= len; tny /= len; tnz /= len
+                    } else {
+                        tny = 1f
+                    }
+
+                    allNormals.add(tnx)
+                    allNormals.add(tny)
+                    allNormals.add(tnz)
                 }
 
-                allNormals.add(tnx)
-                allNormals.add(tny)
-                allNormals.add(tnz)
+                if (isSkinnedNode) {
+                    allVertexSkinIndices.add(nodeSkinIdx)
+                } else {
+                    allVertexSkinIndices.add(0)
+                }
 
                 val i4 = i * 4
                 if (rawJoints != null && rawJoints.size >= i4 + 4) {

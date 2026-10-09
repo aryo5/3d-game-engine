@@ -553,6 +553,15 @@ class Apex3DRenderer(
                     ty = node.defaultLocalMatrix.data[13]
                     tz = node.defaultLocalMatrix.data[14]
                 }
+                if (!hasScale) {
+                    val d = node.defaultLocalMatrix.data
+                    sx = kotlin.math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2])
+                    sy = kotlin.math.sqrt(d[4] * d[4] + d[5] * d[5] + d[6] * d[6])
+                    sz = kotlin.math.sqrt(d[8] * d[8] + d[9] * d[9] + d[10] * d[10])
+                    if (sx < 0.00001f) sx = 1f
+                    if (sy < 0.00001f) sy = 1f
+                    if (sz < 0.00001f) sz = 1f
+                }
                 val tMat = Mat4().translate(tx, ty, tz)
                 val rMat = if (hasRotation) quaternionToMat4(rx, ry, rz, qw) else Mat4().identity()
                 if (!hasRotation) {

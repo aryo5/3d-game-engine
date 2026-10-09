@@ -190,9 +190,17 @@ fun GlbConfigPatcherSheet(
                 runMultiplier = currentPConfig.runMultiplier
                 jumpImpulse = currentPConfig.jumpImpulse
             } else {
-                charScale = 1.0f
+                val rawH = model.mesh.aabb.max.y - model.mesh.aabb.min.y
+                val autoScale = if (model.fileName.equals("farmer_harvest_moon.glb", ignoreCase = true)) {
+                    1.0f
+                } else if (rawH > 0.05f) {
+                    (1.8f / rawH).coerceIn(0.01f, 10.0f)
+                } else {
+                    1.0f
+                }
+                charScale = autoScale
                 rotationOffset = 0f
-                heightOffset = 0f
+                heightOffset = if (rawH > 0.05f) (-model.mesh.aabb.min.y * autoScale).coerceIn(-10f, 10f) else 0f
                 collisionRadius = 0.6f
                 collisionHeight = 1.8f
                 walkSpeed = 6.5f
@@ -1051,17 +1059,77 @@ fun GlbConfigPatcherSheet(
                                     )
 
                                     // 1. Skala Model
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                             Text("Skala / Ukuran Model 3D:", fontSize = 11.sp, color = Color.White)
-                                            Text("${"%.2f".format(charScale)}x", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                            Text("${"%.3f".format(charScale)}x", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         }
+
                                         Slider(
                                             value = charScale,
                                             onValueChange = { charScale = it },
-                                            valueRange = 0.3f..3.5f,
+                                            valueRange = 0.01f..5.0f,
                                             colors = SliderDefaults.colors(thumbColor = Color(0xFF00E5FF), activeTrackColor = Color(0xFF00E5FF))
                                         )
+
+                                        // Quick scale chips
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .horizontalScroll(rememberScrollState()),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            listOf(
+                                                0.01f to "0.01x (FBX CM)",
+                                                0.05f to "0.05x",
+                                                0.1f to "0.10x",
+                                                0.3f to "0.30x",
+                                                0.5f to "0.50x",
+                                                1.0f to "1.00x",
+                                                1.5f to "1.50x",
+                                                2.0f to "2.00x"
+                                            ).forEach { (scaleVal, label) ->
+                                                val isClose = kotlin.math.abs(charScale - scaleVal) < 0.005f
+                                                FilterChip(
+                                                    selected = isClose,
+                                                    onClick = { charScale = scaleVal },
+                                                    label = { Text(label, fontSize = 10.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = Color(0xFF00E5FF),
+                                                        selectedLabelColor = Color.Black,
+                                                        containerColor = Color(0xFF1E2B47),
+                                                        labelColor = Color.White
+                                                    ),
+                                                    modifier = Modifier.height(26.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            OutlinedButton(
+                                                onClick = { charScale = (charScale - 0.05f).coerceAtLeast(0.01f) },
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                modifier = Modifier.height(26.dp)
+                                            ) {
+                                                Text("-0.05x", fontSize = 10.sp, color = Color(0xFF00E5FF))
+                                            }
+                                            Text(
+                                                "Rentang 0.01x - 5.0x untuk model cm / FBX",
+                                                fontSize = 9.sp,
+                                                color = Color(0xFF90A4AE)
+                                            )
+                                            OutlinedButton(
+                                                onClick = { charScale = (charScale + 0.05f).coerceAtMost(5.0f) },
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                modifier = Modifier.height(26.dp)
+                                            ) {
+                                                Text("+0.05x", fontSize = 10.sp, color = Color(0xFF00E5FF))
+                                            }
+                                        }
                                     }
 
                                     // 2. Tinggi Offset Y (Anti-Melayang)
@@ -1073,7 +1141,7 @@ fun GlbConfigPatcherSheet(
                                         Slider(
                                             value = heightOffset,
                                             onValueChange = { heightOffset = it },
-                                            valueRange = -2.5f..2.5f,
+                                            valueRange = -10.0f..10.0f,
                                             colors = SliderDefaults.colors(thumbColor = Color(0xFF76FF03), activeTrackColor = Color(0xFF76FF03))
                                         )
                                     }

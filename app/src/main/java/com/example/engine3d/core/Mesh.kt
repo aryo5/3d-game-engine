@@ -34,6 +34,11 @@ class GlbNode(
     val subMesh: Mesh? = null
 )
 
+data class SkinDef(
+    val joints: IntArray,
+    val inverseBindMatrices: Array<Mat4>
+)
+
 class Mesh(
     val name: String = "Mesh",
     val vertices: FloatArray,
@@ -48,7 +53,9 @@ class Mesh(
     var vertexJoints: IntArray? = null,
     var vertexWeights: FloatArray? = null,
     var skinJointNodes: IntArray? = null,
-    var inverseBindMatrices: Array<Mat4>? = null
+    var inverseBindMatrices: Array<Mat4>? = null,
+    var skins: List<SkinDef>? = null,
+    var vertexSkinIndices: IntArray? = null
 ) {
     val vertexCount: Int = vertices.size / 3
     val triangleCount: Int = if (indices != null) indices.size / 3 else vertexCount / 3
@@ -61,6 +68,7 @@ class Mesh(
 
     private var skinnedVertices: FloatArray? = null
     private var cachedSkinMatrices: Array<Mat4>? = null
+    private var cachedMultiSkinMatrices: Array<Array<Mat4>>? = null
 
     init {
         for (i in 0 until vertexCount) {
@@ -113,10 +121,84 @@ class Mesh(
         val bVerts = bindVertices ?: return
         val joints = vertexJoints ?: return
         val weights = vertexWeights ?: return
-        val skinNodes = skinJointNodes ?: return
-        val ibmList = inverseBindMatrices ?: return
         if (nodes.isEmpty()) return
 
+        val multiSkins = skins
+        val skinIndices = vertexSkinIndices
+
+        if (multiSkins != null && multiSkins.isNotEmpty() && skinIndices != null) {
+            // MULTI-SKIN EVALUATION (Supports models with multiple meshes/skins like FBX2glTF, Quaternius, Mixamo)
+            val skinCount = multiSkins.size
+            if (cachedMultiSkinMatrices == null || cachedMultiSkinMatrices!!.size != skinCount) {
+                cachedMultiSkinMatrices = Array(skinCount) { s ->
+                    Array(multiSkins[s].joints.size) { Mat4() }
+                }
+            }
+
+            val allSMats = cachedMultiSkinMatrices!!
+            for (s in 0 until skinCount) {
+                val skinDef = multiSkins[s]
+                val sMatArr = allSMats[s]
+                val jCount = skinDef.joints.size
+                for (k in 0 until jCount) {
+                    val nodeIdx = skinDef.joints[k]
+                    val jointNode = nodes.getOrNull(nodeIdx)
+                    if (jointNode != null && k < skinDef.inverseBindMatrices.size) {
+                        sMatArr[k].set(jointNode.animatedWorldMatrix).multiply(skinDef.inverseBindMatrices[k])
+                    } else {
+                        sMatArr[k].identity()
+                    }
+                }
+            }
+
+            if (skinnedVertices == null || skinnedVertices!!.size != bVerts.size) {
+                skinnedVertices = FloatArray(bVerts.size)
+            }
+            val outVerts = skinnedVertices!!
+
+            val totalVerts = vertexCount
+            for (v in 0 until totalVerts) {
+                val v3 = v * 3
+                val vx = bVerts[v3]
+                val vy = bVerts[v3 + 1]
+                val vz = bVerts[v3 + 2]
+
+                val sIdx = skinIndices[v].coerceIn(0, skinCount - 1)
+                val sMats = allSMats[sIdx]
+                val maxJoints = multiSkins[sIdx].joints.size
+
+                val v4 = v * 4
+                var ox = 0f
+                var oy = 0f
+                var oz = 0f
+
+                for (k in 0 until 4) {
+                    val w = weights[v4 + k]
+                    if (w > 0.0001f) {
+                        val jointIdx = joints[v4 + k]
+                        if (jointIdx in 0 until maxJoints) {
+                            val m = sMats[jointIdx].data
+                            val tx = m[0] * vx + m[4] * vy + m[8] * vz + m[12]
+                            val ty = m[1] * vx + m[5] * vy + m[9] * vz + m[13]
+                            val tz = m[2] * vx + m[6] * vy + m[10] * vz + m[14]
+                            ox += tx * w
+                            oy += ty * w
+                            oz += tz * w
+                        }
+                    }
+                }
+                outVerts[v3] = ox
+                outVerts[v3 + 1] = oy
+                outVerts[v3 + 2] = oz
+            }
+
+            updateVertices(outVerts)
+            return
+        }
+
+        // Single skin fallback
+        val skinNodes = skinJointNodes ?: return
+        val ibmList = inverseBindMatrices ?: return
         val skinCount = skinNodes.size
         if (cachedSkinMatrices == null || cachedSkinMatrices!!.size != skinCount) {
             cachedSkinMatrices = Array(skinCount) { Mat4() }

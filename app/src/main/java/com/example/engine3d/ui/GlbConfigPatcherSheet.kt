@@ -471,7 +471,14 @@ fun GlbConfigPatcherSheet(
                                                 val isTerrain = customModelManager.activeTerrainFileName.equals(model.fileName, ignoreCase = true)
 
                                                 Surface(
-                                                    onClick = { selectedModel = model },
+                                                    onClick = {
+                                                        if (model.mesh.textureBitmap == null && model.format == "GLB") {
+                                                            customModelManager.reloadModel(model.fileName)
+                                                            selectedModel = customModelManager.importedModels.firstOrNull { it.fileName == model.fileName } ?: model
+                                                        } else {
+                                                            selectedModel = model
+                                                        }
+                                                    },
                                                     shape = RoundedCornerShape(8.dp),
                                                     color = if (isSelected) Color(0xFF162A45) else Color(0xFF0F1726),
                                                     border = BorderStroke(
@@ -514,10 +521,11 @@ fun GlbConfigPatcherSheet(
                                                                     maxLines = 1,
                                                                     overflow = TextOverflow.Ellipsis
                                                                 )
+                                                                val texTag = if (model.mesh.textureBitmap != null) " · 🎨 ${model.mesh.textureBitmap!!.width}px" else ""
                                                                 Text(
-                                                                    text = "${model.format.uppercase()} · ${model.mesh.vertexCount} vtx · ${model.mesh.animationClips.size} klip",
+                                                                    text = "${model.format.uppercase()} · ${model.mesh.vertexCount} vtx$texTag",
                                                                     fontSize = 10.sp,
-                                                                    color = Color(0xFF90A4AE)
+                                                                    color = if (model.mesh.textureBitmap != null) Color(0xFF76FF03) else Color(0xFF90A4AE)
                                                                 )
                                                             }
                                                         }
@@ -582,10 +590,18 @@ fun GlbConfigPatcherSheet(
                                             color = Color.White
                                         )
 
+                                        val texInfo = if (model.mesh.textureBitmap != null) {
+                                            "🎨 Tekstur: ${model.mesh.textureBitmap!!.width}x${model.mesh.textureBitmap!!.height} px (Aktif)"
+                                        } else if (model.mesh.texCoords != null) {
+                                            "🎨 UV Map Siap"
+                                        } else {
+                                            "🎨 Warna: Vertex Color / PBR"
+                                        }
+
                                         Text(
-                                            text = "Format: ${model.format} • Vertex: ${model.mesh.vertexCount} • Klip Animasi: ${model.mesh.animationClips.size}",
+                                            text = "Format: ${model.format} • Vertex: ${model.mesh.vertexCount} • $texInfo",
                                             fontSize = 11.sp,
-                                            color = Color(0xFF90A4AE)
+                                            color = if (model.mesh.textureBitmap != null) Color(0xFF76FF03) else Color(0xFF90A4AE)
                                         )
 
                                         Text(
@@ -609,7 +625,11 @@ fun GlbConfigPatcherSheet(
                                                     onClick = {
                                                         manualModelTypeOverride = targetType
                                                         if (targetType == ModelTarget.TERRAIN) {
-                                                            customModelManager.setActiveTerrain(model, terrainMesh)
+                                                            if (model.mesh.textureBitmap == null && model.format == "GLB") {
+                                                                customModelManager.reloadModel(model.fileName)
+                                                            }
+                                                            val activeEntry = customModelManager.importedModels.firstOrNull { it.fileName == model.fileName } ?: model
+                                                            customModelManager.setActiveTerrain(activeEntry, terrainMesh)
                                                         } else {
                                                             customModelManager.setActiveCharacter(model, updatePlayerConfig = true)
                                                         }
@@ -660,8 +680,12 @@ fun GlbConfigPatcherSheet(
 
                                             Button(
                                                 onClick = {
-                                                    customModelManager.setActiveTerrain(model, terrainMesh)
-                                                    terrainMesh.setCustomMesh(model.mesh)
+                                                    if (model.mesh.textureBitmap == null && model.format == "GLB") {
+                                                        customModelManager.reloadModel(model.fileName)
+                                                    }
+                                                    val activeEntry = customModelManager.importedModels.firstOrNull { it.fileName == model.fileName } ?: model
+                                                    customModelManager.setActiveTerrain(activeEntry, terrainMesh)
+                                                    terrainMesh.setCustomMesh(activeEntry.mesh)
                                                     Toast.makeText(context, "🗺️ Model '${model.fileName}' aktif sebagai Map Utama!", Toast.LENGTH_SHORT).show()
                                                 },
                                                 colors = ButtonDefaults.buttonColors(
@@ -1585,8 +1609,12 @@ fun GlbConfigPatcherSheet(
                                         Button(
                                             onClick = {
                                                 if (model != null) {
-                                                    customModelManager.setActiveTerrain(model, terrainMesh)
-                                                    terrainMesh.setCustomMesh(model.mesh)
+                                                    if (model.mesh.textureBitmap == null && model.format == "GLB") {
+                                                        customModelManager.reloadModel(model.fileName)
+                                                    }
+                                                    val activeEntry = customModelManager.importedModels.firstOrNull { it.fileName == model.fileName } ?: model
+                                                    customModelManager.setActiveTerrain(activeEntry, terrainMesh)
+                                                    terrainMesh.setCustomMesh(activeEntry.mesh)
                                                 }
                                                 Toast.makeText(context, "✓ Sukses Mempatch & Menyimpan Config Map!", Toast.LENGTH_SHORT).show()
                                             },

@@ -1,5 +1,8 @@
 package com.example.engine3d.importer
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.util.Log
 import com.example.engine3d.core.GlbAnimationClip
 import com.example.engine3d.core.GlbNode
@@ -188,10 +191,12 @@ object GlbParser {
         val allPositions = mutableListOf<Float>()
         val allNormals = mutableListOf<Float>()
         val allColors = mutableListOf<Float>()
+        val allTexCoords = mutableListOf<Float>()
         val allIndices = mutableListOf<Short>()
         val allJoints = mutableListOf<Int>()
         val allWeights = mutableListOf<Float>()
         val allVertexSkinIndices = mutableListOf<Int>()
+        val hasExplicitColors = BooleanArray(1) { false }
         var totalVertexCount = 0
 
         val nodesWithMesh = nodeList.filter { it.meshIndex >= 0 && it.meshIndex < meshes.length() }
@@ -219,10 +224,12 @@ object GlbParser {
                     allPositions = allPositions,
                     allNormals = allNormals,
                     allColors = allColors,
+                    allTexCoords = allTexCoords,
                     allIndices = allIndices,
                     allJoints = allJoints,
                     allWeights = allWeights,
                     allVertexSkinIndices = allVertexSkinIndices,
+                    hasExplicitColors = hasExplicitColors,
                     totalVertexCount = totalVertexCount
                 )
             }
@@ -240,10 +247,12 @@ object GlbParser {
                     allPositions = allPositions,
                     allNormals = allNormals,
                     allColors = allColors,
+                    allTexCoords = allTexCoords,
                     allIndices = allIndices,
                     allJoints = allJoints,
                     allWeights = allWeights,
                     allVertexSkinIndices = allVertexSkinIndices,
+                    hasExplicitColors = hasExplicitColors,
                     totalVertexCount = totalVertexCount
                 )
             }
@@ -252,6 +261,7 @@ object GlbParser {
         if (allPositions.isEmpty()) return null
 
         val animationClips = extractAnimationClips(json, accessors, bufferViews, binBuffer)
+        val textureBitmap = extractTextureBitmap(json, bufferViews, binBuffer)
 
         val glbNodes = mutableListOf<GlbNode>()
         for (node in nodeList) {
@@ -276,7 +286,7 @@ object GlbParser {
             vertices = allPositions.toFloatArray(),
             normals = allNormals.toFloatArray(),
             colors = allColors.toFloatArray(),
-            texCoords = null,
+            texCoords = if (allTexCoords.isNotEmpty()) allTexCoords.toFloatArray() else null,
             indices = if (allIndices.isNotEmpty()) allIndices.toShortArray() else null,
             animationClips = animationClips,
             nodes = glbNodes,
@@ -287,7 +297,9 @@ object GlbParser {
             skinJointNodes = skinJoints,
             inverseBindMatrices = inverseBindMatrices,
             skins = if (hasSkinning) parsedSkins else null,
-            vertexSkinIndices = if (hasSkinning && allVertexSkinIndices.isNotEmpty()) allVertexSkinIndices.toIntArray() else null
+            vertexSkinIndices = if (hasSkinning && allVertexSkinIndices.isNotEmpty()) allVertexSkinIndices.toIntArray() else null,
+            hasExplicitVertexColors = hasExplicitColors[0],
+            textureBitmap = textureBitmap
         )
     }
 
@@ -302,10 +314,12 @@ object GlbParser {
         allPositions: MutableList<Float>,
         allNormals: MutableList<Float>,
         allColors: MutableList<Float>,
+        allTexCoords: MutableList<Float>,
         allIndices: MutableList<Short>,
         allJoints: MutableList<Int>,
         allWeights: MutableList<Float>,
         allVertexSkinIndices: MutableList<Int>,
+        hasExplicitColors: BooleanArray,
         totalVertexCount: Int
     ): Int {
         var currentVertexCount = totalVertexCount
@@ -369,6 +383,14 @@ object GlbParser {
             val extractedColors = if (colorAccessorIdx >= 0) {
                 extractColorArray(colorAccessorIdx, accessors, bufferViews, binBuffer, primitiveVertexCount)
             } else null
+            if (extractedColors != null) {
+                hasExplicitColors[0] = true
+            }
+
+            val texCoordAccessorIdx = attributes.optInt("TEXCOORD_0", -1)
+            val rawTexCoords = if (texCoordAccessorIdx >= 0) {
+                extractTexCoordArray(texCoordAccessorIdx, accessors, bufferViews, binBuffer, primitiveVertexCount)
+            } else null
 
             for (i in 0 until primitiveVertexCount) {
                 val vx = rawPositions[i * 3]
@@ -416,6 +438,15 @@ object GlbParser {
                     allVertexSkinIndices.add(0)
                 }
 
+                val i2 = i * 2
+                if (rawTexCoords != null && rawTexCoords.size >= i2 + 2) {
+                    allTexCoords.add(rawTexCoords[i2])
+                    allTexCoords.add(rawTexCoords[i2 + 1])
+                } else {
+                    allTexCoords.add(0f)
+                    allTexCoords.add(0f)
+                }
+
                 val i4 = i * 4
                 if (rawJoints != null && rawJoints.size >= i4 + 4) {
                     allJoints.add(rawJoints[i4])
@@ -452,7 +483,8 @@ object GlbParser {
                     allColors.add(matBaseColor[2])
                     allColors.add(matBaseColor[3])
                 } else {
-                    allColors.add(0.9f); allColors.add(0.9f); allColors.add(0.9f); allColors.add(1.0f)
+                    val defaultCol = if (rawTexCoords != null) 1.0f else 0.9f
+                    allColors.add(defaultCol); allColors.add(defaultCol); allColors.add(defaultCol); allColors.add(1.0f)
                 }
             }
 
@@ -914,6 +946,167 @@ object GlbParser {
             }
             result
         } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun extractTexCoordArray(
+        accessorIdx: Int,
+        accessors: JSONArray,
+        bufferViews: JSONArray,
+        binBuffer: ByteBuffer,
+        vertexCount: Int
+    ): FloatArray? {
+        return try {
+            val accessor = accessors.optJSONObject(accessorIdx) ?: return null
+            val bufferViewIdx = accessor.optInt("bufferView", -1)
+            if (bufferViewIdx < 0 || bufferViewIdx >= bufferViews.length()) return null
+            val count = accessor.optInt("count", 0)
+            val componentType = accessor.optInt("componentType", 5126)
+            val byteOffset = accessor.optInt("byteOffset", 0)
+
+            val bufferView = bufferViews.optJSONObject(bufferViewIdx) ?: return null
+            val bvByteOffset = bufferView.optInt("byteOffset", 0)
+
+            val startOffset = bvByteOffset + byteOffset
+            if (startOffset < 0 || startOffset >= binBuffer.capacity()) return null
+
+            binBuffer.position(startOffset)
+            val result = FloatArray(vertexCount * 2)
+
+            for (i in 0 until count.coerceAtMost(vertexCount)) {
+                var u = 0f
+                var v = 0f
+                when (componentType) {
+                    5126 -> { // FLOAT
+                        if (binBuffer.remaining() >= 8) {
+                            u = binBuffer.float
+                            v = binBuffer.float
+                        }
+                    }
+                    5121 -> { // UNSIGNED_BYTE normalized
+                        if (binBuffer.remaining() >= 2) {
+                            u = (binBuffer.get().toInt() and 0xFF) / 255.0f
+                            v = (binBuffer.get().toInt() and 0xFF) / 255.0f
+                        }
+                    }
+                    5123 -> { // UNSIGNED_SHORT normalized
+                        if (binBuffer.remaining() >= 4) {
+                            u = (binBuffer.short.toInt() and 0xFFFF) / 65535.0f
+                            v = (binBuffer.short.toInt() and 0xFFFF) / 65535.0f
+                        }
+                    }
+                }
+                val base = i * 2
+                result[base] = u
+                result[base + 1] = v
+            }
+            result
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun extractTextureBitmap(
+        json: JSONObject,
+        bufferViews: JSONArray,
+        binBuffer: ByteBuffer
+    ): Bitmap? {
+        return try {
+            val images = json.optJSONArray("images") ?: return null
+            if (images.length() == 0) return null
+
+            val textures = json.optJSONArray("textures")
+            val materials = json.optJSONArray("materials")
+
+            var targetImageIdx = -1
+
+            // 1. Check materials to find baseColorTexture
+            if (materials != null) {
+                for (m in 0 until materials.length()) {
+                    val mat = materials.optJSONObject(m) ?: continue
+                    val pbr = mat.optJSONObject("pbrMetallicRoughness")
+                    val baseColorTex = pbr?.optJSONObject("baseColorTexture")
+                    val texIdx = baseColorTex?.optInt("index", -1) ?: -1
+                    if (texIdx >= 0 && textures != null && texIdx < textures.length()) {
+                        val texObj = textures.optJSONObject(texIdx)
+                        val source = texObj?.optInt("source", -1) ?: -1
+                        if (source in 0 until images.length()) {
+                            targetImageIdx = source
+                            break
+                        }
+                    }
+                }
+            }
+
+            // 2. Fallback: check textures[0].source
+            if (targetImageIdx < 0 && textures != null && textures.length() > 0) {
+                val texObj = textures.optJSONObject(0)
+                val source = texObj?.optInt("source", 0) ?: 0
+                if (source in 0 until images.length()) {
+                    targetImageIdx = source
+                }
+            }
+
+            // 3. Fallback: take image 0
+            if (targetImageIdx < 0) {
+                targetImageIdx = 0
+            }
+
+            val imgObj = images.getJSONObject(targetImageIdx)
+            val bufferViewIdx = imgObj.optInt("bufferView", -1)
+
+            if (bufferViewIdx in 0 until bufferViews.length()) {
+                val bv = bufferViews.getJSONObject(bufferViewIdx)
+                val byteOffset = bv.optInt("byteOffset", 0)
+                val byteLength = bv.getInt("byteLength")
+
+                if (byteOffset >= 0 && byteOffset + byteLength <= binBuffer.capacity()) {
+                    val bytes = ByteArray(byteLength)
+                    val oldPos = binBuffer.position()
+                    binBuffer.position(byteOffset)
+                    binBuffer.get(bytes, 0, byteLength)
+                    binBuffer.position(oldPos)
+
+                    // Memory-safe decode (downsample if larger than 2048x2048)
+                    val boundsOptions = BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
+                    }
+                    BitmapFactory.decodeByteArray(bytes, 0, byteLength, boundsOptions)
+
+                    var sampleSize = 1
+                    val maxDim = 2048
+                    while (boundsOptions.outWidth / sampleSize > maxDim || boundsOptions.outHeight / sampleSize > maxDim) {
+                        sampleSize *= 2
+                    }
+
+                    val decodeOptions = BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize
+                        inPreferredConfig = Bitmap.Config.ARGB_8888
+                    }
+                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, byteLength, decodeOptions)
+                    if (bmp != null) {
+                        Log.i("GlbParser", "Successfully decoded texture: ${bmp.width}x${bmp.height} from bufferView $bufferViewIdx")
+                        return bmp
+                    }
+                }
+            }
+
+            // Check if uri (e.g. data:image/png;base64,...)
+            val uri = imgObj.optString("uri", "")
+            if (uri.startsWith("data:")) {
+                val commaIdx = uri.indexOf(',')
+                if (commaIdx >= 0) {
+                    val base64Data = uri.substring(commaIdx + 1)
+                    val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (bmp != null) return bmp
+                }
+            }
+
+            null
+        } catch (e: Exception) {
+            Log.e("GlbParser", "Failed to extract texture bitmap: ${e.message}")
             null
         }
     }

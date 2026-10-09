@@ -357,4 +357,35 @@ class CustomModelManager(private val context: Context) {
             activeCustomCharacterMesh = null
         }
     }
+
+    fun reloadModel(fileName: String): Mesh? {
+        val file = File(getModelsDir(), fileName)
+        if (!file.exists()) return null
+        return try {
+            val mesh = FileInputStream(file).use { fis ->
+                if (file.name.endsWith(".glb", ignoreCase = true)) {
+                    GlbParser.parse(fis, file.name)
+                } else if (file.name.endsWith(".obj", ignoreCase = true)) {
+                    ObjParser.parse(fis, file.name)
+                } else null
+            }
+            if (mesh != null) {
+                val existing = importedModels.firstOrNull { it.fileName.equals(fileName, ignoreCase = true) }
+                if (existing != null) {
+                    val idx = importedModels.indexOf(existing)
+                    val updated = existing.copy(mesh = mesh)
+                    importedModels[idx] = updated
+                    if (activeCustomTerrainMesh == existing.mesh) {
+                        activeCustomTerrainMesh = mesh
+                    }
+                    if (activeCustomCharacterMesh == existing.mesh) {
+                        activeCustomCharacterMesh = mesh
+                    }
+                }
+            }
+            mesh
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

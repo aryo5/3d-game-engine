@@ -1,9 +1,12 @@
 package com.example.engine3d.renderer
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
+import android.opengl.GLUtils
 import android.os.SystemClock
+import android.util.Log
 import com.example.engine3d.actions.ActionManager
 import com.example.engine3d.actions.InteractableType
 import com.example.engine3d.actions.InteractionSystem
@@ -20,6 +23,7 @@ import com.example.engine3d.npc.NpcManager
 import com.example.engine3d.physics.PhysicsEngine
 import com.example.engine3d.physics.ShapeType
 import com.example.engine3d.terrain.TerrainMesh
+import java.nio.ByteBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.cos
@@ -93,7 +97,116 @@ class Apex3DRenderer(
     private var walkAnimPhase: Float = 0f
     private val animationPlayer = com.example.engine3d.animation.AnimationPlayer()
 
+    private var defaultWhiteTextureId: Int = 0
+
+    private fun initDefaultWhiteTexture() {
+        if (defaultWhiteTextureId != 0) return
+        val textures = IntArray(1)
+        GLES20.glGenTextures(1, textures, 0)
+        defaultWhiteTextureId = textures[0]
+        if (defaultWhiteTextureId != 0) {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, defaultWhiteTextureId)
+            val pixel = ByteBuffer.allocateDirect(4).apply {
+                put(255.toByte())
+                put(255.toByte())
+                put(255.toByte())
+                put(255.toByte())
+                position(0)
+            }
+            GLES20.glTexImage2D(
+                GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, 1, 1, 0,
+                GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixel
+            )
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        }
+    }
+
+    private fun isPowerOfTwo(n: Int): Boolean = (n > 0) && ((n and (n - 1)) == 0)
+
+    private fun nextPowerOfTwo(n: Int): Int {
+        var v = n - 1
+        v = v or (v shr 1)
+        v = v or (v shr 2)
+        v = v or (v shr 4)
+        v = v or (v shr 8)
+        v = v or (v shr 16)
+        return (v + 1).coerceIn(64, 2048)
+    }
+
+    private fun uploadMeshTexture(mesh: Mesh) {
+        val bmp = mesh.textureBitmap ?: return
+        if (bmp.isRecycled) return
+
+        val textures = IntArray(1)
+        GLES20.glGenTextures(1, textures, 0)
+        val texId = textures[0]
+        if (texId == 0) return
+
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texId)
+
+        val isPot = isPowerOfTwo(bmp.width) && isPowerOfTwo(bmp.height)
+        val uploadBmp = if (!isPot) {
+            val targetW = nextPowerOfTwo(bmp.width).coerceAtMost(2048)
+            val targetH = nextPowerOfTwo(bmp.height).coerceAtMost(2048)
+            Bitmap.createScaledBitmap(bmp, targetW, targetH, true)
+        } else {
+            bmp
+        }
+
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, uploadBmp, 0)
+
+        if (isPot || uploadBmp != bmp) {
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR_MIPMAP_LINEAR)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_REPEAT)
+            GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D)
+        } else {
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        }
+
+        if (uploadBmp != bmp) {
+            uploadBmp.recycle()
+        }
+
+        mesh.textureId = texId
+        Log.i("Apex3DRenderer", "Uploaded texture for mesh ${mesh.name}: id=$texId, dim=${bmp.width}x${bmp.height}")
+    }
+
+    private fun bindMeshTexture(mesh: Mesh, shader: Shader): Boolean {
+        if (mesh.textureId == 0 && mesh.textureBitmap != null) {
+            uploadMeshTexture(mesh)
+        }
+
+        val hasTex = mesh.textureId != 0 && mesh.texCoordBuffer != null
+        if (hasTex) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mesh.textureId)
+            GLES20.glUniform1i(shader.uTextureLocation, 0)
+            GLES20.glUniform1i(shader.uUseTextureLocation, 1)
+            return true
+        } else {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, defaultWhiteTextureId)
+            GLES20.glUniform1i(shader.uTextureLocation, 0)
+            GLES20.glUniform1i(shader.uUseTextureLocation, 0)
+            return false
+        }
+    }
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
+        defaultWhiteTextureId = 0
+        customModelManager.importedModels.forEach { it.mesh.textureId = 0 }
+        customModelManager.activeCustomTerrainMesh?.textureId = 0
+        customModelManager.activeCustomCharacterMesh?.textureId = 0
+        initDefaultWhiteTexture()
+
         GLES20.glClearColor(0.55f, 0.70f, 0.85f, 1.0f)
         GLES20.glEnable(GLES20.GL_DEPTH_TEST)
         GLES20.glDepthFunc(GLES20.GL_LEQUAL)
@@ -218,12 +331,32 @@ class Apex3DRenderer(
 
         GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, terrainMvp.data, 0)
         GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, terrainModelMat.data, 0)
-        GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
-        GLES20.glUniform1f(shader.uSpecularStrengthLocation, 0.15f)
-        GLES20.glUniform1f(shader.uShininessLocation, 16f)
-        GLES20.glUniform1i(shader.uUseVertexColorLocation, if (activeTerrain.colors != null) 1 else 0)
 
-        activeTerrain.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+        val hasTerrainTex = bindMeshTexture(activeTerrain, shader)
+        val useTerrainVColor = if (hasTerrainTex) activeTerrain.hasExplicitVertexColors else (activeTerrain.colors != null)
+        GLES20.glUniform1i(shader.uUseVertexColorLocation, if (useTerrainVColor) 1 else 0)
+
+        if (hasTerrainTex) {
+            GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
+            GLES20.glUniform1f(shader.uSpecularStrengthLocation, 0.04f)
+        } else if (activeTerrain.hasExplicitVertexColors || activeTerrain.colors != null) {
+            GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
+            GLES20.glUniform1f(shader.uSpecularStrengthLocation, 0.12f)
+        } else {
+            // Untextured custom terrain without vertex colors: natural grass/earth tone rather than blinding pure white
+            GLES20.glUniform4f(shader.uBaseColorLocation, 0.42f, 0.54f, 0.38f, 1f)
+            GLES20.glUniform1f(shader.uSpecularStrengthLocation, 0.08f)
+        }
+        GLES20.glUniform1f(shader.uShininessLocation, 16f)
+
+        activeTerrain.render(
+            shader.aPositionLocation,
+            shader.aNormalLocation,
+            shader.aColorLocation,
+            shader.aTexCoordLocation,
+            settings.enableWireframe
+        )
+        GLES20.glUniform1i(shader.uUseTextureLocation, 0)
         GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
         triCount += activeTerrain.triangleCount
         drawCallCount++
@@ -246,9 +379,20 @@ class Apex3DRenderer(
                 val mvp = Mat4().set(camera.viewProjMatrix).multiply(boundMat)
                 GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
                 GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, boundMat.data, 0)
+
+                val hasMeshTex = bindMeshTexture(customMesh, shader)
+                val useMeshVColor = if (hasMeshTex) customMesh.hasExplicitVertexColors else (customMesh.colors != null)
                 GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
-                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customMesh.colors != null) 1 else 0)
-                customMesh.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (useMeshVColor) 1 else 0)
+
+                customMesh.render(
+                    shader.aPositionLocation,
+                    shader.aNormalLocation,
+                    shader.aColorLocation,
+                    shader.aTexCoordLocation,
+                    settings.enableWireframe
+                )
+                GLES20.glUniform1i(shader.uUseTextureLocation, 0)
                 GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
                 triCount += customMesh.triangleCount
                 drawCallCount++
@@ -362,11 +506,20 @@ class Apex3DRenderer(
                     GLES20.glDisable(GLES20.GL_CULL_FACE)
                 }
 
+                val hasNpcTex = bindMeshTexture(npc.customMesh!!, shader)
+                val useNpcVColor = if (hasNpcTex) npc.customMesh!!.hasExplicitVertexColors else (npc.customMesh!!.colors != null)
                 GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, mvp.data, 0)
                 GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, npcMat.data, 0)
                 GLES20.glUniform4f(shader.uBaseColorLocation, npc.tintColor[0], npc.tintColor[1], npc.tintColor[2], 1f)
-                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (npc.customMesh!!.colors != null) 1 else 0)
-                npc.customMesh!!.render(shader.aPositionLocation, shader.aNormalLocation, shader.aColorLocation, settings.enableWireframe)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (useNpcVColor) 1 else 0)
+                npc.customMesh!!.render(
+                    shader.aPositionLocation,
+                    shader.aNormalLocation,
+                    shader.aColorLocation,
+                    shader.aTexCoordLocation,
+                    settings.enableWireframe
+                )
+                GLES20.glUniform1i(shader.uUseTextureLocation, 0)
                 GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
 
                 if (settings.twoSidedGlbRendering && prevCullFace) {
@@ -435,19 +588,23 @@ class Apex3DRenderer(
                     GLES20.glDisable(GLES20.GL_CULL_FACE)
                 }
 
+                val hasCharTex = bindMeshTexture(customChar, shader)
+                val useCharVColor = if (hasCharTex) customChar.hasExplicitVertexColors else (customChar.colors != null)
                 GLES20.glUniformMatrix4fv(shader.uMVPMatrixLocation, 1, false, charMvp.data, 0)
                 GLES20.glUniformMatrix4fv(shader.uModelMatrixLocation, 1, false, charMat.data, 0)
                 GLES20.glUniform4f(shader.uBaseColorLocation, 1f, 1f, 1f, 1f)
                 GLES20.glUniform1f(shader.uSpecularStrengthLocation, 0.35f)
                 GLES20.glUniform1f(shader.uShininessLocation, 24f)
-                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (customChar.colors != null) 1 else 0)
+                GLES20.glUniform1i(shader.uUseVertexColorLocation, if (useCharVColor) 1 else 0)
 
                 customChar.render(
                     shader.aPositionLocation,
                     shader.aNormalLocation,
                     shader.aColorLocation,
+                    shader.aTexCoordLocation,
                     settings.enableWireframe
                 )
+                GLES20.glUniform1i(shader.uUseTextureLocation, 0)
                 GLES20.glUniform1i(shader.uUseVertexColorLocation, 0)
 
                 if (settings.twoSidedGlbRendering && prevCullFace) {

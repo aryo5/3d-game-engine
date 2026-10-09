@@ -681,8 +681,12 @@ fun AssetManagerSheet(
 
                                                         Button(
                                                             onClick = {
-                                                                customModelManager.setActiveTerrain(entry, terrainMesh)
-                                                                terrainMesh.setCustomMesh(entry.mesh)
+                                                                if (entry.mesh.textureBitmap == null && entry.format == "GLB") {
+                                                                    customModelManager.reloadModel(entry.fileName)
+                                                                }
+                                                                val activeEntry = customModelManager.importedModels.firstOrNull { it.fileName == entry.fileName } ?: entry
+                                                                customModelManager.setActiveTerrain(activeEntry, terrainMesh)
+                                                                terrainMesh.setCustomMesh(activeEntry.mesh)
                                                                 onTerrainChanged()
                                                                 lastExportMessage = "✓ '${entry.fileName}' aktif sebagai Terrain Map!"
                                                             },

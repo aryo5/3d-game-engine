@@ -1,5 +1,6 @@
 package com.example.engine3d.core
 
+import android.graphics.Bitmap
 import android.opengl.GLES20
 import com.example.engine3d.math.AABB
 import com.example.engine3d.math.Mat4
@@ -55,7 +56,10 @@ class Mesh(
     var skinJointNodes: IntArray? = null,
     var inverseBindMatrices: Array<Mat4>? = null,
     var skins: List<SkinDef>? = null,
-    var vertexSkinIndices: IntArray? = null
+    var vertexSkinIndices: IntArray? = null,
+    val hasExplicitVertexColors: Boolean = false,
+    var textureBitmap: Bitmap? = null,
+    var textureId: Int = 0
 ) {
     val vertexCount: Int = vertices.size / 3
     val triangleCount: Int = if (indices != null) indices.size / 3 else vertexCount / 3
@@ -64,6 +68,8 @@ class Mesh(
     private var vertexBuffer: FloatBuffer
     private var normalBuffer: FloatBuffer? = null
     private var colorBuffer: FloatBuffer? = null
+    var texCoordBuffer: FloatBuffer? = null
+        private set
     private var indexBuffer: ShortBuffer? = null
 
     private var skinnedVertices: FloatArray? = null
@@ -97,6 +103,15 @@ class Mesh(
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer().apply {
                     put(colors)
+                    position(0)
+                }
+        }
+
+        if (texCoords != null) {
+            texCoordBuffer = ByteBuffer.allocateDirect(texCoords.size * 4)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer().apply {
+                    put(texCoords)
                     position(0)
                 }
         }
@@ -261,6 +276,16 @@ class Mesh(
         colorHandle: Int,
         wireframe: Boolean = false
     ) {
+        render(positionHandle, normalHandle, colorHandle, -1, wireframe)
+    }
+
+    fun render(
+        positionHandle: Int,
+        normalHandle: Int,
+        colorHandle: Int,
+        texCoordHandle: Int,
+        wireframe: Boolean = false
+    ) {
         GLES20.glEnableVertexAttribArray(positionHandle)
         GLES20.glVertexAttribPointer(
             positionHandle, 3, GLES20.GL_FLOAT, false,
@@ -283,6 +308,14 @@ class Mesh(
             )
         }
 
+        if (texCoordHandle >= 0 && texCoordBuffer != null) {
+            GLES20.glEnableVertexAttribArray(texCoordHandle)
+            GLES20.glVertexAttribPointer(
+                texCoordHandle, 2, GLES20.GL_FLOAT, false,
+                0, texCoordBuffer
+            )
+        }
+
         val renderMode = if (wireframe) GLES20.GL_LINES else GLES20.GL_TRIANGLES
 
         if (indexBuffer != null) {
@@ -302,6 +335,9 @@ class Mesh(
         }
         if (colorHandle >= 0 && colorBuffer != null) {
             GLES20.glDisableVertexAttribArray(colorHandle)
+        }
+        if (texCoordHandle >= 0 && texCoordBuffer != null) {
+            GLES20.glDisableVertexAttribArray(texCoordHandle)
         }
     }
 }

@@ -11,6 +11,7 @@ class Shader {
     var aPositionLocation: Int = -1
     var aNormalLocation: Int = -1
     var aColorLocation: Int = -1
+    var aTexCoordLocation: Int = -1
 
     // Uniform locations
     var uMVPMatrixLocation: Int = -1
@@ -31,6 +32,8 @@ class Shader {
     var uPointLightColorLocation: Int = -1
     var uPointLightRadiusLocation: Int = -1
     var uUseVertexColorLocation: Int = -1
+    var uTextureLocation: Int = -1
+    var uUseTextureLocation: Int = -1
 
     init {
         compileAndLink()
@@ -44,10 +47,12 @@ class Shader {
             attribute vec4 aPosition;
             attribute vec3 aNormal;
             attribute vec4 aColor;
+            attribute vec2 aTexCoord;
             
             varying vec3 vFragPos;
             varying vec3 vNormal;
             varying vec4 vColor;
+            varying vec2 vTexCoord;
             varying float vDistance;
             
             void main() {
@@ -55,6 +60,7 @@ class Shader {
                 // Transform normal with 3x3 model matrix
                 vNormal = normalize(mat3(uModelMatrix[0].xyz, uModelMatrix[1].xyz, uModelMatrix[2].xyz) * aNormal);
                 vColor = aColor;
+                vTexCoord = aTexCoord;
                 
                 vec4 clipPos = uMVPMatrix * aPosition;
                 vDistance = clipPos.w;
@@ -80,6 +86,8 @@ class Shader {
             uniform int uUseLighting;
             uniform int uShadingQuality; // 0=Unlit, 1=Fast Gouraud-like, 2=Blinn-Phong
             uniform int uUseVertexColor;
+            uniform int uUseTexture;
+            uniform sampler2D uTexture;
             
             uniform vec3 uPointLightPos;
             uniform vec3 uPointLightColor;
@@ -88,11 +96,19 @@ class Shader {
             varying vec3 vFragPos;
             varying vec3 vNormal;
             varying vec4 vColor;
+            varying vec2 vTexCoord;
             varying float vDistance;
             
             void main() {
                 vec4 base = uBaseColor;
-                if (uUseVertexColor == 1) {
+                if (uUseTexture == 1) {
+                    vec4 texColor = texture2D(uTexture, vTexCoord);
+                    if (uUseVertexColor == 1) {
+                        base = texColor * vColor * uBaseColor;
+                    } else {
+                        base = texColor * uBaseColor;
+                    }
+                } else if (uUseVertexColor == 1) {
                     base = vColor * uBaseColor;
                 }
                 
@@ -181,6 +197,7 @@ class Shader {
         aPositionLocation = GLES20.glGetAttribLocation(programId, "aPosition")
         aNormalLocation = GLES20.glGetAttribLocation(programId, "aNormal")
         aColorLocation = GLES20.glGetAttribLocation(programId, "aColor")
+        aTexCoordLocation = GLES20.glGetAttribLocation(programId, "aTexCoord")
 
         uMVPMatrixLocation = GLES20.glGetUniformLocation(programId, "uMVPMatrix")
         uModelMatrixLocation = GLES20.glGetUniformLocation(programId, "uModelMatrix")
@@ -200,6 +217,8 @@ class Shader {
         uPointLightColorLocation = GLES20.glGetUniformLocation(programId, "uPointLightColor")
         uPointLightRadiusLocation = GLES20.glGetUniformLocation(programId, "uPointLightRadius")
         uUseVertexColorLocation = GLES20.glGetUniformLocation(programId, "uUseVertexColor")
+        uTextureLocation = GLES20.glGetUniformLocation(programId, "uTexture")
+        uUseTextureLocation = GLES20.glGetUniformLocation(programId, "uUseTexture")
     }
 
     private fun loadShader(type: Int, shaderCode: String): Int {

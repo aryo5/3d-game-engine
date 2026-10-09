@@ -197,7 +197,6 @@ fun EngineScreen(
     // UI Sheets & Modes
     var isEditHudMode by remember { mutableStateOf(false) }
     var showGraphicsSheet by remember { mutableStateOf(false) }
-    var showGlbConfigSheet by remember { mutableStateOf(false) }
     var showWorldMapDialog by remember { mutableStateOf(false) }
     var isExpandedMenuOpen by remember { mutableStateOf(false) }
 
@@ -1038,20 +1037,6 @@ fun EngineScreen(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        // GLB Studio Config Button
-                        Button(
-                            onClick = { showGlbConfigSheet = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xD0101726)),
-                            shape = RoundedCornerShape(20.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF)),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 9.dp, vertical = 6.dp),
-                            modifier = Modifier.height(32.dp).testTag("open_glb_config_button")
-                        ) {
-                            Icon(Icons.Default.Build, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Studio GLB", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-
                         // Graphics Settings Button
                         Button(
                             onClick = { showGraphicsSheet = true },
@@ -1276,22 +1261,6 @@ fun EngineScreen(
                     physicsEngine.spawnPhysicsBox(physicsEngine.characterPos)
                 },
                 onDismiss = { showGraphicsSheet = false }
-            )
-        }
-
-        // 6b. GLB Character & Animation Binding Config Patcher
-        if (showGlbConfigSheet) {
-            GlbConfigPatcherSheet(
-                customModelManager = customModelManager,
-                terrainMesh = terrainMesh,
-                barrierManager = physicsEngine.barrierManager,
-                npcManager = npcManager,
-                interactionSystem = interactionSystem,
-                playerPos = physicsEngine.characterPos,
-                settings = settings,
-                physicsEngine = physicsEngine,
-                actionManager = actionManager,
-                onDismiss = { showGlbConfigSheet = false }
             )
         }
 

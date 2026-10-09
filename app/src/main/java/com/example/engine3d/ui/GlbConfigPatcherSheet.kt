@@ -20,6 +20,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -30,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -88,9 +90,14 @@ fun GlbConfigPatcherSheet(
 ) {
     val context = LocalContext.current
     var activeTab by remember { mutableStateOf(CentralStudioTab.MODELS) }
-    var selectedModel by remember { mutableStateOf<ImportedModelEntry?>(null) }
+    var selectedModel by remember {
+        mutableStateOf<ImportedModelEntry?>(
+            customModelManager.importedModels.firstOrNull {
+                it.fileName.equals(customModelManager.activeCharacterFileName, ignoreCase = true)
+            } ?: customModelManager.importedModels.firstOrNull()
+        )
+    }
 
-    // Otomatis pilih model pertama yang ada bila belum terpilih
     LaunchedEffect(customModelManager.importedModels) {
         if (selectedModel == null && customModelManager.importedModels.isNotEmpty()) {
             val activeChar = customModelManager.importedModels.firstOrNull {
@@ -331,11 +338,12 @@ fun GlbConfigPatcherSheet(
 
                 Spacer(Modifier.height(8.dp))
 
-                // Studio Tab Navigation
-                TabRow(
+                // Studio Tab Navigation with ScrollableTabRow to prevent title squeeze/clip
+                ScrollableTabRow(
                     selectedTabIndex = activeTab.ordinal,
                     containerColor = Color(0xFF101827),
                     contentColor = Color(0xFF00E5FF),
+                    edgePadding = 10.dp,
                     indicator = { tabPositions ->
                         if (activeTab.ordinal < tabPositions.size) {
                             TabRowDefaults.SecondaryIndicator(
@@ -343,7 +351,8 @@ fun GlbConfigPatcherSheet(
                                 color = Color(0xFF00E5FF)
                             )
                         }
-                    }
+                    },
+                    divider = {}
                 ) {
                     CentralStudioTab.values().forEach { tab ->
                         val isSelected = activeTab == tab
@@ -353,7 +362,7 @@ fun GlbConfigPatcherSheet(
                             text = {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                                 ) {
                                     Icon(
                                         tab.icon,
@@ -365,7 +374,8 @@ fun GlbConfigPatcherSheet(
                                         tab.title,
                                         fontSize = 11.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) Color(0xFF00E5FF) else Color(0xFF90A4AE)
+                                        color = if (isSelected) Color(0xFF00E5FF) else Color(0xFF90A4AE),
+                                        maxLines = 1
                                     )
                                 }
                             }
@@ -432,55 +442,114 @@ fun GlbConfigPatcherSheet(
                                             }
                                         }
 
-                                        // HORIZONTALLY SCROLLABLE CHIPS (Never clipped or pushed outside area)
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "Daftar GLB Terdeteksi (${customModelManager.importedModels.size} file):",
-                                                fontSize = 11.sp,
-                                                color = Color(0xFF90A4AE)
-                                            )
-                                            Text(
-                                                text = "Geser ke samping →",
-                                                fontSize = 9.sp,
-                                                color = Color(0xFF00E5FF)
-                                            )
-                                        }
+                                        // Structured Vertical Model List with bounded scroll (Never clipped or pushed off screen)
+                                        Text(
+                                            text = "Daftar Model Terdeteksi (${customModelManager.importedModels.size} file):",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF00E5FF)
+                                        )
 
-                                        Row(
+                                        Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .horizontalScroll(rememberScrollState()),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                .heightIn(max = 220.dp)
+                                                .verticalScroll(rememberScrollState()),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
                                             customModelManager.importedModels.forEach { model ->
                                                 val isSelected = selectedModel == model
                                                 val isChar = customModelManager.activeCharacterFileName.equals(model.fileName, ignoreCase = true)
                                                 val isTerrain = customModelManager.activeTerrainFileName.equals(model.fileName, ignoreCase = true)
 
-                                                FilterChip(
-                                                    selected = isSelected,
+                                                Surface(
                                                     onClick = { selectedModel = model },
-                                                    label = {
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = if (isSelected) Color(0xFF162A45) else Color(0xFF0F1726),
+                                                    border = BorderStroke(
+                                                        1.2.dp,
+                                                        if (isSelected) Color(0xFF00E5FF) else Color(0xFF1E2B45)
+                                                    ),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                            modifier = Modifier.weight(1f)
+                                                        ) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(28.dp)
+                                                                    .clip(RoundedCornerShape(6.dp))
+                                                                    .background(if (isSelected) Color(0xFF00E5FF) else Color(0xFF1E2B45)),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Text(
+                                                                    text = if (isChar) "👑" else if (isTerrain) "🗺️" else "📦",
+                                                                    fontSize = 13.sp
+                                                                )
+                                                            }
+
+                                                            Column(modifier = Modifier.weight(1f)) {
+                                                                Text(
+                                                                    text = model.fileName,
+                                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                                    fontSize = 12.sp,
+                                                                    color = if (isSelected) Color(0xFF00E5FF) else Color.White,
+                                                                    maxLines = 1,
+                                                                    overflow = TextOverflow.Ellipsis
+                                                                )
+                                                                Text(
+                                                                    text = "${model.format.uppercase()} · ${model.mesh.vertexCount} vtx · ${model.mesh.animationClips.size} klip",
+                                                                    fontSize = 10.sp,
+                                                                    color = Color(0xFF90A4AE)
+                                                                )
+                                                            }
+                                                        }
+
                                                         Row(
                                                             verticalAlignment = Alignment.CenterVertically,
                                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                         ) {
-                                                            if (isChar) Text("👑", fontSize = 10.sp)
-                                                            if (isTerrain) Text("🗺️", fontSize = 10.sp)
-                                                            Text(model.fileName, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                                            if (isChar) {
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .background(Color(0x3300E5FF), RoundedCornerShape(4.dp))
+                                                                        .border(1.dp, Color(0xFF00E5FF), RoundedCornerShape(4.dp))
+                                                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                                ) {
+                                                                    Text("HERO", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFF00E5FF))
+                                                                }
+                                                            }
+                                                            if (isTerrain) {
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .background(Color(0x3376FF03), RoundedCornerShape(4.dp))
+                                                                        .border(1.dp, Color(0xFF76FF03), RoundedCornerShape(4.dp))
+                                                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                                ) {
+                                                                    Text("MAP", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFF76FF03))
+                                                                }
+                                                            }
+                                                            RadioButton(
+                                                                selected = isSelected,
+                                                                onClick = { selectedModel = model },
+                                                                colors = RadioButtonDefaults.colors(
+                                                                    selectedColor = Color(0xFF00E5FF),
+                                                                    unselectedColor = Color(0xFF90A4AE)
+                                                                ),
+                                                                modifier = Modifier.size(24.dp)
+                                                            )
                                                         }
-                                                    },
-                                                    colors = FilterChipDefaults.filterChipColors(
-                                                        selectedContainerColor = Color(0xFF00E5FF),
-                                                        selectedLabelColor = Color.Black,
-                                                        containerColor = Color(0xFF1E2B47),
-                                                        labelColor = Color.White
-                                                    )
-                                                )
+                                                    }
+                                                }
                                             }
                                         }
                                     }

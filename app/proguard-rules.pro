@@ -132,3 +132,9 @@
 
 # Verbose output for debugging
 -verbose
+
+# Proteksi penuh library LuaJ dan Engine Scripting
+-keep class org.luaj.** { *; }
+-dontwarn org.luaj.**
+-keep class com.example.engine3d.script.** { *; }
+-keepclassmembers class com.example.engine3d.script.** { *; }

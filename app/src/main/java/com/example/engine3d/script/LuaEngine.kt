@@ -1,5 +1,6 @@
 package com.example.engine3d.script
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,7 +11,7 @@ import org.luaj.vm2.lib.jse.CoerceJavaToLua
 import org.luaj.vm2.lib.jse.JsePlatform
 
 class LuaEngine {
-    val globals: Globals = JsePlatform.standardGlobals()
+    var globals: Globals? = null
     var logs by mutableStateOf("")
         private set
 
@@ -23,7 +24,6 @@ function _ready()
 end
 
 function _process(delta)
-    -- Putar dan gerakkan petani per frame
     player:translate(0.2 * delta, 0.0, 0.0)
     player:rotateY(20.0 * delta)
 end
@@ -34,17 +34,28 @@ end
     private var processFunc: LuaValue = LuaValue.NIL
 
     init {
-        globals.set("print", object : OneArgFunction() {
-            override fun call(arg: LuaValue): LuaValue {
-                val msg = arg.tojstring()
-                logs = if (logs.isEmpty()) msg else "$logs\n$msg"
-                return LuaValue.NIL
+        try {
+            globals = JsePlatform.standardGlobals().apply {
+                set("print", object : OneArgFunction() {
+                    override fun call(arg: LuaValue): LuaValue {
+                        val msg = arg.tojstring()
+                        logs = if (logs.isEmpty()) msg else "$logs\n$msg"
+                        return LuaValue.NIL
+                    }
+                })
             }
-        })
+        } catch (e: Throwable) {
+            Log.e("Apex3D-Lua", "Gagal inisialisasi LuaJ: ${e.message}", e)
+            logs = "[Error Init LuaJ] ${e.message}"
+        }
     }
 
     fun bind(name: String, obj: Any) {
-        globals.set(name, CoerceJavaToLua.coerce(obj))
+        try {
+            globals?.set(name, CoerceJavaToLua.coerce(obj))
+        } catch (e: Throwable) {
+            Log.e("Apex3D-Lua", "Error binding $name: ${e.message}", e)
+        }
     }
 
     fun clearLogs() {
@@ -53,11 +64,16 @@ end
 
     fun runScript(code: String) {
         currentScript = code
+        val g = globals
+        if (g == null) {
+            logs = "$logs\n[System] Lua runtime belum siap."
+            return
+        }
         try {
-            val chunk = globals.load(code)
+            val chunk = g.load(code)
             chunk.call()
-            readyFunc = globals.get("_ready")
-            processFunc = globals.get("_process")
+            readyFunc = g.get("_ready")
+            processFunc = g.get("_process")
             if (!readyFunc.isnil()) {
                 readyFunc.call()
             }
@@ -72,7 +88,7 @@ end
             try {
                 processFunc.call(LuaValue.valueOf(delta))
             } catch (e: Throwable) {
-                // error suppressed
+                // cegah spam error di log loop
             }
         }
     }

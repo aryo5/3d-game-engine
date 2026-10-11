@@ -43,8 +43,8 @@ android {
   buildTypes {
     release {
       // R8 Code Shrinking & Optimization
-      isMinifyEnabled = true
-      isShrinkResources = true
+      isMinifyEnabled = false
+      isShrinkResources = false
       isDebuggable = false
       
       // Disable PNG compression untuk faster build

@@ -7,7 +7,8 @@ class PlayerBinding {
     var posY = 0.0
     var posZ = 0.0
     var rotY = 0.0
-    var scale = 1.0
+    private var _scale = 1.0
+    val scale: Double get() = _scale
     var currentAnim = "Idle"
 
     fun setPosition(x: Double, y: Double, z: Double) {
@@ -24,7 +25,7 @@ class PlayerBinding {
     }
 
     fun setScale(s: Double) {
-        scale = s
+        _scale = s
     }
 
     fun playAnimation(animName: String) {
@@ -41,14 +42,15 @@ class CameraBinding {
     var posX = 0.0
     var posY = 3.0
     var posZ = -6.0
-    var fov = 60.0
+    private var _fov = 60.0
+    val fov: Double get() = _fov
 
     fun setPosition(x: Double, y: Double, z: Double) {
         posX = x; posY = y; posZ = z
     }
 
     fun setFov(newFov: Double) {
-        fov = newFov
+        _fov = newFov
     }
 
     fun lookAt(x: Double, y: Double, z: Double) {
@@ -57,20 +59,22 @@ class CameraBinding {
 }
 
 class WorldBinding {
-    var timeOfDay = 12.0 // 0 sampai 24 jam
-    var sunIntensity = 1.0
-    var gravity = -9.8
+    var timeOfDay = 12.0
+    private var _sunIntensity = 1.0
+    val sunIntensity: Double get() = _sunIntensity
+    private var _gravity = -9.8
+    val gravity: Double get() = _gravity
 
     fun setTime(hour: Double) {
         timeOfDay = hour % 24.0
     }
 
     fun setSunIntensity(intensity: Double) {
-        sunIntensity = intensity
+        _sunIntensity = intensity
     }
 
     fun setGravity(g: Double) {
-        gravity = g
+        _gravity = g
     }
 
     fun getTime(): Double = timeOfDay

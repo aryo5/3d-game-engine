@@ -1,6 +1,6 @@
+package com.example
 import com.example.engine3d.script.LuaEditorOverlay
 import com.example.engine3d.script.LuaScriptManager
-package com.example
 
 import android.content.pm.ActivityInfo
 import android.os.Bundle

@@ -1,3 +1,5 @@
+import com.example.engine3d.script.LuaEditorOverlay
+import com.example.engine3d.script.LuaScriptManager
 package com.example
 
 import android.content.pm.ActivityInfo
@@ -49,6 +51,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         hideSystemBars()
         setContent {
+        LuaEditorOverlay(luaEngine = LuaScriptManager.engine)
             MyApplicationTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),

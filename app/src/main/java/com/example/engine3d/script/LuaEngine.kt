@@ -15,13 +15,17 @@ class LuaEngine {
         private set
 
     var currentScript by mutableStateOf(
-        """-- Apex3D Live Controller (Godot Style)
+        """-- Petani Harvest Moon Controller
 function _ready()
-    print("[Apex3D] Lua engine initialized!")
+    print("=== ENGINE READY: PETANI TERPASANG ===")
+    player:setPosition(0.0, 0.0, 0.0)
+    player:playAnimation("Idle")
 end
 
 function _process(delta)
-    -- Pergerakan / rotasi per frame
+    -- Putar dan gerakkan petani per frame
+    player:translate(0.2 * delta, 0.0, 0.0)
+    player:rotateY(20.0 * delta)
 end
 """.trimIndent()
     )
@@ -57,7 +61,7 @@ end
             if (!readyFunc.isnil()) {
                 readyFunc.call()
             }
-            logs = "$logs\n[System] Script reloaded successfully!"
+            logs = "$logs\n[System] Script sukses di-reload!"
         } catch (e: Throwable) {
             logs = "$logs\n[Lua Error] ${e.message}"
         }
@@ -68,7 +72,7 @@ end
             try {
                 processFunc.call(LuaValue.valueOf(delta))
             } catch (e: Throwable) {
-                // error handling
+                // error suppressed
             }
         }
     }

@@ -1,8 +1,10 @@
--- Apex3D Engine - Controller Karakter (Godot Style)
 function _ready()
-    print("[Lua] Karakter berhasil dimuat ke dalam Scene!")
+    print("=== PETANI HARVEST MOON AKTIF ===")
+    player:setPosition(0.0, 0.0, 0.0)
+    player:playAnimation("Idle")
 end
 
 function _process(delta)
-    -- Dijalankan setiap frame
+    player:translate(0.2 * delta, 0.0, 0.0)
+    player:rotateY(10.0 * delta)
 end

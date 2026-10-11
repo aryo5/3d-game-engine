@@ -1,4 +1,3 @@
-import com.example.engine3d.script.Apex3DRealHook
 package com.example.engine3d.ui
 
 import android.annotation.SuppressLint
@@ -467,7 +466,6 @@ fun EngineScreen(
                             HudCircularButton(
                                 icon = Icons.Default.North,
                                 label = "Lompat",
-        Apex3DRealHook.onRealJump = { actionManager.jump() }
                                 size = currentSize,
                                 posX = posX,
                                 posY = posY,
@@ -1305,7 +1303,6 @@ fun RenderExpandedContainer(
                     Triple("Hover", Icons.AutoMirrored.Filled.DirectionsRun, Color(0xFF00E5FF)) to { interactionSystem.isHoverboardMounted = !interactionSystem.isHoverboardMounted },
                     Triple("Reset", Icons.Default.RestartAlt, Color(0xFFFF5252)) to { physicsEngine.resetCharacterPosition() },
                     Triple("Lompat", Icons.Default.North, Color(0xFFFFD600)) to { physicsEngine.jump() },
-        Apex3DRealHook.onRealJump = { actionManager.jump() }
                     Triple("Jongkok", Icons.Default.ArrowDownward, Color(0xFFB0BEC5)) to { physicsEngine.isCrouched = !physicsEngine.isCrouched }
                 )
                 else -> listOf(

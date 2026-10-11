@@ -11,9 +11,8 @@ object Apex3DRealHook {
     var onRealAction: ((String) -> Unit)? = null
     var onRealSpeedChange: ((Float) -> Unit)? = null
     var onRealTimeScale: ((Float) -> Unit)? = null
-    var onRealCameraOrbit: ((Float, Float) -> Unit)? = null
 
-    // Elemen UI Dinamis yang dibuat dari script Lua
+    // Tombol dan Slider Dinamis yang dibuat langsung dari script Lua
     val customButtons = mutableStateListOf<LuaCustomButton>()
     val customSliders = mutableStateListOf<LuaCustomSlider>()
 

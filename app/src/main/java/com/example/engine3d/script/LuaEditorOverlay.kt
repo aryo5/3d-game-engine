@@ -28,13 +28,12 @@ fun LuaEditorOverlay(
         var scriptText by remember { mutableStateOf(luaEngine.currentScript) }
         val logs = luaEngine.logs
 
-        // Status ekspansi per grup (Accordion state)
         var expPlayer by remember { mutableStateOf(false) }
         var expAnim by remember { mutableStateOf(false) }
         var expCamera by remember { mutableStateOf(false) }
         var expWorld by remember { mutableStateOf(false) }
         var expUI by remember { mutableStateOf(false) }
-        var expEditor by remember { mutableStateOf(true) } // Buka editor secara default
+        var expEditor by remember { mutableStateOf(true) }
         var expConsole by remember { mutableStateOf(false) }
 
         val templates = listOf(
@@ -88,7 +87,7 @@ end"""
         )
 
         Box(modifier = modifier.fillMaxSize().zIndex(9999f)) {
-            // A. TAMPILAN TOMBOL & SLIDER KUSTOM LUA DI HUD (SEBELAH KIRI LAYAR)
+            // A. TOMBOL DAN SLIDER KUSTOM YANG DIBUAT DARI LUA MUNCUL DI SINI (KIRI LAYAR)
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
@@ -156,7 +155,7 @@ end"""
                     Text("⚡ LUA STUDIO", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             } else {
-                // C. MODAL STUDIO UTAMA BERGAYA GROUPED EXPANDED (ACCORDION)
+                // C. MODAL STUDIO UTAMA ACCORDION EXPANDED
                 Card(
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
@@ -167,7 +166,6 @@ end"""
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
-                        // Header Bar
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -181,7 +179,6 @@ end"""
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // Konten Accordion yang Dapat Di-Scroll
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -189,7 +186,6 @@ end"""
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // GRUP 1: KARAKTER & FISIKA
                             AccordionGroup("🎮 Karakter & Fisika (Player & Physics)", expPlayer, { expPlayer = !expPlayer }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Button(onClick = { LuaScriptManager.player.jump() }, modifier = Modifier.weight(1f).height(34.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF478CBF))) {
@@ -201,7 +197,6 @@ end"""
                                 }
                             }
 
-                            // GRUP 2: ANIMASI & POSE
                             AccordionGroup("🎬 Animasi & Pose (AnimationPlayer)", expAnim, { expAnim = !expAnim }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     listOf("Idle", "Walk", "Run", "Slash").forEach { animName ->
@@ -212,7 +207,6 @@ end"""
                                 }
                             }
 
-                            // GRUP 3: KAMERA 3D
                             AccordionGroup("🎥 Kamera 3D (Camera3D Viewport)", expCamera, { expCamera = !expCamera }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Button(onClick = { LuaScriptManager.camera.set_fov(75.0) }, modifier = Modifier.weight(1f).height(32.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF282C34))) {
@@ -224,7 +218,6 @@ end"""
                                 }
                             }
 
-                            // GRUP 4: DUNIA & WAKTU
                             AccordionGroup("🌍 Dunia & Waktu (World Environment)", expWorld, { expWorld = !expWorld }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Button(onClick = { LuaScriptManager.world.set_time(12.0); LuaScriptManager.world.set_sun_intensity(1.0) }, modifier = Modifier.weight(1f).height(32.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF282C34))) {
@@ -236,7 +229,6 @@ end"""
                                 }
                             }
 
-                            // GRUP 5: KONTROL UI DINAMIS
                             AccordionGroup("🕹️ Kontrol UI Kustom (Dynamic Controls)", expUI, { expUI = !expUI }) {
                                 Text("Total tombol kustom aktif: ${Apex3DRealHook.customButtons.size} | Slider: ${Apex3DRealHook.customSliders.size}", color = Color(0xFFABB2BF), fontSize = 10.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -245,9 +237,7 @@ end"""
                                 }
                             }
 
-                            // GRUP 6: SCRIPT EDITOR & PRESETS
                             AccordionGroup("📜 Studio Script & Presets (Godot Lua)", expEditor, { expEditor = !expEditor }) {
-                                // Template Presets
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     templates.forEach { (nama, code) ->
                                         OutlinedButton(onClick = { scriptText = code }, modifier = Modifier.weight(1f).height(28.dp), contentPadding = PaddingValues(2.dp)) {
@@ -279,7 +269,6 @@ end"""
                                 }
                             }
 
-                            // GRUP 7: CONSOLE LOG & DEBUGGER
                             AccordionGroup("💻 Live Console & Debugger", expConsole, { expConsole = !expConsole }) {
                                 Box(
                                     modifier = Modifier.fillMaxWidth().height(90.dp).background(Color(0xFF16181D)).padding(6.dp).verticalScroll(rememberScrollState())

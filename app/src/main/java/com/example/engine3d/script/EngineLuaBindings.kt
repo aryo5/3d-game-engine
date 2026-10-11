@@ -14,7 +14,6 @@ class PlayerBinding {
     val speed: Double get() = _speed
     var currentAnim = "Idle"
 
-    // Transformasi & Pergerakan
     fun set_position(x: Double, y: Double, z: Double) { posX = x; posY = y; posZ = z }
     fun setPosition(x: Double, y: Double, z: Double) = set_position(x, y, z)
 
@@ -26,7 +25,6 @@ class PlayerBinding {
     fun set_scale(s: Double) { _scale = s }
     fun setScale(s: Double) = set_scale(s)
 
-    // Fisika & Kecepatan
     fun set_speed(s: Double) {
         _speed = s
         Apex3DRealHook.setSpeed(s.toFloat())
@@ -34,11 +32,10 @@ class PlayerBinding {
     fun setSpeed(s: Double) = set_speed(s)
 
     fun jump() {
-        Log.d("Apex3D-Lua", "player:jump() dieksekusi")
+        Log.d("Apex3D-Lua", "player:jump() dipanggil dari script")
         Apex3DRealHook.triggerJump()
     }
 
-    // Animasi
     fun play_animation(name: String) {
         currentAnim = name
         Apex3DRealHook.triggerAction(name)
@@ -46,7 +43,6 @@ class PlayerBinding {
     fun play(name: String) = play_animation(name)
     fun playAnimation(name: String) = play_animation(name)
 
-    // Getter
     fun get_x(): Double = posX
     fun get_y(): Double = posY
     fun get_z(): Double = posZ
@@ -72,10 +68,6 @@ class CameraBinding {
         Log.d("Apex3D-Lua", "Camera look_at: ($x, $y, $z)")
     }
     fun lookAt(x: Double, y: Double, z: Double) = look_at(x, y, z)
-
-    fun orbit(angle: Double, pitch: Double) {
-        Apex3DRealHook.onRealCameraOrbit?.invoke(angle.toFloat(), pitch.toFloat())
-    }
 }
 
 class WorldBinding {

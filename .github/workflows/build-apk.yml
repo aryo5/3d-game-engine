@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       version_code:
-        description: 'Version Code (optional, auto-increment if empty)'
+        description: 'Version Code'
         required: false
         type: string
       version_name:
-        description: 'Version Name (e.g., 1.0.1)'
+        description: 'Version Name'
         required: false
         type: string
 
@@ -31,30 +31,27 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | sdkmanager --licenses || true
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Release APK (ARM64 only with R8)
+      - name: Build APK (Release & Assemble)
         run: |
           VERSION_CODE="${{ github.run_number }}"
-          VERSION_NAME="${{ github.run_number }}.0"
+          VERSION_NAME="1.0.${{ github.run_number }}"
           
           if [ ! -z "${{ inputs.version_code }}" ]; then
             VERSION_CODE="${{ inputs.version_code }}"
           fi
-          
           if [ ! -z "${{ inputs.version_name }}" ]; then
             VERSION_NAME="${{ inputs.version_name }}"
           fi
           
-          echo "📦 Building Release APK"
-          echo "Version Code: $VERSION_CODE"
-          echo "Version Name: $VERSION_NAME"
-          
-          ./gradlew clean :app:assembleRelease \
+          echo "📦 Memulai kompilasi APK (Version Code: $VERSION_CODE, Name: $VERSION_NAME)"
+          ./gradlew assembleRelease \
             -PversionCode=$VERSION_CODE \
             -PversionName=$VERSION_NAME \
             --no-daemon \
@@ -65,120 +62,24 @@ jobs:
       - name: Find and verify APK
         id: find-apk
         run: |
-          APK_PATH="app/build/outputs/apk/release/app-release.apk"
-          if [ -f "$APK_PATH" ]; then
+          APK_PATH=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+          if [ -n "$APK_PATH" ] && [ -f "$APK_PATH" ]; then
             SIZE_BYTES=$(stat -c%s "$APK_PATH")
             SIZE_MB=$(echo "scale=2; $SIZE_BYTES / 1048576" | bc)
-            echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-            echo "apk_size_mb=$SIZE_MB" >> $GITHUB_OUTPUT
-            echo "✅ APK found: $SIZE_MB MB"
-            ls -lh "$APK_PATH"
+            DEST="Apex3D-GodotLua-$(date +%Y%m%d_%H%M%S).apk"
+            cp "$APK_PATH" "$DEST"
+            echo "apk_file=$DEST" >> $GITHUB_OUTPUT
+            echo "✅ APK Berhasil dibuat: $DEST ($SIZE_MB MB)"
+            ls -lh "$DEST"
           else
-            echo "❌ APK not found at $APK_PATH"
-            ls -la app/build/outputs/
+            echo "❌ APK tidak ditemukan di app/build/outputs/apk!"
+            find app/build/outputs/ || true
             exit 1
           fi
-
-      - name: Rename APK with timestamp
-        id: rename-apk
-        run: |
-          SOURCE="${{ steps.find-apk.outputs.apk_path }}"
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          SIZE="${{ steps.find-apk.outputs.apk_size_mb }}"
-          DEST="Apex3D-Release-arm64-${TIMESTAMP}-${SIZE}MB.apk"
-          cp "$SOURCE" "$DEST"
-          echo "apk_file=$DEST" >> $GITHUB_OUTPUT
-          echo "✅ Renamed: $DEST"
 
       - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Apex3D-Release-APK
-          path: ${{ steps.rename-apk.outputs.apk_file }}
+          path: ${{ steps.find-apk.outputs.apk_file }}
           retention-days: 30
-          if-no-files-found: error
-
-      - name: Generate Build Report
-        run: |
-          cat > BUILD_REPORT.txt << 'EOF'
-          ╔════════════════════════════════════════════════════════════╗
-          ║          🎮 APEX3D RELEASE BUILD COMPLETED                 ║
-          ╚════════════════════════════════════════════════════════════╝
-          
-          📱 BUILD INFORMATION:
-            • Target Architecture: ARM64 (arm64-v8a)
-            • Build Type: Release
-            • Debug Mode: Disabled ❌
-            • Debuggable: False
-            • Version: ${{ inputs.version_name || github.run_number }}
-            
-          🔧 OPTIMIZATIONS APPLIED:
-            ✅ R8 Code Shrinking: ENABLED
-            ✅ Resource Shrinking: ENABLED
-            ✅ ProGuard: OPTIMIZED
-            ✅ Debug Symbols: REMOVED
-            ✅ Line Numbers: STRIPPED
-            ✅ Unused Code: ELIMINATED
-            
-          📊 APK DETAILS:
-            • File: ${{ steps.rename-apk.outputs.apk_file }}
-            • Size: ${{ steps.find-apk.outputs.apk_size_mb }} MB
-            • Format: APK (Single architecture)
-            • Status: ✅ READY FOR INSTALLATION
-            
-           📥 INSTALLATION ON NON-ROOT DEVICE:
-            1. Download APK from Actions > Artifacts
-            2. Transfer to Android device
-            3. Open file manager → tap APK
-            4. Allow "Install from unknown sources" if prompted
-            5. Tap "Install"
-            6. Launch app
-            
-          🔄 UPDATE EXISTING APK:
-            • Simply install the new APK over the old one
-            • App data preserved in internal storage
-            • No uninstall required
-            • Using adb: adb install -r <apk-file>
-            
-           🛠️ BUILD ENVIRONMENT:
-            • Java: 17 (Temurin)
-            • Gradle: Latest
-            • Android Gradle Plugin: Latest
-            • Kotlin: Latest
-            • NDK: Configured for native support
-            
-          ⚠️ IMPORTANT:
-            • APK is for testing on non-root devices only
-            • Signing is disabled for development
-            • For production, configure signing keys in secrets
-            • Monitor App size - if exceeds 100MB, review dependencies
-            
-          Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EOF
-          cat BUILD_REPORT.txt
-
-      - name: Upload Build Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: Build-Report
-          path: BUILD_REPORT.txt
-          retention-days: 30
-
-      - name: Print Summary to Console
-        run: |
-          echo ""
-          echo "╔════════════════════════════════════════════════════════════╗"
-          echo "║                    ✅ BUILD SUCCESS                        ║"
-          echo "╚════════════════════════════════════════════════════════════╝"
-          echo ""
-          echo "📦 APK Generated: ${{ steps.rename-apk.outputs.apk_file }}"
-          echo "💾 Size: ${{ steps.find-apk.outputs.apk_size_mb }} MB"
-          echo ""
-          echo "📥 Download from:"
-          echo "   Actions → Latest Run → Artifacts → Apex3D-Release-APK"
-          echo ""
-          echo "📱 Install on device:"
-          echo "   adb install -r ${{ steps.rename-apk.outputs.apk_file }}"
-          echo ""
-          echo "════════════════════════════════════════════════════════════"

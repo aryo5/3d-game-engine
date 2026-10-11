@@ -1,8 +1,10 @@
 package com.example.engine3d.script
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -10,8 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 
 @Composable
 fun LuaEditorOverlay(
@@ -25,8 +29,8 @@ fun LuaEditorOverlay(
         val logs = luaEngine.logs
 
         val templates = listOf(
-            "Petani Berjalan" to """function _ready()
-    print("Petani Harvest Moon mulai berjalan!")
+            "Petani Jalan" to """function _ready()
+    print("Petani mulai jalan!")
     player:setPosition(0.0, 0.0, 0.0)
     player:playAnimation("Walk")
 end
@@ -36,7 +40,7 @@ function _process(delta)
 end""",
             "Kamera Orbit" to """local angle = 0.0
 function _ready()
-    print("Kamera Orbit Aktif!")
+    print("Kamera orbit aktif!")
     camera:setFov(65.0)
 end
 
@@ -49,7 +53,7 @@ function _process(delta)
 end""",
             "Siang Malam" to """local jam = 6.0
 function _ready()
-    print("Siklus Siang Malam Aktif!")
+    print("Siklus siang malam aktif!")
 end
 
 function _process(delta)
@@ -63,24 +67,34 @@ function _process(delta)
 end"""
         )
 
-        Box(modifier = modifier.fillMaxSize()) {
+        Box(modifier = modifier.fillMaxSize().zIndex(9999f)) {
             if (!isOpen) {
-                FloatingActionButton(
+                // TOMBOL MENGAMBANG DI BAWAH TOMBOL GRAFIS (POJOK KANAN ATAS)
+                Button(
                     onClick = { isOpen = true },
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp),
-                    containerColor = Color(0xFF478CBF)
+                        .align(Alignment.TopEnd)
+                        .padding(top = 54.dp, end = 14.dp)
+                        .zIndex(9999f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xEE1E293B),
+                        contentColor = Color(0xFF38BDF8)
+                    ),
+                    border = BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    Text("📜 Lua", color = Color.White, fontSize = 14.sp)
+                    Text("⚡ LUA SCRIPT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             } else {
+                // DIALOG MODAL EDITOR
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth(0.95f)
-                        .fillMaxHeight(0.88f)
-                        .align(Alignment.Center),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xF0181A1F))
+                        .fillMaxWidth(0.92f)
+                        .fillMaxHeight(0.86f)
+                        .align(Alignment.Center)
+                        .zIndex(10000f),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xF2181A1F))
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
                         Row(
@@ -88,9 +102,9 @@ end"""
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("🎮 Godot Lua Script Studio", color = Color(0xFF61AFEF), fontSize = 15.sp)
+                            Text("🎮 Godot Lua Script Studio", color = Color(0xFF61AFEF), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             IconButton(onClick = { isOpen = false }) {
-                                Text("✕", color = Color.White)
+                                Text("✕", color = Color.White, fontSize = 16.sp)
                             }
                         }
 
@@ -101,13 +115,18 @@ end"""
                             listOf("Editor", "Cheat Sheet", "Console").forEachIndexed { index, title ->
                                 Button(
                                     onClick = { selectedTab = index },
-                                    modifier = Modifier.weight(1f).height(36.dp),
+                                    modifier = Modifier.weight(1f).height(34.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (selectedTab == index) Color(0xFF478CBF) else Color(0xFF282C34)
+                                        containerColor = if (selectedTab == index) Color(0xFF38BDF8) else Color(0xFF282C34)
                                     ),
                                     contentPadding = PaddingValues(2.dp)
                                 ) {
-                                    Text(title, fontSize = 11.sp, color = Color.White)
+                                    Text(
+                                        title,
+                                        fontSize = 11.sp,
+                                        color = if (selectedTab == index) Color.Black else Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
@@ -122,7 +141,7 @@ end"""
                                 templates.forEach { (nama, code) ->
                                     OutlinedButton(
                                         onClick = { scriptText = code },
-                                        modifier = Modifier.weight(1f).height(32.dp),
+                                        modifier = Modifier.weight(1f).height(30.dp),
                                         contentPadding = PaddingValues(2.dp)
                                     ) {
                                         Text(nama, fontSize = 9.sp, color = Color(0xFF98C379))
@@ -152,10 +171,10 @@ end"""
                                     luaEngine.runScript(scriptText)
                                     selectedTab = 2
                                 },
-                                modifier = Modifier.fillMaxWidth().height(42.dp),
+                                modifier = Modifier.fillMaxWidth().height(40.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF98C379))
                             ) {
-                                Text("▶ Hot Reload / Eksekusi", color = Color.Black, fontSize = 13.sp)
+                                Text("▶ Hot Reload / Eksekusi", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -168,7 +187,7 @@ end"""
                                     .padding(8.dp)
                                     .verticalScroll(rememberScrollState())
                             ) {
-                                Text("📌 DAFTAR FUNGSI (API) GODOT LUA:", color = Color(0xFFE5C07B), fontSize = 13.sp)
+                                Text("📌 DAFTAR FUNGSI (API) GODOT LUA:", color = Color(0xFFE5C07B), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     """
@@ -176,7 +195,7 @@ end"""
 • player:translate(dx, dy, dz)
 • player:rotateY(deg)
 • player:setScale(scale)
-• player:playAnimation("Idle" / "Walk")
+• player:playAnimation("Walk" / "Idle")
 • player:getX(), getY(), getZ()
 
 • camera:setPosition(x, y, z)

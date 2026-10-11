@@ -1,0 +1,21 @@
+=== DAFTAR & ISI FILE BERAWALAN TITIK (.) ===
+Waktu: Sun Oct 11 21:18:58 WIB 2026
+Lokasi: /data/data/com.termux/files/home/3d-game-engine
+
+--- 1. DAFTAR SEMUA FILE & FOLDER BERAWALAN TITIK (Kecuali .git) ---
+.
+./.aistudio
+./.env.example
+./app/.gitignore
+
+--- 2. ISI FILE KONFIGURASI TERSEMBUNYI ---
+==========================================
+FILE: ./.env.example
+==========================================
+GEMINI_API_KEY="your_api_key_here"
+
+==========================================
+FILE: ./app/.gitignore
+==========================================
+/build
+

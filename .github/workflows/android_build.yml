@@ -35,12 +35,9 @@ jobs:
           echo "GEMINI_API_KEY=placeholder" > .env
           echo "GEMINI_API_KEY=placeholder" > .env.example
 
-      - name: Beri Izin Gradlew
-        run: chmod +x ./gradlew
-
       - name: Kompilasi Release APK
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          gradle :app:assembleRelease --no-daemon --stacktrace
         env:
           STORE_PASSWORD: android
           KEY_ALIAS: upload

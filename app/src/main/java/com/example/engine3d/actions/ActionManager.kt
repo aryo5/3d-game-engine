@@ -6,6 +6,12 @@ import com.example.engine3d.physics.PhysicsEngine
 class ActionManager(
     private val physicsEngine: PhysicsEngine
 ) {
+    init {
+        com.example.engine3d.script.Apex3DRealHook.onRealSlash = { this.triggerAction(CharacterAction.DEFAULT_SLASH) }
+        com.example.engine3d.script.Apex3DRealHook.onRealSlam = { this.triggerAction(CharacterAction.DEFAULT_SLAM) }
+        com.example.engine3d.script.Apex3DRealHook.onRealDash = { this.triggerAction(CharacterAction.DEFAULT_DASH) }
+    }
+
     val registeredActions = mutableListOf<CharacterAction>()
 
     var activeAction: CharacterAction? = null

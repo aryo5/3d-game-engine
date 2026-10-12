@@ -9,6 +9,11 @@ class PhysicsEngine(
     val terrainQuery: TerrainHeightQuery,
     val barrierManager: BarrierManager = BarrierManager()
 ) {
+    init {
+        com.example.engine3d.script.Apex3DRealHook.onRealJump = { this.jump() }
+        com.example.engine3d.script.Apex3DRealHook.onRealReset = { this.resetCharacterPosition() }
+    }
+
     // Character Physics State
     val characterPos = Vec3(0f, 0f, 0f)
     val characterVel = Vec3(0f, 0f, 0f)

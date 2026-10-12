@@ -1,7 +1,6 @@
 package com.example.engine3d.script
 
 import android.util.Log
-import android.widget.Toast
 import org.luaj.vm2.LuaValue
 
 class PlayerBinding {
@@ -54,7 +53,6 @@ class PlayerBinding {
     }
     fun setSpeed(s: Double) = set_speed(s)
 
-    // Integrasi Sinyal
     fun connect(signal: String, callback: LuaValue) = SceneTreeManager.playerNode.connect(signal, callback)
     fun emit_signal(signal: String, vararg args: Any?) = SceneTreeManager.playerNode.emit_signal(signal, *args)
     fun set_process(enable: Boolean) = SceneTreeManager.playerNode.set_process(enable)
@@ -110,9 +108,8 @@ class UIBinding {
     fun clearButtons() = clear()
 
     fun show_message(text: String) {
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            Toast.makeText(com.example.engine3d.renderer.EngineSettings.appContext, text, Toast.LENGTH_SHORT).show()
-        }
+        Log.d("Apex3D-Lua", "UI Message: $text")
+        Apex3DRealHook.onShowMessage?.invoke(text)
     }
 }
 

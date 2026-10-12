@@ -2,26 +2,23 @@ package com.example.engine3d.scene
 
 import org.luaj.vm2.LuaValue
 import org.luaj.vm2.lib.jse.CoerceJavaToLua
+import com.example.engine3d.script.SceneTreeManager
 
 open class Node(var name: String = "Node") {
     var parent: Node? = null
     val children = mutableListOf<Node>()
 
-    // Sinyal Reaktif (Lua Callbacks)
     private val luaSignals = mutableMapOf<String, MutableList<LuaValue>>()
 
-    // Status aktif di loop 60 FPS (Default: FALSE / 0% CPU)
     var isProcessing: Boolean = false
         private set
 
-    // Siklus Hidup Standar Godot
     open fun _enter_tree() {}
     open fun _ready() {}
     open fun _process(delta: Double) {}
     open fun _physics_process(delta: Double) {}
     open fun _exit_tree() {}
 
-    // Mengaktifkan/menonaktifkan dari antrean loop 60 FPS
     fun set_process(enable: Boolean) {
         isProcessing = enable
         if (enable) {
@@ -32,7 +29,6 @@ open class Node(var name: String = "Node") {
     }
     fun setProcess(enable: Boolean) = set_process(enable)
 
-    // Sistem Sinyal Godot
     fun connect(signal: String, luaCallback: LuaValue) {
         luaSignals.getOrPut(signal) { mutableListOf() }.add(luaCallback)
     }
@@ -53,7 +49,6 @@ open class Node(var name: String = "Node") {
     }
     fun emitSignal(signal: String, vararg args: Any?) = emit_signal(signal, *args)
 
-    // Pengelolaan Hierarki
     fun add_child(child: Node) {
         child.parent = this
         children.add(child)

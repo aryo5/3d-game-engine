@@ -1,0 +1,298 @@
+Build & Sign Release APK	Kompilasi Release APK	﻿2026-10-12T04:19:16.2351523Z ##[group]Run gradle :app:assembleRelease --no-daemon --stacktrace
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2352113Z ^[[36;1mgradle :app:assembleRelease --no-daemon --stacktrace^[[0m
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2410498Z shell: /usr/bin/bash -e {0}
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2410797Z env:
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2411153Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2411728Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2412216Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2412583Z   GRADLE_USER_HOME: /home/runner/.gradle
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2412922Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2413264Z   GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2413761Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2414314Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2414680Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2415183Z   KEYSTORE_PATH: /home/runner/work/3d-game-engine/3d-game-engine/my-upload-key.jks
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2415644Z   DEFAULT_KEY_ALIAS: upload
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2415930Z   STORE_PASSWORD: android
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2416204Z   KEY_ALIAS: upload
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2416736Z   KEY_PASSWORD: android
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:16.2417024Z ##[endgroup]
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:17.3279582Z To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.3.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:19.5259143Z Daemon will be stopped at the end of the build 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:21.1259635Z Calculating task graph as no cached configuration is available for tasks: :app:assembleRelease
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.0317694Z > Task :app:generateReleaseAssets UP-TO-DATE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.0357261Z > Task :app:preBuild UP-TO-DATE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.0377693Z > Task :app:preReleaseBuild UP-TO-DATE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.2263496Z > Task :app:processReleaseGoogleServices FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.2303169Z > Task :app:generateReleaseBuildConfig FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.2304527Z > Task :app:extractProguardFiles
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.2305602Z > Task :app:generateReleaseResources FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.3270770Z > Task :app:packageReleaseResources FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.6259365Z > Task :app:processReleaseNavigationResources FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.7258448Z > Task :app:checkReleaseDuplicateClasses
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:33.7259683Z > Task :app:mergeReleaseJniLibFolders
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:36.7263539Z > Task :app:parseReleaseLocalResources FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:36.7264793Z > Task :app:generateReleaseRFile FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:36.7265877Z > Task :app:javaPreCompileRelease FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:36.7267831Z > Task :app:mapReleaseSourceSetPaths
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:36.7271180Z > Task :app:compileReleaseNavigationResources FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:36.9282370Z > Task :app:checkReleaseAarMetadata
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:36.9327415Z > Task :app:createReleaseCompatibleScreenManifests
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:36.9328710Z > Task :app:extractDeepLinksRelease FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:36.9357193Z > Task :app:mergeReleaseNativeLibs
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.1285041Z 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.1294570Z > Task :app:stripReleaseDebugSymbols
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.1318177Z Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libdatastore_shared_counter.so. Run with --info option to learn more.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.1346905Z 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.1377216Z > Task :app:processReleaseMainManifest FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.1407186Z > Task :app:extractReleaseNativeSymbolTables FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.1409288Z > Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.1437251Z > Task :app:processReleaseManifest FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.1467178Z > Task :app:desugarReleaseFileDependencies FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.2287621Z > Task :app:processReleaseManifestForPackage FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.2317153Z > Task :app:mergeReleaseStartupProfile
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.2338830Z > Task :app:mergeReleaseResources FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.6300245Z > Task :app:mergeReleaseArtProfile
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.7258897Z > Task :app:mergeReleaseAssets
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.7277445Z > Task :app:processReleaseResources FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.7326594Z > Task :app:compressReleaseAssets FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.7387299Z > Task :app:optimizeReleaseResources FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.8258273Z > Task :app:extractReleaseVersionControlInfo
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.8287405Z > Task :app:writeReleaseAppMetadata
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:37.9267629Z > Task :app:writeReleaseSigningConfigVersions
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:38.1264713Z > Task :app:mergeExtDexRelease FROM-CACHE
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:38.4258676Z > Task :app:validateSigningRelease
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:19:44.0264046Z > Task :app:kspReleaseKotlin
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.5267758Z 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.5271332Z e: file:///home/runner/work/3d-game-engine/3d-game-engine/app/src/main/java/com/example/engine3d/scene/Node.kt:28:13 Unresolved reference 'SceneTreeManager'.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.5272771Z > Task :app:compileReleaseKotlin FAILED
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.5297680Z e: file:///home/runner/work/3d-game-engine/3d-game-engine/app/src/main/java/com/example/engine3d/scene/Node.kt:30:13 Unresolved reference 'SceneTreeManager'.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.5299767Z e: file:///home/runner/work/3d-game-engine/3d-game-engine/app/src/main/java/com/example/engine3d/script/EngineLuaBindings.kt:114:73 Unresolved reference 'appContext'.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.6259047Z gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791778762765.json
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7277127Z 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7293706Z FAILURE: Build failed with an exception.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7317247Z 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7321951Z * What went wrong:
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7322771Z Execution failed for task ':app:compileReleaseKotlin'.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7324673Z > A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7326384Z    > Compilation error. See log for more details
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7327293Z 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7327648Z * Try:
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7328401Z > Run with --info or --debug option to get more log output.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7329997Z > Run with --scan to get full insights from a Build Scan (powered by Develocity).
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7331096Z > Get more help at https://help.gradle.org.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7331714Z 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7332061Z * Exception is:
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7333164Z org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:compileReleaseKotlin'.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7342780Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:135)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7367272Z 	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:288)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7390630Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:133)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7418429Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:121)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7420619Z 	at org.gradle.api.internal.tasks.execution.ProblemsTaskPathTrackingTaskExecuter.execute(ProblemsTaskPathTrackingTaskExecuter.java:41)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7422894Z 	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7425040Z 	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7427306Z 	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7429137Z 	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7431321Z 	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7433137Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7434842Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7436654Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7438601Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7440793Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7442737Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7444442Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7446150Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7448043Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7449722Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7451428Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7453064Z 	at org.gradle.execution.plan.DefaultNodeExecutor.executeLocalTaskNode(DefaultNodeExecutor.java:55)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7454594Z 	at org.gradle.execution.plan.DefaultNodeExecutor.execute(DefaultNodeExecutor.java:34)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7456589Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:355)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7458988Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:343)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7461396Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:339)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7464075Z 	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7466258Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:339)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7469224Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:328)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7473645Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7476244Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7478286Z 	at org.gradle.execution.plan.DefaultPlanExecutor.process(DefaultPlanExecutor.java:111)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7480498Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.executeWithServices(DefaultTaskExecutionGraph.java:146)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7498132Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.execute(DefaultTaskExecutionGraph.java:131)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7499876Z 	at org.gradle.execution.SelectedTaskExecutionAction.execute(SelectedTaskExecutionAction.java:35)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7501723Z 	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:54)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7503884Z 	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:43)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7506070Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7508792Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7510757Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7512456Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7514170Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7515893Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7517872Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7519933Z 	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor.execute(BuildOperationFiringBuildWorkerExecutor.java:40)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7522182Z 	at org.gradle.internal.build.DefaultBuildLifecycleController.lambda$executeTasks$10(DefaultBuildLifecycleController.java:313)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7524107Z 	at org.gradle.internal.model.StateTransitionController.doTransition(StateTransitionController.java:276)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7525940Z 	at org.gradle.internal.model.StateTransitionController.lambda$tryTransition$8(StateTransitionController.java:187)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7527974Z 	at org.gradle.internal.work.DefaultSynchronizer.withLock(DefaultSynchronizer.java:45)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7529645Z 	at org.gradle.internal.model.StateTransitionController.tryTransition(StateTransitionController.java:187)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7531565Z 	at org.gradle.internal.build.DefaultBuildLifecycleController.executeTasks(DefaultBuildLifecycleController.java:304)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7533662Z 	at org.gradle.internal.build.DefaultBuildWorkGraphController$DefaultBuildWorkGraph.runWork(DefaultBuildWorkGraphController.java:220)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7535743Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withLocksAcquired$0(DefaultWorkerLeaseService.java:269)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7538368Z 	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:42)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7540316Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocksAcquired(DefaultWorkerLeaseService.java:267)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7542049Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:259)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7543760Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7545447Z 	at org.gradle.composite.internal.DefaultBuildController.doRun(DefaultBuildController.java:181)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7547254Z 	at org.gradle.composite.internal.DefaultBuildController.access$000(DefaultBuildController.java:50)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7548957Z 	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.lambda$run$0(DefaultBuildController.java:198)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7550628Z 	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7552253Z 	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.run(DefaultBuildController.java:198)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7553906Z 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7555453Z 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7559679Z Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7562395Z 	at org.gradle.workers.internal.DefaultWorkerExecutor$WorkItemExecution.waitForCompletion(DefaultWorkerExecutor.java:289)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7564660Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.lambda$waitForItemsAndGatherFailures$2(DefaultAsyncWorkTracker.java:130)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7566075Z 	at org.gradle.internal.Factories$1.create(Factories.java:30)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7567564Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withoutLocks$2(DefaultWorkerLeaseService.java:344)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7569107Z 	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:42)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7570627Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:342)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7572275Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:326)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7573891Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLock(DefaultWorkerLeaseService.java:331)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7575967Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:126)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7578116Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:92)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7579876Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForAll(DefaultAsyncWorkTracker.java:78)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7581527Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForCompletion(DefaultAsyncWorkTracker.java:66)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7583062Z 	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:267)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7584647Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7586410Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:26)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7588530Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7590304Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7592088Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7593904Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7595922Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:47)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7597776Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeAction(TaskExecution.java:244)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7599327Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeActions(TaskExecution.java:227)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7601087Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeWithPreviousOutputFiles(TaskExecution.java:210)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7602791Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.execute(TaskExecution.java:176)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7604229Z 	at org.gradle.internal.execution.steps.ExecuteStep.executeInternal(ExecuteStep.java:110)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7605557Z 	at org.gradle.internal.execution.steps.ExecuteStep.access$000(ExecuteStep.java:47)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7606953Z 	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:64)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7608137Z 	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:61)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7610106Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7612305Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7614270Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7616246Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7618783Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7636000Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7638018Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7639496Z 	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:61)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7640745Z 	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:47)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7642152Z 	at org.gradle.internal.execution.steps.CancelExecutionStep.execute(CancelExecutionStep.java:42)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7643727Z 	at org.gradle.internal.execution.steps.TimeoutStep.executeWithoutTimeout(TimeoutStep.java:75)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7645154Z 	at org.gradle.internal.execution.steps.TimeoutStep.execute(TimeoutStep.java:55)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7647826Z 	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:51)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7649822Z 	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:29)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7651871Z 	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:70)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7653980Z 	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:40)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7655729Z 	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7657682Z 	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:62)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7659694Z 	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:27)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7661750Z 	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:69)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7664001Z 	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:46)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7666044Z 	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:39)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7670484Z 	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:28)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7672024Z 	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7673450Z 	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithoutCache(BuildCacheStep.java:192)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7675060Z 	at org.gradle.internal.execution.steps.BuildCacheStep.executeAndStoreInCache(BuildCacheStep.java:148)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7677254Z 	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$executeWithCache$4(BuildCacheStep.java:104)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7678880Z 	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$executeWithCache$5(BuildCacheStep.java:104)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7680074Z 	at org.gradle.internal.Try$Success.map(Try.java:170)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7681195Z 	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithCache(BuildCacheStep.java:88)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7682680Z 	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$execute$0(BuildCacheStep.java:75)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7683800Z 	at org.gradle.internal.Either$Left.fold(Either.java:116)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7684800Z 	at org.gradle.internal.execution.caching.CachingState.fold(CachingState.java:62)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7686058Z 	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:74)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7687562Z 	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:49)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7689031Z 	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:46)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7690935Z 	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:35)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7692529Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.executeBecause(SkipUpToDateStep.java:75)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7694053Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.lambda$execute$2(SkipUpToDateStep.java:53)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7695497Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:53)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7697060Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:35)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7699225Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:37)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7701590Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:27)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7703980Z 	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:49)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7706392Z 	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:27)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7708938Z 	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:71)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7710996Z 	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:39)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7712855Z 	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:63)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7714471Z 	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:34)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7715883Z 	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7717408Z 	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:64)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7718684Z 	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:42)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7720489Z 	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:77)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7723104Z 	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:46)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7725369Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.executeWithNonEmptySources(AbstractSkipEmptyWorkStep.java:133)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7727490Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:64)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7729204Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:36)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7731149Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsStartedStep.execute(MarkSnapshottingInputsStartedStep.java:38)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7733223Z 	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:36)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7735145Z 	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:23)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7737168Z 	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:77)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7738950Z 	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:43)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7740442Z 	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7742006Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.lambda$execute$0(AssignMutableWorkspaceStep.java:35)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7743652Z 	at org.gradle.api.internal.tasks.execution.TaskExecution$4.withWorkspace(TaskExecution.java:305)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7745431Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:31)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7747564Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:22)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7749183Z 	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:40)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7750650Z 	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:23)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7752520Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.lambda$execute$2(ExecuteWorkBuildOperationFiringStep.java:67)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7754722Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:67)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7757075Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:39)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7758878Z 	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:46)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7760291Z 	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:34)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7761636Z 	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:44)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7762960Z 	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:31)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7764367Z 	at org.gradle.internal.execution.impl.DefaultExecutionEngine$1.execute(DefaultExecutionEngine.java:68)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7766157Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:132)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7767591Z 	... 61 more
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7768581Z Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilation error. See log for more details
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7770287Z 	at org.jetbrains.kotlin.gradle.tasks.TasksUtilsKt.throwExceptionIfCompilationFailed(tasksUtils.kt:21)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7771939Z 	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.run(GradleKotlinCompilerWork.kt:119)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7773973Z 	at org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction.execute(GradleCompilerRunnerWithWorkers.kt:74)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7776049Z 	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:68)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7787041Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:64)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7788741Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:61)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7790402Z 	at org.gradle.internal.classloader.ClassLoaderUtils.executeInClassloader(ClassLoaderUtils.java:102)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7792126Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:61)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7793597Z 	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:44)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7794733Z 	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:41)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7796403Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7798222Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7799283Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7800745Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7802486Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7804216Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7806173Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7808004Z 	at org.gradle.workers.internal.AbstractWorker.executeWrappedInBuildOperation(AbstractWorker.java:41)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7809604Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.execute(NoIsolationWorkerFactory.java:58)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7811171Z 	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$0(DefaultWorkerExecutor.java:176)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7813021Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runExecution(DefaultConditionalExecutionQueue.java:194)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7815130Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.access$700(DefaultConditionalExecutionQueue.java:127)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7817332Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner$1.run(DefaultConditionalExecutionQueue.java:169)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7818769Z 	at org.gradle.internal.Factories$1.create(Factories.java:30)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7820097Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withLocksAcquired$0(DefaultWorkerLeaseService.java:269)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7821687Z 	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:42)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7823268Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocksAcquired(DefaultWorkerLeaseService.java:267)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7825216Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:259)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7827132Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7828896Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:132)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7830782Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:164)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7832795Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:133)
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7834043Z 	... 2 more
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7834267Z 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7834483Z 
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7834665Z BUILD FAILED in 44s
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7835167Z 37 actionable tasks: 17 executed, 20 from cache
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:00.7835785Z Configuration cache entry stored.
+Build & Sign Release APK	Kompilasi Release APK	2026-10-12T04:20:01.0344883Z ##[error]Process completed with exit code 1.

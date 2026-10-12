@@ -1,4 +1,8 @@
 package com.example.engine3d.ui
+import com.example.engine3d.script.Apex3DRealHook
+import androidx.compose.runtime.DisposableEffect
+import com.example.engine3d.actions.CharacterAction
+
 
 import android.annotation.SuppressLint
 import android.opengl.GLSurfaceView
@@ -1268,6 +1272,22 @@ fun EngineScreen(
         if (showWorldMapDialog) {
             WorldMapDialog(
                 physicsEngine = physicsEngine,
+
+    // --- PENYAMBUNGAN FISIK LUA SECARA NYATA ---
+    DisposableEffect(physicsEngine, actionManager) {
+        Apex3DRealHook.onRealJump = { physicsEngine.jump() }
+        Apex3DRealHook.onRealReset = { physicsEngine.resetCharacterPosition() }
+        Apex3DRealHook.onRealSlash = { actionManager.triggerAction(CharacterAction.DEFAULT_SLASH) }
+        Apex3DRealHook.onRealSlam = { actionManager.triggerAction(CharacterAction.DEFAULT_SLAM) }
+        Apex3DRealHook.onRealDash = { actionManager.triggerAction(CharacterAction.DEFAULT_DASH) }
+        onDispose {
+            Apex3DRealHook.onRealJump = null
+            Apex3DRealHook.onRealReset = null
+            Apex3DRealHook.onRealSlash = null
+            Apex3DRealHook.onRealSlam = null
+            Apex3DRealHook.onRealDash = null
+        }
+    }
                 interactionSystem = interactionSystem,
                 npcManager = npcManager,
                 onDismiss = { showWorldMapDialog = false }

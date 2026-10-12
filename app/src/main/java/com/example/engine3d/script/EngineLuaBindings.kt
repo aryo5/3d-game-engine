@@ -14,6 +14,30 @@ class PlayerBinding {
     val speed: Double get() = _speed
     var currentAnim = "Idle"
 
+    fun jump() {
+        Log.d("Apex3D-Lua", "player:jump() -> memicu physicsEngine.jump()")
+        Apex3DRealHook.triggerJump()
+    }
+
+    fun slash() {
+        Log.d("Apex3D-Lua", "player:slash() -> memicu Energy Slash")
+        Apex3DRealHook.triggerSlash()
+    }
+
+    fun slam() {
+        Log.d("Apex3D-Lua", "player:slam() -> memicu Ground Slam")
+        Apex3DRealHook.triggerSlam()
+    }
+
+    fun dash() {
+        Log.d("Apex3D-Lua", "player:dash() -> memicu Cyber Dash")
+        Apex3DRealHook.triggerDash()
+    }
+
+    fun reset() {
+        Apex3DRealHook.triggerReset()
+    }
+
     fun set_position(x: Double, y: Double, z: Double) { posX = x; posY = y; posZ = z }
     fun setPosition(x: Double, y: Double, z: Double) = set_position(x, y, z)
 
@@ -31,14 +55,14 @@ class PlayerBinding {
     }
     fun setSpeed(s: Double) = set_speed(s)
 
-    fun jump() {
-        Log.d("Apex3D-Lua", "player:jump() dipanggil dari script")
-        Apex3DRealHook.triggerJump()
-    }
-
     fun play_animation(name: String) {
         currentAnim = name
-        Apex3DRealHook.triggerAction(name)
+        when (name.uppercase()) {
+            "SLASH" -> slash()
+            "SLAM" -> slam()
+            "DASH" -> dash()
+            "JUMP" -> jump()
+        }
     }
     fun play(name: String) = play_animation(name)
     fun playAnimation(name: String) = play_animation(name)
@@ -64,9 +88,7 @@ class CameraBinding {
     fun set_fov(newFov: Double) { _fov = newFov }
     fun setFov(newFov: Double) = set_fov(newFov)
 
-    fun look_at(x: Double, y: Double, z: Double) {
-        Log.d("Apex3D-Lua", "Camera look_at: ($x, $y, $z)")
-    }
+    fun look_at(x: Double, y: Double, z: Double) {}
     fun lookAt(x: Double, y: Double, z: Double) = look_at(x, y, z)
 }
 

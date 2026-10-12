@@ -37,26 +37,33 @@ fun LuaEditorOverlay(
         var expConsole by remember { mutableStateOf(false) }
 
         val templates = listOf(
-            "Tombol Kontrol Baru" to """-- Membuat tombol kustom di layar game!
+            "Tombol Kontrol Baru" to """-- Membuat tombol kontrol di layar game!
 UI:clear()
 
-UI:add_button("🚀 SUPER JUMP", function()
+UI:add_button("🚀 LOMPAT FISIK", function()
+    print("[Tombol] Karakter melompat!")
     player:jump()
 end)
 
-UI:add_button("⚡ SPEED BOOST", function()
-    player:set_speed(3.0)
-    print("Kecepatan diset ke 3.0x!")
+UI:add_button("⚔️ ENERGY SLASH", function()
+    print("[Tombol] Tebasan plasma!")
+    player:slash()
 end)
 
-UI:add_slider("Kecepatan Lari", 0.5, 5.0, 1.0, function(val)
-    player:set_speed(val)
+UI:add_button("💥 GROUND SLAM", function()
+    print("[Tombol] Hentakan tanah!")
+    player:slam()
+end)
+
+UI:add_button("💨 CYBER DASH", function()
+    print("[Tombol] Melesat kencang!")
+    player:dash()
 end)""",
 
             "Auto Jump Loop" to """local timer = 0.0
 
 function _ready()
-    print("Auto jump diaktifkan!")
+    print("Auto jump loop aktif!")
     player:jump()
 end
 
@@ -69,7 +76,7 @@ function _process(delta)
 end""",
 
             "Slow Motion Matrix" to """function _ready()
-    print("Efek Slow Motion Matrix aktif!")
+    print("Efek Matrix slow-motion aktif!")
     Engine:set_time_scale(0.3)
 end""",
 
@@ -87,7 +94,7 @@ end"""
         )
 
         Box(modifier = modifier.fillMaxSize().zIndex(9999f)) {
-            // A. TOMBOL DAN SLIDER KUSTOM YANG DIBUAT DARI LUA MUNCUL DI SINI (KIRI LAYAR)
+            // A. RENDER TOMBOL-TOMBOL KUSTOM YANG DIBUAT DARI SCRIPT (SEBELAH KIRI LAYAR DI ATAS JOYSTICK)
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
@@ -99,7 +106,7 @@ end"""
                     Button(
                         onClick = {
                             try { btn.callback.call() } catch (e: Throwable) {
-                                android.util.Log.e("Apex3D-Lua", "Error: ${e.message}")
+                                android.util.Log.e("Apex3D-Lua", "Error click: ${e.message}")
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -136,7 +143,7 @@ end"""
                 }
             }
 
-            // B. TOMBOL PEMBUKA STUDIO (POJOK KANAN ATAS DI BAWAH GRAFIS)
+            // B. TOMBOL PEMBUKA STUDIO (POJOK KANAN ATAS DI BAWAH TOMBOL GRAFIS)
             if (!isOpen) {
                 Button(
                     onClick = { isOpen = true },
@@ -155,7 +162,7 @@ end"""
                     Text("⚡ LUA STUDIO", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             } else {
-                // C. MODAL STUDIO UTAMA ACCORDION EXPANDED
+                // C. MODAL STUDIO ACCORDION GROUPED
                 Card(
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
@@ -186,27 +193,34 @@ end"""
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            // 1. Karakter & Fisika
                             AccordionGroup("🎮 Karakter & Fisika (Player & Physics)", expPlayer, { expPlayer = !expPlayer }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Button(onClick = { LuaScriptManager.player.jump() }, modifier = Modifier.weight(1f).height(34.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF478CBF))) {
                                         Text("Lompat Fisik", fontSize = 10.sp)
                                     }
-                                    Button(onClick = { LuaScriptManager.player.set_speed(2.0) }, modifier = Modifier.weight(1f).height(34.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF282C34))) {
-                                        Text("Speed 2.0x", fontSize = 10.sp)
+                                    Button(onClick = { LuaScriptManager.player.reset() }, modifier = Modifier.weight(1f).height(34.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF282C34))) {
+                                        Text("Reset Posisi", fontSize = 10.sp)
                                     }
                                 }
                             }
 
-                            AccordionGroup("🎬 Animasi & Pose (AnimationPlayer)", expAnim, { expAnim = !expAnim }) {
+                            // 2. Jurus & Aksi
+                            AccordionGroup("⚔️ Jurus & Aksi (ActionManager)", expAnim, { expAnim = !expAnim }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    listOf("Idle", "Walk", "Run", "Slash").forEach { animName ->
-                                        OutlinedButton(onClick = { LuaScriptManager.player.play_animation(animName) }, modifier = Modifier.weight(1f).height(32.dp), contentPadding = PaddingValues(2.dp)) {
-                                            Text(animName, fontSize = 9.sp, color = Color(0xFF98C379))
-                                        }
+                                    OutlinedButton(onClick = { LuaScriptManager.player.slash() }, modifier = Modifier.weight(1f).height(32.dp), contentPadding = PaddingValues(2.dp)) {
+                                        Text("Slash", fontSize = 9.sp, color = Color(0xFF00E5FF))
+                                    }
+                                    OutlinedButton(onClick = { LuaScriptManager.player.slam() }, modifier = Modifier.weight(1f).height(32.dp), contentPadding = PaddingValues(2.dp)) {
+                                        Text("Slam", fontSize = 9.sp, color = Color(0xFFFF3D00))
+                                    }
+                                    OutlinedButton(onClick = { LuaScriptManager.player.dash() }, modifier = Modifier.weight(1f).height(32.dp), contentPadding = PaddingValues(2.dp)) {
+                                        Text("Dash", fontSize = 9.sp, color = Color(0xFF76FF03))
                                     }
                                 }
                             }
 
+                            // 3. Kamera 3D
                             AccordionGroup("🎥 Kamera 3D (Camera3D Viewport)", expCamera, { expCamera = !expCamera }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Button(onClick = { LuaScriptManager.camera.set_fov(75.0) }, modifier = Modifier.weight(1f).height(32.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF282C34))) {
@@ -218,6 +232,7 @@ end"""
                                 }
                             }
 
+                            // 4. Dunia & Waktu
                             AccordionGroup("🌍 Dunia & Waktu (World Environment)", expWorld, { expWorld = !expWorld }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Button(onClick = { LuaScriptManager.world.set_time(12.0); LuaScriptManager.world.set_sun_intensity(1.0) }, modifier = Modifier.weight(1f).height(32.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF282C34))) {
@@ -229,14 +244,16 @@ end"""
                                 }
                             }
 
+                            // 5. Kontrol UI Dinamis
                             AccordionGroup("🕹️ Kontrol UI Kustom (Dynamic Controls)", expUI, { expUI = !expUI }) {
-                                Text("Total tombol kustom aktif: ${Apex3DRealHook.customButtons.size} | Slider: ${Apex3DRealHook.customSliders.size}", color = Color(0xFFABB2BF), fontSize = 10.sp)
+                                Text("Tombol aktif di layar: ${Apex3DRealHook.customButtons.size} | Slider: ${Apex3DRealHook.customSliders.size}", color = Color(0xFFABB2BF), fontSize = 10.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Button(onClick = { Apex3DRealHook.clearCustomUI() }, modifier = Modifier.fillMaxWidth().height(32.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD9534F))) {
                                     Text("Bersihkan Semua Tombol Kustom di Layar", fontSize = 10.sp)
                                 }
                             }
 
+                            // 6. Script Editor & Presets
                             AccordionGroup("📜 Studio Script & Presets (Godot Lua)", expEditor, { expEditor = !expEditor }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     templates.forEach { (nama, code) ->
@@ -269,6 +286,7 @@ end"""
                                 }
                             }
 
+                            // 7. Console Log
                             AccordionGroup("💻 Live Console & Debugger", expConsole, { expConsole = !expConsole }) {
                                 Box(
                                     modifier = Modifier.fillMaxWidth().height(90.dp).background(Color(0xFF16181D)).padding(6.dp).verticalScroll(rememberScrollState())

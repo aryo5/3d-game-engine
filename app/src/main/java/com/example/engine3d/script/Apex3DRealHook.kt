@@ -8,16 +8,21 @@ data class LuaCustomSlider(val label: String, val min: Float, val max: Float, va
 
 object Apex3DRealHook {
     var onRealJump: (() -> Unit)? = null
-    var onRealAction: ((String) -> Unit)? = null
+    var onRealReset: (() -> Unit)? = null
+    var onRealSlash: (() -> Unit)? = null
+    var onRealSlam: (() -> Unit)? = null
+    var onRealDash: (() -> Unit)? = null
     var onRealSpeedChange: ((Float) -> Unit)? = null
     var onRealTimeScale: ((Float) -> Unit)? = null
 
-    // Tombol dan Slider Dinamis yang dibuat langsung dari script Lua
     val customButtons = mutableStateListOf<LuaCustomButton>()
     val customSliders = mutableStateListOf<LuaCustomSlider>()
 
     fun triggerJump() = onRealJump?.invoke()
-    fun triggerAction(action: String) = onRealAction?.invoke(action)
+    fun triggerReset() = onRealReset?.invoke()
+    fun triggerSlash() = onRealSlash?.invoke()
+    fun triggerSlam() = onRealSlam?.invoke()
+    fun triggerDash() = onRealDash?.invoke()
     fun setSpeed(speed: Float) = onRealSpeedChange?.invoke(speed)
     fun setTimeScale(scale: Float) = onRealTimeScale?.invoke(scale)
 

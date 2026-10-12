@@ -12,6 +12,7 @@ object Apex3DRealHook {
     var onRealSlash: (() -> Unit)? = null
     var onRealSlam: (() -> Unit)? = null
     var onRealDash: (() -> Unit)? = null
+    var onRealAction: ((String) -> Unit)? = null
     var onRealSpeedChange: ((Float) -> Unit)? = null
     var onRealTimeScale: ((Float) -> Unit)? = null
 
@@ -25,6 +26,16 @@ object Apex3DRealHook {
     fun triggerDash() = onRealDash?.invoke()
     fun setSpeed(speed: Float) = onRealSpeedChange?.invoke(speed)
     fun setTimeScale(scale: Float) = onRealTimeScale?.invoke(scale)
+
+    fun triggerAction(action: String) {
+        when (action.uppercase()) {
+            "SLASH" -> triggerSlash()
+            "SLAM" -> triggerSlam()
+            "DASH" -> triggerDash()
+            "JUMP" -> triggerJump()
+            else -> onRealAction?.invoke(action)
+        }
+    }
 
     fun addCustomButton(label: String, callback: LuaValue) {
         customButtons.removeAll { it.label == label }

@@ -4,7 +4,6 @@ import android.util.Log
 import org.luaj.vm2.LuaValue
 import org.luaj.vm2.lib.jse.CoerceJavaToLua
 import com.example.engine3d.scene.Node
-import com.example.engine3d.scene.MeshInstance3D
 import java.io.File
 
 class PlayerBinding {
@@ -116,20 +115,18 @@ class UIBinding {
         Apex3DRealHook.onShowMessage?.invoke(text)
     }
 
-    fun toggle_default_hud(visible: Boolean) {
+    fun toggle_legacy_hud(visible: Boolean) {
         Apex3DRealHook.isLegacyHudVisible = visible
     }
 }
 
 // -------------------------------------------------------------
-// SISTEM AKSES FILE PROYEK PENUH (FS)
+// SISTEM AKSES FILE PROYEK LUA (FS)
 // -------------------------------------------------------------
 class FilesystemBinding {
     private fun getBaseDir(): File {
-        val customPath = Apex3DRealHook.projectRootPath
-        if (customPath.isNotEmpty() && File(customPath).exists()) {
-            return File(customPath)
-        }
+        val path = Apex3DRealHook.projectRootPath
+        if (path.isNotEmpty() && File(path).exists()) return File(path)
         return File("/sdcard/Download/Apex3D_Projects")
     }
 
@@ -165,24 +162,22 @@ class FilesystemBinding {
 }
 
 // -------------------------------------------------------------
-// SISTEM SCENE TREE & GLB SPAWNER
+// SISTEM SCENE TREE & NODE MANAGEMENT
 // -------------------------------------------------------------
 class SceneBinding {
-    fun spawn_glb(modelFile: String, x: Double, y: Double, z: Double): Node {
-        val nodeName = File(modelFile).nameWithoutExtension + "_" + System.currentTimeMillis() % 1000
-        val meshNode = MeshInstance3D(nodeName, modelFile)
-        SceneTreeManager.rootNode.add_child(meshNode)
-        Log.d("Apex3D-Lua", "Spawned GLB Model: $modelFile pada ($x, $y, $z)")
-        return meshNode
-    }
-
     fun create_node(name: String): Node {
         val node = Node(name)
-        SceneTreeManager.rootNode.add_child(node)
+        SceneTreeManager.playerNode.add_child(node)
         return node
     }
 
-    fun get_root(): Node = SceneTreeManager.rootNode
+    fun spawn_glb(modelFile: String, x: Double, y: Double, z: Double): Node {
+        val node = Node(File(modelFile).nameWithoutExtension)
+        SceneTreeManager.playerNode.add_child(node)
+        Log.d("Apex3D-Lua", "Spawned Node untuk GLB: $modelFile")
+        return node
+    }
+
     fun get_player(): Node = SceneTreeManager.playerNode
 }
 
@@ -193,7 +188,7 @@ class PluginBinding {
     fun load(scriptFileName: String): Boolean {
         val code = LuaScriptManager.fs.read(scriptFileName)
         if (code.isEmpty()) {
-            Log.e("Apex3D-Plugin", "Gagal memuat plugin: File $scriptFileName kosong atau tidak ditemukan.")
+            Log.e("Apex3D-Plugin", "Gagal memuat plugin: File $scriptFileName kosong.")
             return false
         }
         return try {

@@ -4,29 +4,33 @@ class SceneTree {
     val root: Node = Node("Root")
     var currentScene: Node? = null
 
-    // Panggil _process(delta) ke seluruh node di pohon
+    // Antrean Khusus: HANYA berisi node yang aktif memanggil set_process(true)
+    private val activeNodes = mutableSetOf<Node>()
+
+    fun registerProcessingNode(node: Node) {
+        activeNodes.add(node)
+    }
+
+    fun unregisterProcessingNode(node: Node) {
+        activeNodes.remove(node)
+    }
+
+    // Eksekusi cepat: HANYA mengulang node yang aktif di antrean (0% CPU untuk yang tidur!)
     fun process(delta: Double) {
-        propagateProcess(root, delta)
+        for (node in activeNodes) {
+            node._process(delta)
+        }
     }
 
-    // Panggil _physics_process(delta) ke seluruh node di pohon
     fun physics_process(delta: Double) {
-        propagatePhysicsProcess(root, delta)
-    }
-
-    private fun propagateProcess(node: Node, delta: Double) {
-        node._process(delta)
-        for (child in node.children) {
-            propagateProcess(child, delta)
+        for (node in activeNodes) {
+            node._physics_process(delta)
         }
     }
 
-    private fun propagatePhysicsProcess(node: Node, delta: Double) {
-        node._physics_process(delta)
-        for (child in node.children) {
-            propagatePhysicsProcess(child, delta)
-        }
-    }
+    // Statistik Efisiensi Memori
+    fun getActiveCount(): Int = activeNodes.size
+    fun getTotalCount(): Int = get_all_nodes().size
 
     fun get_all_nodes(): List<Node> {
         val list = mutableListOf<Node>()

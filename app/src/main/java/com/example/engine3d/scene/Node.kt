@@ -1,18 +1,59 @@
 package com.example.engine3d.scene
 
+import org.luaj.vm2.LuaValue
+import org.luaj.vm2.lib.jse.CoerceJavaToLua
+
 open class Node(var name: String = "Node") {
     var parent: Node? = null
     val children = mutableListOf<Node>()
-    private val signals = mutableMapOf<String, MutableList<(Any?) -> Unit>>()
 
-    // Siklus Hidup Godot
+    // Sinyal Reaktif (Lua Callbacks)
+    private val luaSignals = mutableMapOf<String, MutableList<LuaValue>>()
+
+    // Status aktif di loop 60 FPS (Default: FALSE / 0% CPU)
+    var isProcessing: Boolean = false
+        private set
+
+    // Siklus Hidup Standar Godot
     open fun _enter_tree() {}
     open fun _ready() {}
     open fun _process(delta: Double) {}
     open fun _physics_process(delta: Double) {}
     open fun _exit_tree() {}
 
-    // Hierarki Pohon Objek
+    // Mengaktifkan/menonaktifkan dari antrean loop 60 FPS
+    fun set_process(enable: Boolean) {
+        isProcessing = enable
+        if (enable) {
+            SceneTreeManager.tree.registerProcessingNode(this)
+        } else {
+            SceneTreeManager.tree.unregisterProcessingNode(this)
+        }
+    }
+    fun setProcess(enable: Boolean) = set_process(enable)
+
+    // Sistem Sinyal Godot
+    fun connect(signal: String, luaCallback: LuaValue) {
+        luaSignals.getOrPut(signal) { mutableListOf() }.add(luaCallback)
+    }
+
+    fun emit_signal(signal: String, vararg args: Any?) {
+        luaSignals[signal]?.forEach { callback ->
+            try {
+                if (args.isEmpty()) {
+                    callback.call()
+                } else {
+                    val luaArgs = args.map { CoerceJavaToLua.coerce(it) }.toTypedArray()
+                    callback.invoke(LuaValue.varargsOf(luaArgs))
+                }
+            } catch (e: Throwable) {
+                android.util.Log.e("Apex3D-Signal", "Error sinyal $signal: ${e.message}")
+            }
+        }
+    }
+    fun emitSignal(signal: String, vararg args: Any?) = emit_signal(signal, *args)
+
+    // Pengelolaan Hierarki
     fun add_child(child: Node) {
         child.parent = this
         children.add(child)
@@ -22,6 +63,7 @@ open class Node(var name: String = "Node") {
 
     fun remove_child(child: Node) {
         if (children.remove(child)) {
+            child.set_process(false)
             child._exit_tree()
             child.parent = null
         }
@@ -37,15 +79,6 @@ open class Node(var name: String = "Node") {
             if (found != null) return found
         }
         return null
-    }
-
-    // Sistem Sinyal Godot (Observer Pattern)
-    fun connect(signal: String, callback: (Any?) -> Unit) {
-        signals.getOrPut(signal) { mutableListOf() }.add(callback)
-    }
-
-    fun emit_signal(signal: String, arg: Any? = null) {
-        signals[signal]?.forEach { it.invoke(arg) }
     }
 
     fun queue_free() {

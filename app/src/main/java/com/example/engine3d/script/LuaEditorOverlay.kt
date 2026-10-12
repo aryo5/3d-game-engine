@@ -39,13 +39,98 @@ fun LuaEditorOverlay(
         var expEditor by remember { mutableStateOf(true) }
         var expConsole by remember { mutableStateOf(false) }
 
-        // Sinkronisasi teks script saat berpindah proyek aktif
         LaunchedEffect(ProjectManager.activeProject) {
             scriptText = ProjectManager.readActiveScript()
         }
 
+        // 4 TEMPLATE SAMPLE SCRIPT GODOT BERDASARKAN ARSITEKTUR RINGAN
+        val templates = listOf(
+            "1. Player Selective" to """-- SAMPLE 1: PLAYER CONTROLLER (Selective Queue)
+-- Hanya player yang aktif di frame loop, objek lain tidur!
+
+function _ready()
+    print("[Player] Node aktif! Mendaftarkan ke Active Queue.")
+    player:set_process(true)
+    
+    -- Tangkap sinyal lompat
+    player:connect("on_jump", function()
+        print("[Sinyal] Karakter melompat ke udara!")
+    end)
+end
+
+function _process(delta)
+    -- Translasi / rotasi halus
+    player:rotate_y(20.0 * delta)
+end""",
+
+            "2. Peti Interaktif (0% CPU)" to """-- SAMPLE 2: OBJEK EVENT-DRIVEN (0% CPU saat diam!)
+-- Cocok untuk 100+ NPC, Peti, dan Pintu tanpa bikin lag.
+
+function _ready()
+    player:set_process(false) -- TIDAK memakan CPU per frame!
+    print("[Peti Harta] Siap di map, status: TIDUR (0% CPU).")
+    
+    -- Bangun HANYA saat ada kejadian (Signal)
+    player:connect("on_interact", function(item)
+        print("[Sinyal Event] Peti dibuka!")
+        UI:show_message("🎁 Anda mendapatkan 100 Koin Emas!")
+    end)
+end
+
+-- Tombol uji coba untuk memicu sinyal
+UI:clear()
+UI:add_button("🎁 Buka Peti (Kirim Sinyal)", function()
+    player:emit_signal("on_interact", "Peti Emas")
+end)""",
+
+            "3. Siang Malam (Throttled)" to """-- SAMPLE 3: SIKLUS WAKTU HEMAT DAYA (Tick Throttled)
+-- Update tiap 0.5 detik saja, bukan 60 FPS, hemat baterai!
+
+local jam = 12.0
+local interval = 0.5
+local elapsed = 0.0
+
+function _ready()
+    player:set_process(true)
+    print("[World] Siklus waktu aktif dengan Tick Throttling (0.5s).")
+end
+
+function _process(delta)
+    elapsed = elapsed + delta
+    if elapsed >= interval then
+        elapsed = 0.0
+        jam = (jam + 0.2) % 24.0
+        world:set_time(jam)
+        if jam >= 6.0 and jam < 18.0 then
+            world:set_sun_intensity(1.0)
+        else
+            world:set_sun_intensity(0.2)
+        end
+    end
+end""",
+
+            "4. Dynamic Controls" to """-- SAMPLE 4: KONTROL DINAMIS REAKTIF (HUD + Signals)
+UI:clear()
+
+UI:add_button("🚀 LOMPAT FISIK", function()
+    player:jump()
+end)
+
+UI:add_button("⚔️ ENERGY SLASH", function()
+    player:slash()
+end)
+
+UI:add_button("💨 CYBER DASH", function()
+    player:dash()
+end)
+
+UI:add_slider("Kecepatan", 0.5, 4.0, 1.0, function(val)
+    player:set_speed(val)
+end)"""
+        )
+
         Box(modifier = modifier.fillMaxSize().zIndex(9999f)) {
-            // A. TOMBOL KUSTOM DI HUD
+            // A. TOMBOL DINAMIS DI LAYAR GAME
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
@@ -57,7 +142,7 @@ fun LuaEditorOverlay(
                     Button(
                         onClick = {
                             try { btn.callback.call() } catch (e: Throwable) {
-                                android.util.Log.e("Apex3D-Lua", "Error: ${e.message}")
+                                android.util.Log.e("Apex3D-Lua", "Error click: ${e.message}")
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -94,7 +179,7 @@ fun LuaEditorOverlay(
                 }
             }
 
-            // B. TOMBOL PEMBUKA STUDIO
+            // B. TOMBOL PEMBUKA STUDIO (POJOK KANAN ATAS)
             if (!isOpen) {
                 Button(
                     onClick = { isOpen = true },
@@ -131,7 +216,7 @@ fun LuaEditorOverlay(
                         ) {
                             Column {
                                 Text("🎮 Godot Engine Inspector & Studio", color = Color(0xFF61AFEF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("📁 Proyek Aktif: ${ProjectManager.activeProject?.name ?: "Harvest 3D"}", color = Color(0xFF98C379), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("📁 Proyek: ${ProjectManager.activeProject?.name ?: "Harvest 3D"} | ⚡ Active Queue: ${SceneTreeManager.tree.getActiveCount()} Node", color = Color(0xFF98C379), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                             IconButton(onClick = { isOpen = false }, modifier = Modifier.size(28.dp)) {
                                 Text("✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -212,15 +297,26 @@ fun LuaEditorOverlay(
                                 }
                             }
 
-                            // 6. Script Editor & Presets (Tersinkronisasi ke File Documents)
-                            AccordionGroup("📜 Studio Script & Presets (Live Sync Documents)", expEditor, { expEditor = !expEditor }) {
-                                Text(
-                                    "File aktif: Documents/Apex3D_Projects/${ProjectManager.activeProject?.folder?.name ?: "Proyek_Harvest_3D"}/scripts/player_controller.lua",
-                                    color = Color(0xFFE5C07B),
-                                    fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace
-                                )
+                            // 6. Script Editor & Presets (Daftar 4 Contoh Script Ringan)
+                            AccordionGroup("📜 Studio Script & Sample Presets (Godot Style)", expEditor, { expEditor = !expEditor }) {
+                                Text("Pilih salah satu dari 4 contoh arsitektur ringan:", color = Color(0xFFE5C07B), fontSize = 9.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
+
+                                // Tombol 4 Template Sample
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    templates.forEach { (nama, code) ->
+                                        OutlinedButton(
+                                            onClick = { scriptText = code },
+                                            modifier = Modifier.weight(1f).height(30.dp),
+                                            contentPadding = PaddingValues(1.dp)
+                                        ) {
+                                            Text(nama, fontSize = 7.5.sp, color = Color(0xFF98C379), maxLines = 1)
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
                                 OutlinedTextField(
                                     value = scriptText,
                                     onValueChange = { scriptText = it },
@@ -240,17 +336,17 @@ fun LuaEditorOverlay(
                                     modifier = Modifier.fillMaxWidth().height(38.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF98C379))
                                 ) {
-                                    Text("▶ Simpan ke Documents & Hot Reload", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("▶ Simpan & Eksekusi Script", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
 
-                            // 7. Console Log
-                            AccordionGroup("💻 Live Console & Debugger", expConsole, { expConsole = !expConsole }) {
+                            // 7. Console Log & Efisiensi CPU
+                            AccordionGroup("💻 Live Console & CPU Monitor", expConsole, { expConsole = !expConsole }) {
                                 Box(
                                     modifier = Modifier.fillMaxWidth().height(90.dp).background(Color(0xFF16181D)).padding(6.dp).verticalScroll(rememberScrollState())
                                 ) {
                                     Text(
-                                        text = logs.ifEmpty { "[System] Siap menerima log dari print()." },
+                                        text = logs.ifEmpty { "[System] Arsitektur Selective Queue aktif. CPU 0% untuk objek diam." },
                                         color = Color(0xFF98C379),
                                         fontSize = 10.sp,
                                         fontFamily = FontFamily.Monospace

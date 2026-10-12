@@ -1,6 +1,7 @@
 package com.example.engine3d.script
 
 import android.util.Log
+import android.widget.Toast
 import org.luaj.vm2.LuaValue
 
 class PlayerBinding {
@@ -15,28 +16,26 @@ class PlayerBinding {
     var currentAnim = "Idle"
 
     fun jump() {
-        Log.d("Apex3D-Lua", "player:jump() -> memicu physicsEngine.jump()")
         Apex3DRealHook.triggerJump()
+        SceneTreeManager.playerNode.emit_signal("on_jump")
     }
 
     fun slash() {
-        Log.d("Apex3D-Lua", "player:slash() -> memicu Energy Slash")
         Apex3DRealHook.triggerSlash()
+        SceneTreeManager.playerNode.emit_signal("on_action", "SLASH")
     }
 
     fun slam() {
-        Log.d("Apex3D-Lua", "player:slam() -> memicu Ground Slam")
         Apex3DRealHook.triggerSlam()
+        SceneTreeManager.playerNode.emit_signal("on_action", "SLAM")
     }
 
     fun dash() {
-        Log.d("Apex3D-Lua", "player:dash() -> memicu Cyber Dash")
         Apex3DRealHook.triggerDash()
+        SceneTreeManager.playerNode.emit_signal("on_action", "DASH")
     }
 
-    fun reset() {
-        Apex3DRealHook.triggerReset()
-    }
+    fun reset() = Apex3DRealHook.triggerReset()
 
     fun set_position(x: Double, y: Double, z: Double) { posX = x; posY = y; posZ = z }
     fun setPosition(x: Double, y: Double, z: Double) = set_position(x, y, z)
@@ -55,24 +54,10 @@ class PlayerBinding {
     }
     fun setSpeed(s: Double) = set_speed(s)
 
-    fun play_animation(name: String) {
-        currentAnim = name
-        when (name.uppercase()) {
-            "SLASH" -> slash()
-            "SLAM" -> slam()
-            "DASH" -> dash()
-            "JUMP" -> jump()
-        }
-    }
-    fun play(name: String) = play_animation(name)
-    fun playAnimation(name: String) = play_animation(name)
-
-    fun get_x(): Double = posX
-    fun get_y(): Double = posY
-    fun get_z(): Double = posZ
-    fun getX(): Double = posX
-    fun getY(): Double = posY
-    fun getZ(): Double = posZ
+    // Integrasi Sinyal
+    fun connect(signal: String, callback: LuaValue) = SceneTreeManager.playerNode.connect(signal, callback)
+    fun emit_signal(signal: String, vararg args: Any?) = SceneTreeManager.playerNode.emit_signal(signal, *args)
+    fun set_process(enable: Boolean) = SceneTreeManager.playerNode.set_process(enable)
 }
 
 class CameraBinding {
@@ -123,6 +108,12 @@ class UIBinding {
 
     fun clear() = Apex3DRealHook.clearCustomUI()
     fun clearButtons() = clear()
+
+    fun show_message(text: String) {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            Toast.makeText(com.example.engine3d.renderer.EngineSettings.appContext, text, Toast.LENGTH_SHORT).show()
+        }
+    }
 }
 
 class EngineBinding {
@@ -130,6 +121,8 @@ class EngineBinding {
     fun setTimeScale(scale: Double) = set_time_scale(scale)
     fun get_fps(): Int = 60
     fun getFps(): Int = get_fps()
+    fun get_active_nodes(): Int = SceneTreeManager.tree.getActiveCount()
+    fun get_total_nodes(): Int = SceneTreeManager.tree.getTotalCount()
 }
 
 object LuaScriptManager {

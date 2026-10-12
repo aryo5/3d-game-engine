@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.example.engine3d.project.ProjectManagerView
 
 @Composable
 fun LuaEditorOverlay(
@@ -28,6 +29,7 @@ fun LuaEditorOverlay(
         var scriptText by remember { mutableStateOf(luaEngine.currentScript) }
         val logs = luaEngine.logs
 
+        var expProjectManager by remember { mutableStateOf(false) }
         var expPlayer by remember { mutableStateOf(false) }
         var expAnim by remember { mutableStateOf(false) }
         var expCamera by remember { mutableStateOf(false) }
@@ -94,7 +96,7 @@ end"""
         )
 
         Box(modifier = modifier.fillMaxSize().zIndex(9999f)) {
-            // A. RENDER TOMBOL-TOMBOL KUSTOM YANG DIBUAT DARI SCRIPT (SEBELAH KIRI LAYAR DI ATAS JOYSTICK)
+            // A. TOMBOL DAN SLIDER KUSTOM DARI SCRIPT MUNCUL DI SINI (KIRI LAYAR DI ATAS JOYSTICK)
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
@@ -143,7 +145,7 @@ end"""
                 }
             }
 
-            // B. TOMBOL PEMBUKA STUDIO (POJOK KANAN ATAS DI BAWAH TOMBOL GRAFIS)
+            // B. TOMBOL PEMBUKA STUDIO (POJOK KANAN ATAS DI BAWAH GRAFIS)
             if (!isOpen) {
                 Button(
                     onClick = { isOpen = true },
@@ -193,6 +195,11 @@ end"""
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            // 0. GODOT PROJECT MANAGER (FOLDER DOCUMENTS)
+                            AccordionGroup("📁 Godot Project Manager (Folder Documents)", expProjectManager, { expProjectManager = !expProjectManager }) {
+                                ProjectManagerView()
+                            }
+
                             // 1. Karakter & Fisika
                             AccordionGroup("🎮 Karakter & Fisika (Player & Physics)", expPlayer, { expPlayer = !expPlayer }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

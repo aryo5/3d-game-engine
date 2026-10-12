@@ -1,7 +1,4 @@
 package com.example.engine3d.ui
-import com.example.engine3d.project.ProjectManagerDialog
-import com.example.engine3d.project.ProjectManager
-
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -59,7 +56,6 @@ fun LobbyScreen(
     physicsEngine: PhysicsEngine,
     modifier: Modifier = Modifier
 ) {
-    var showProjectManager by remember { mutableStateOf(false) }
     var showWarmupDialog by remember { mutableStateOf(false) }
     var showGraphicsSheet by remember { mutableStateOf(false) }
     var showAssetManagerSheet by remember { mutableStateOf(false) }
@@ -331,15 +327,4 @@ fun HubMenuCard(
             }
         }
     }
-
-    if (showProjectManager) {
-        ProjectManagerDialog(
-            onDismiss = { showProjectManager = false },
-            onLaunchProject = { project ->
-                showProjectManager = false
-                onStartGame()
-            }
-        )
-    }
-
 }

@@ -443,8 +443,6 @@ fun EngineScreen(
                         HudControlId.SPRINT_LOCK -> {
                             HudCircularButton(
                                 icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                        if (com.example.engine3d.script.Apex3DRealHook.isLegacyHudVisible) {
-                        if (com.example.engine3d.script.Apex3DRealHook.isLegacyHudVisible) {
                                 label = if (isSprintLocked) "Lari: ON" else "Kunci Lari",
                                 size = currentSize,
                                 posX = posX,
@@ -460,15 +458,13 @@ fun EngineScreen(
                                         renderer.inputStickY = 0f
                                         joystickThumbOffset = Offset.Zero
                                     }
-                        }
+                                }
                             )
                         }
 
                         HudControlId.JUMP -> {
                             HudCircularButton(
                                 icon = Icons.Default.North,
-                        if (com.example.engine3d.script.Apex3DRealHook.isLegacyHudVisible) {
-                        if (com.example.engine3d.script.Apex3DRealHook.isLegacyHudVisible) {
                                 label = "Lompat",
                                 size = currentSize,
                                 posX = posX,
@@ -476,8 +472,6 @@ fun EngineScreen(
                                 alpha = cfg.alpha,
                                 bgColor = Color(0x8800E5FF),
                                 onClick = { physicsEngine.jump() }
-                        }
-                        }
                             )
                         }
 

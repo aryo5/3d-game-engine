@@ -114,20 +114,15 @@ class UIBinding {
         Log.d("Apex3D-Lua", "UI Message: $text")
         Apex3DRealHook.onShowMessage?.invoke(text)
     }
-
-    fun toggle_legacy_hud(visible: Boolean) {
-        Apex3DRealHook.isLegacyHudVisible = visible
-    }
 }
 
 // -------------------------------------------------------------
-// SISTEM AKSES FILE PROYEK LUA (FS)
+// SISTEM AKSES FILE PROYEK PENUH (FS)
 // -------------------------------------------------------------
 class FilesystemBinding {
     private fun getBaseDir(): File {
-        val path = Apex3DRealHook.projectRootPath
-        if (path.isNotEmpty() && File(path).exists()) return File(path)
-        return File("/sdcard/Download/Apex3D_Projects")
+        val fallback = File("/sdcard/Download/Apex3D_Projects")
+        return fallback
     }
 
     fun get_project_dir(): String = getBaseDir().absolutePath
@@ -174,7 +169,7 @@ class SceneBinding {
     fun spawn_glb(modelFile: String, x: Double, y: Double, z: Double): Node {
         val node = Node(File(modelFile).nameWithoutExtension)
         SceneTreeManager.playerNode.add_child(node)
-        Log.d("Apex3D-Lua", "Spawned Node untuk GLB: $modelFile")
+        Log.d("Apex3D-Lua", "Spawned Node: $modelFile")
         return node
     }
 
@@ -187,16 +182,12 @@ class SceneBinding {
 class PluginBinding {
     fun load(scriptFileName: String): Boolean {
         val code = LuaScriptManager.fs.read(scriptFileName)
-        if (code.isEmpty()) {
-            Log.e("Apex3D-Plugin", "Gagal memuat plugin: File $scriptFileName kosong.")
-            return false
-        }
+        if (code.isEmpty()) return false
         return try {
-            LuaScriptManager.engine.eval(code)
-            Log.d("Apex3D-Plugin", "Plugin $scriptFileName berhasil dimuat.")
+            LuaScriptManager.engine.execute(code)
             true
         } catch (e: Throwable) {
-            Log.e("Apex3D-Plugin", "Error eksekusi plugin $scriptFileName: ${e.message}")
+            Log.e("Apex3D-Plugin", "Plugin error: ${e.message}")
             false
         }
     }

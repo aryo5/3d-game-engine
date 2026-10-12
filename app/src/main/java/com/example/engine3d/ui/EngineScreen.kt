@@ -354,6 +354,7 @@ fun EngineScreen(
                 hudConfigs.forEach { (id, cfg) ->
                     if (!cfg.isEnabled) return@forEach
                     // Auto-hide Interaksi saat tidak ada NPC atau objek interaktif di dekat karakter agar layar bersih
+                    if (!com.example.engine3d.script.Apex3DRealHook.isLegacyHudVisible) return@forEach
                     if (id == HudControlId.INTERACT && nearbyNpc == null && nearbyObject == null) return@forEach
 
                     val baseScale = if (isPortrait) 0.88f else 1.0f

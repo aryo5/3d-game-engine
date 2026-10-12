@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.example.engine3d.project.ProjectManager
 import com.example.engine3d.project.ProjectManagerView
 
 @Composable
@@ -38,65 +39,13 @@ fun LuaEditorOverlay(
         var expEditor by remember { mutableStateOf(true) }
         var expConsole by remember { mutableStateOf(false) }
 
-        val templates = listOf(
-            "Tombol Kontrol Baru" to """-- Membuat tombol kontrol di layar game!
-UI:clear()
-
-UI:add_button("🚀 LOMPAT FISIK", function()
-    print("[Tombol] Karakter melompat!")
-    player:jump()
-end)
-
-UI:add_button("⚔️ ENERGY SLASH", function()
-    print("[Tombol] Tebasan plasma!")
-    player:slash()
-end)
-
-UI:add_button("💥 GROUND SLAM", function()
-    print("[Tombol] Hentakan tanah!")
-    player:slam()
-end)
-
-UI:add_button("💨 CYBER DASH", function()
-    print("[Tombol] Melesat kencang!")
-    player:dash()
-end)""",
-
-            "Auto Jump Loop" to """local timer = 0.0
-
-function _ready()
-    print("Auto jump loop aktif!")
-    player:jump()
-end
-
-function _process(delta)
-    timer = timer + delta
-    if timer >= 1.5 then
-        player:jump()
-        timer = 0.0
-    end
-end""",
-
-            "Slow Motion Matrix" to """function _ready()
-    print("Efek Matrix slow-motion aktif!")
-    Engine:set_time_scale(0.3)
-end""",
-
-            "Siklus Siang Malam" to """local jam = 6.0
-
-function _process(delta)
-    jam = (jam + (0.5 * delta)) % 24.0
-    world:set_time(jam)
-    if jam >= 6.0 and jam < 18.0 then
-        world:set_sun_intensity(1.0)
-    else
-        world:set_sun_intensity(0.2)
-    end
-end"""
-        )
+        // Sinkronisasi teks script saat berpindah proyek aktif
+        LaunchedEffect(ProjectManager.activeProject) {
+            scriptText = ProjectManager.readActiveScript()
+        }
 
         Box(modifier = modifier.fillMaxSize().zIndex(9999f)) {
-            // A. TOMBOL DAN SLIDER KUSTOM DARI SCRIPT MUNCUL DI SINI (KIRI LAYAR DI ATAS JOYSTICK)
+            // A. TOMBOL KUSTOM DI HUD
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
@@ -108,7 +57,7 @@ end"""
                     Button(
                         onClick = {
                             try { btn.callback.call() } catch (e: Throwable) {
-                                android.util.Log.e("Apex3D-Lua", "Error click: ${e.message}")
+                                android.util.Log.e("Apex3D-Lua", "Error: ${e.message}")
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -145,7 +94,7 @@ end"""
                 }
             }
 
-            // B. TOMBOL PEMBUKA STUDIO (POJOK KANAN ATAS DI BAWAH GRAFIS)
+            // B. TOMBOL PEMBUKA STUDIO
             if (!isOpen) {
                 Button(
                     onClick = { isOpen = true },
@@ -164,7 +113,7 @@ end"""
                     Text("⚡ LUA STUDIO", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             } else {
-                // C. MODAL STUDIO ACCORDION GROUPED
+                // C. MODAL STUDIO ACCORDION
                 Card(
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
@@ -180,7 +129,10 @@ end"""
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("🎮 Godot Engine Inspector & Studio", color = Color(0xFF61AFEF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Column {
+                                Text("🎮 Godot Engine Inspector & Studio", color = Color(0xFF61AFEF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("📁 Proyek Aktif: ${ProjectManager.activeProject?.name ?: "Harvest 3D"}", color = Color(0xFF98C379), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
                             IconButton(onClick = { isOpen = false }, modifier = Modifier.size(28.dp)) {
                                 Text("✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
@@ -195,7 +147,7 @@ end"""
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // 0. GODOT PROJECT MANAGER (FOLDER DOCUMENTS)
+                            // 0. GODOT PROJECT MANAGER (DOCUMENTS)
                             AccordionGroup("📁 Godot Project Manager (Folder Documents)", expProjectManager, { expProjectManager = !expProjectManager }) {
                                 ProjectManagerView()
                             }
@@ -260,15 +212,14 @@ end"""
                                 }
                             }
 
-                            // 6. Script Editor & Presets
-                            AccordionGroup("📜 Studio Script & Presets (Godot Lua)", expEditor, { expEditor = !expEditor }) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    templates.forEach { (nama, code) ->
-                                        OutlinedButton(onClick = { scriptText = code }, modifier = Modifier.weight(1f).height(28.dp), contentPadding = PaddingValues(2.dp)) {
-                                            Text(nama, fontSize = 8.sp, color = Color(0xFF98C379))
-                                        }
-                                    }
-                                }
+                            // 6. Script Editor & Presets (Tersinkronisasi ke File Documents)
+                            AccordionGroup("📜 Studio Script & Presets (Live Sync Documents)", expEditor, { expEditor = !expEditor }) {
+                                Text(
+                                    "File aktif: Documents/Apex3D_Projects/${ProjectManager.activeProject?.folder?.name ?: "Proyek_Harvest_3D"}/scripts/player_controller.lua",
+                                    color = Color(0xFFE5C07B),
+                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 OutlinedTextField(
                                     value = scriptText,
@@ -289,7 +240,7 @@ end"""
                                     modifier = Modifier.fillMaxWidth().height(38.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF98C379))
                                 ) {
-                                    Text("▶ Hot Reload & Eksekusi Script", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("▶ Simpan ke Documents & Hot Reload", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
 

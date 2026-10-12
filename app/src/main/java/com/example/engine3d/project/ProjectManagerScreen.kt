@@ -30,10 +30,8 @@ fun ProjectManagerView(
     val dateFormat = remember { SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()) }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Status Folder Induk
         Text("📁 Lokasi: Documents/Apex3D_Projects/", color = Color(0xFF98C379), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
 
-        // Daftar Kartu Proyek
         projects.forEach { project ->
             val isActive = ProjectManager.activeProject?.folder?.path == project.folder.path
             Card(
@@ -52,7 +50,7 @@ fun ProjectManagerView(
                         Text(dateFormat.format(Date(project.lastModified)), color = Color(0xFF828997), fontSize = 9.sp)
                     }
 
-                    Text("Folder: ${project.folder.name}/", color = Color(0xFFE5C07B), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    Text("Path: Documents/Apex3D_Projects/${project.folder.name}/", color = Color(0xFFE5C07B), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
 
                     Spacer(modifier = Modifier.height(4.dp))
 
@@ -71,14 +69,15 @@ fun ProjectManagerView(
 
                         Button(
                             onClick = {
-                                ProjectManager.activeProject = project
-                                Toast.makeText(context, "Proyek [${project.name}] Aktif!", Toast.LENGTH_SHORT).show()
+                                ProjectManager.setActive(project)
+                                projects = ProjectManager.listProjects(context)
+                                Toast.makeText(context, "Proyek [${project.name}] Aktif & Dimuat!", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = if (isActive) Color(0xFF478CBF) else Color(0xFF98C379)),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                             modifier = Modifier.height(28.dp)
                         ) {
-                            Text(if (isActive) "✔ Aktif" else "▶ Pilih", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(if (isActive) "✔ Aktif" else "▶ Aktifkan", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
 
                         IconButton(
@@ -95,7 +94,6 @@ fun ProjectManagerView(
             }
         }
 
-        // Tombol Aksi Bawah
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Button(
                 onClick = { showCreateDialog = true },

@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.example.engine3d.project.ProjectManager
 import org.luaj.vm2.Globals
 import org.luaj.vm2.LuaValue
 import org.luaj.vm2.lib.OneArgFunction
@@ -15,25 +16,21 @@ class LuaEngine {
     var logs by mutableStateOf("")
         private set
 
-    var currentScript by mutableStateOf(
-        """-- Petani Harvest Moon Controller
-function _ready()
-    print("=== ENGINE READY: PETANI TERPASANG ===")
-    player:setPosition(0.0, 0.0, 0.0)
-    player:playAnimation("Idle")
-end
-
-function _process(delta)
-    player:translate(0.2 * delta, 0.0, 0.0)
-    player:rotateY(20.0 * delta)
-end
-""".trimIndent()
-    )
+    var currentScript by mutableStateOf(ProjectManager.readActiveScript())
 
     private var readyFunc: LuaValue = LuaValue.NIL
     private var processFunc: LuaValue = LuaValue.NIL
 
     init {
+        initRuntime()
+
+        // Listener saat proyek aktif berganti di Project Manager
+        ProjectManager.onProjectActivatedListener = { proj ->
+            reloadFromActiveProject()
+        }
+    }
+
+    private fun initRuntime() {
         try {
             globals = JsePlatform.standardGlobals().apply {
                 set("print", object : OneArgFunction() {
@@ -45,8 +42,8 @@ end
                 })
             }
         } catch (e: Throwable) {
-            Log.e("Apex3D-Lua", "Gagal inisialisasi LuaJ: ${e.message}", e)
-            logs = "[Error Init LuaJ] ${e.message}"
+            Log.e("Apex3D-Lua", "Init error: ${e.message}", e)
+            logs = "[Error Init] ${e.message}"
         }
     }
 
@@ -54,7 +51,7 @@ end
         try {
             globals?.set(name, CoerceJavaToLua.coerce(obj))
         } catch (e: Throwable) {
-            Log.e("Apex3D-Lua", "Error binding $name: ${e.message}", e)
+            Log.e("Apex3D-Lua", "Error bind $name: ${e.message}", e)
         }
     }
 
@@ -62,11 +59,22 @@ end
         logs = ""
     }
 
+    // Memuat ulang script saat berganti proyek aktif
+    fun reloadFromActiveProject() {
+        val code = ProjectManager.readActiveScript()
+        currentScript = code
+        runScript(code)
+        logs = "$logs\n[System] Beralih ke proyek: ${ProjectManager.activeProject?.name ?: "Default"}"
+    }
+
+    // Eksekusi sekaligus menyimpan permanen ke file di Documents
     fun runScript(code: String) {
         currentScript = code
+        ProjectManager.saveActiveScript(code) // Simpan permanen ke file HP
+
         val g = globals
         if (g == null) {
-            logs = "$logs\n[System] Lua runtime belum siap."
+            logs = "$logs\n[System] Lua globals belum siap."
             return
         }
         try {
@@ -77,7 +85,7 @@ end
             if (!readyFunc.isnil()) {
                 readyFunc.call()
             }
-            logs = "$logs\n[System] Script sukses di-reload!"
+            logs = "$logs\n[System] Script sukses di-reload & disimpan ke Documents!"
         } catch (e: Throwable) {
             logs = "$logs\n[Lua Error] ${e.message}"
         }
@@ -87,9 +95,7 @@ end
         if (!processFunc.isnil()) {
             try {
                 processFunc.call(LuaValue.valueOf(delta))
-            } catch (e: Throwable) {
-                // cegah spam error di log loop
-            }
+            } catch (_: Throwable) {}
         }
     }
 }

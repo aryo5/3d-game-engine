@@ -16,7 +16,6 @@ data class ProjectInfo(
 )
 
 object ProjectManager {
-    // Mendapatkan folder induk di Documents/Apex3D_Projects
     fun getRootDirectory(context: Context): File {
         val docs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
         val root = File(docs, "Apex3D_Projects")
@@ -27,8 +26,62 @@ object ProjectManager {
     }
 
     var activeProject: ProjectInfo? = null
+    var onProjectActivatedListener: ((ProjectInfo) -> Unit)? = null
 
-    // Membaca semua proyek yang ada di folder Documents
+    fun setActive(project: ProjectInfo) {
+        activeProject = project
+        onProjectActivatedListener?.invoke(project)
+    }
+
+    // Mendapatkan file script utama dari proyek aktif
+    fun getActiveScriptFile(): File? {
+        val p = activeProject ?: return null
+        val scriptsDir = File(p.folder, "scripts")
+        if (!scriptsDir.exists()) scriptsDir.mkdirs()
+        return File(scriptsDir, "player_controller.lua")
+    }
+
+    // Membaca isi script Lua langsung dari folder Documents
+    fun readActiveScript(): String {
+        val file = getActiveScriptFile()
+        return if (file != null && file.exists()) {
+            file.readText()
+        } else {
+            """-- Controller Proyek (Documents)
+function _ready()
+    print("[Engine] Proyek aktif dimuat dari Documents!")
+    player:set_position(0.0, 0.0, 0.0)
+end
+
+function _process(delta)
+    -- Putar karakter perlahan
+    player:rotate_y(15.0 * delta)
+end
+""".trimIndent()
+        }
+    }
+
+    // Menyimpan perubahan script langsung ke file fisik di Documents
+    fun saveActiveScript(code: String): Boolean {
+        val file = getActiveScriptFile() ?: return false
+        return try {
+            file.writeText(code)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // Mendapatkan daftar file model 3D di folder assets proyek
+    fun getActiveProjectModels(): List<File> {
+        val p = activeProject ?: return emptyList()
+        val assetsDir = File(p.folder, "assets")
+        if (!assetsDir.exists()) return emptyList()
+        return assetsDir.listFiles()?.filter {
+            it.name.endsWith(".glb", true) || it.name.endsWith(".obj", true)
+        } ?: emptyList()
+    }
+
     fun listProjects(context: Context): List<ProjectInfo> {
         val root = getRootDirectory(context)
         ensureDefaultProject(context, root)
@@ -49,15 +102,20 @@ object ProjectManager {
             val assetsDir = File(dir, "assets")
             val scriptsDir = File(dir, "scripts")
 
-            val modelCount = assetsDir.listFiles()?.count { it.name.endsWith(".glb") || it.name.endsWith(".obj") } ?: 0
-            val scriptCount = scriptsDir.listFiles()?.count { it.name.endsWith(".lua") } ?: 0
+            val modelCount = assetsDir.listFiles()?.count { it.name.endsWith(".glb", true) || it.name.endsWith(".obj", true) } ?: 0
+            val scriptCount = scriptsDir.listFiles()?.count { it.name.endsWith(".lua", true) } ?: 0
 
-            list.add(ProjectInfo(projName, dir, dir.lastModified(), modelCount, scriptCount, desc))
+            val pInfo = ProjectInfo(projName, dir, dir.lastModified(), modelCount, scriptCount, desc)
+            list.add(pInfo)
+
+            // Jadikan proyek pertama aktif jika belum ada yang aktif
+            if (activeProject == null && dir.name == "Proyek_Harvest_3D") {
+                activeProject = pInfo
+            }
         }
         return list.sortedByDescending { it.lastModified }
     }
 
-    // Pastikan proyek template Harvest Moon selalu ada di awal
     fun ensureDefaultProject(context: Context, root: File) {
         val defaultDir = File(root, "Proyek_Harvest_3D")
         if (!defaultDir.exists()) {
@@ -65,7 +123,6 @@ object ProjectManager {
         }
     }
 
-    // Membuat proyek baru beserta struktur folder lengkap
     fun createProject(context: Context, name: String, description: String = "Proyek Baru"): Boolean {
         val root = getRootDirectory(context)
         val cleanName = name.trim().replace(" ", "_")
@@ -77,7 +134,6 @@ object ProjectManager {
         val scriptsDir = File(dir, "scripts").apply { mkdirs() }
         File(dir, "scenes").apply { mkdirs() }
 
-        // Tulis project.json
         val json = JSONObject().apply {
             put("name", name)
             put("version", "1.0.0")
@@ -87,20 +143,21 @@ object ProjectManager {
         }
         File(dir, "project.json").writeText(json.toString(2))
 
-        // Contoh script awal Lua di dalam folder scripts/ proyek tersebut
-        val sampleScript = """-- Controller Proyek $name (Tersimpan di Documents)
+        val sampleScript = """-- Controller Karakter Proyek: $name
+-- Lokasi: Documents/Apex3D_Projects/$cleanName/scripts/player_controller.lua
+
 function _ready()
-    print("[$name] Siap! Dimuat dari folder Documents HP.")
+    print("[$name] Karakter siap! Dimuat langsung dari folder Documents.")
     player:set_position(0.0, 0.0, 0.0)
 end
 
 function _process(delta)
-    -- Logika frame game
+    -- Pergerakan / rotasi per frame
+    player:rotate_y(20.0 * delta)
 end
 """.trimIndent()
         File(scriptsDir, "player_controller.lua").writeText(sampleScript)
 
-        // Salin model glb default ke folder assets proyek baru jika ada
         try {
             context.assets.open("farmer_harvest_moon.glb").use { input ->
                 FileOutputStream(File(assetsDir, "farmer_harvest_moon.glb")).use { output ->
@@ -112,18 +169,10 @@ end
         return true
     }
 
-    fun deleteProject(folder: File): Boolean = folder.deleteRecursively()
-
-    fun renameProject(folder: File, newName: String): Boolean {
-        val jsonFile = File(folder, "project.json")
-        if (jsonFile.exists()) {
-            try {
-                val json = JSONObject(jsonFile.readText())
-                json.put("name", newName)
-                jsonFile.writeText(json.toString(2))
-                return true
-            } catch (_: Exception) {}
+    fun deleteProject(folder: File): Boolean {
+        if (activeProject?.folder?.path == folder.path) {
+            activeProject = null
         }
-        return false
+        return folder.deleteRecursively()
     }
 }

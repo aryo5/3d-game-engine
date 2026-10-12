@@ -10,6 +10,14 @@ data class LuaCustomButton(val label: String, val callback: LuaValue)
 data class LuaCustomSlider(val label: String, val min: Float, val max: Float, var value: Float, val callback: LuaValue)
 
 object Apex3DRealHook {
+    // Kontrol Visibilitas HUD Lama (Default false: Layar Bersih untuk Lua)
+    var isLegacyHudVisible: Boolean = false
+    var projectRootPath: String = ""
+
+    fun toggleLegacyHud(visible: Boolean) {
+        isLegacyHudVisible = visible
+    }
+
     var onFrameUpdate: ((Float) -> Unit)? = null
     var onRealJump: (() -> Unit)? = null
     var onRealReset: (() -> Unit)? = null

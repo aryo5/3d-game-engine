@@ -2,6 +2,10 @@ package com.example.engine3d.script
 
 import android.util.Log
 import org.luaj.vm2.LuaValue
+import org.luaj.vm2.lib.jse.CoerceJavaToLua
+import com.example.engine3d.scene.Node
+import com.example.engine3d.scene.MeshInstance3D
+import java.io.File
 
 class PlayerBinding {
     var posX = 0.0
@@ -111,6 +115,96 @@ class UIBinding {
         Log.d("Apex3D-Lua", "UI Message: $text")
         Apex3DRealHook.onShowMessage?.invoke(text)
     }
+
+    fun toggle_default_hud(visible: Boolean) {
+        Apex3DRealHook.isLegacyHudVisible = visible
+    }
+}
+
+// -------------------------------------------------------------
+// SISTEM AKSES FILE PROYEK PENUH (FS)
+// -------------------------------------------------------------
+class FilesystemBinding {
+    private fun getBaseDir(): File {
+        val customPath = Apex3DRealHook.projectRootPath
+        if (customPath.isNotEmpty() && File(customPath).exists()) {
+            return File(customPath)
+        }
+        return File("/sdcard/Download/Apex3D_Projects")
+    }
+
+    fun get_project_dir(): String = getBaseDir().absolutePath
+
+    fun list(subDir: String): Array<String> {
+        val target = if (subDir.isEmpty() || subDir == ".") getBaseDir() else File(getBaseDir(), subDir)
+        if (!target.exists() || !target.isDirectory) return emptyArray()
+        return target.list() ?: emptyArray()
+    }
+
+    fun read(filePath: String): String {
+        val file = if (filePath.startsWith("/")) File(filePath) else File(getBaseDir(), filePath)
+        if (!file.exists() || !file.isFile) return ""
+        return try { file.readText() } catch (e: Exception) { "" }
+    }
+
+    fun write(filePath: String, content: String): Boolean {
+        val file = if (filePath.startsWith("/")) File(filePath) else File(getBaseDir(), filePath)
+        return try {
+            file.parentFile?.mkdirs()
+            file.writeText(content)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun exists(filePath: String): Boolean {
+        val file = if (filePath.startsWith("/")) File(filePath) else File(getBaseDir(), filePath)
+        return file.exists()
+    }
+}
+
+// -------------------------------------------------------------
+// SISTEM SCENE TREE & GLB SPAWNER
+// -------------------------------------------------------------
+class SceneBinding {
+    fun spawn_glb(modelFile: String, x: Double, y: Double, z: Double): Node {
+        val nodeName = File(modelFile).nameWithoutExtension + "_" + System.currentTimeMillis() % 1000
+        val meshNode = MeshInstance3D(nodeName, modelFile)
+        SceneTreeManager.rootNode.add_child(meshNode)
+        Log.d("Apex3D-Lua", "Spawned GLB Model: $modelFile pada ($x, $y, $z)")
+        return meshNode
+    }
+
+    fun create_node(name: String): Node {
+        val node = Node(name)
+        SceneTreeManager.rootNode.add_child(node)
+        return node
+    }
+
+    fun get_root(): Node = SceneTreeManager.rootNode
+    fun get_player(): Node = SceneTreeManager.playerNode
+}
+
+// -------------------------------------------------------------
+// SISTEM PLUGIN LOADER
+// -------------------------------------------------------------
+class PluginBinding {
+    fun load(scriptFileName: String): Boolean {
+        val code = LuaScriptManager.fs.read(scriptFileName)
+        if (code.isEmpty()) {
+            Log.e("Apex3D-Plugin", "Gagal memuat plugin: File $scriptFileName kosong atau tidak ditemukan.")
+            return false
+        }
+        return try {
+            LuaScriptManager.engine.eval(code)
+            Log.d("Apex3D-Plugin", "Plugin $scriptFileName berhasil dimuat.")
+            true
+        } catch (e: Throwable) {
+            Log.e("Apex3D-Plugin", "Error eksekusi plugin $scriptFileName: ${e.message}")
+            false
+        }
+    }
 }
 
 class EngineBinding {
@@ -128,6 +222,9 @@ object LuaScriptManager {
     val camera = CameraBinding()
     val world = WorldBinding()
     val ui = UIBinding()
+    val fs = FilesystemBinding()
+    val scene = SceneBinding()
+    val plugin = PluginBinding()
     val engineApi = EngineBinding()
 
     init {
@@ -135,6 +232,9 @@ object LuaScriptManager {
         engine.bind("camera", camera)
         engine.bind("world", world)
         engine.bind("UI", ui)
+        engine.bind("FS", fs)
+        engine.bind("Scene", scene)
+        engine.bind("Plugin", plugin)
         engine.bind("Engine", engineApi)
     }
 }

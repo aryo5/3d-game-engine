@@ -1,12 +1,13 @@
 package com.example.engine3d.scene
 
 class Camera3D(name: String = "Camera3D") : Node3D(name) {
-    var fov: Double = 60.0
+    private var _fov: Double = 60.0
+    val fov: Double get() = _fov
     var distance: Double = 6.0
     var orbitAngle: Double = 0.0
 
-    fun set_fov(newFov: Double) { fov = newFov }
-    fun setFov(newFov: Double) = set_fov(newFov)
+    fun set_fov(newFov: Double) { _fov = newFov }
+    fun setFov(newFov: Double) { _fov = newFov }
 
     fun orbit_around(target: Node3D, angleDelta: Double) {
         orbitAngle = (orbitAngle + angleDelta) % 360.0

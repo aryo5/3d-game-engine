@@ -72,6 +72,7 @@ class ActionManager(
     }
 
     fun update(dt: Float) {
+        com.example.engine3d.script.Apex3DRealHook.onFrameUpdate?.invoke(dt)
         if (!isActionInProgress || activeAction == null) {
             slashTrailAlpha = (slashTrailAlpha - dt * 4f).coerceAtLeast(0f)
             swingAngle = 0f

@@ -69,9 +69,9 @@ fun ProjectManagerView(
 
                         Button(
                             onClick = {
-                                ProjectManager.setActive(project)
+                                ProjectManager.setActive(context, project)
                                 projects = ProjectManager.listProjects(context)
-                                Toast.makeText(context, "Proyek [${project.name}] Aktif & Dimuat!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Proyek [${project.name}] Aktif & Terkunci Permanen!", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = if (isActive) Color(0xFF478CBF) else Color(0xFF98C379)),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),

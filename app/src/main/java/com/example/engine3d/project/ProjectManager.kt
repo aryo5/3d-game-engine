@@ -28,42 +28,46 @@ object ProjectManager {
     var activeProject: ProjectInfo? = null
     var onProjectActivatedListener: ((ProjectInfo) -> Unit)? = null
 
-    fun setActive(project: ProjectInfo) {
+    // Simpan status proyek aktif secara permanen ke file active_project.txt
+    fun setActive(context: Context, project: ProjectInfo) {
         activeProject = project
+        try {
+            val configFile = File(getRootDirectory(context), "active_project.txt")
+            configFile.writeText(project.folder.name)
+        } catch (_: Exception) {}
         onProjectActivatedListener?.invoke(project)
     }
 
-    // Mendapatkan file script utama dari proyek aktif
-    fun getActiveScriptFile(): File? {
-        val p = activeProject ?: return null
-        val scriptsDir = File(p.folder, "scripts")
-        if (!scriptsDir.exists()) scriptsDir.mkdirs()
+    // Mengambil file script aktif dari folder proyek
+    fun getActiveScriptFile(context: Context? = null): File? {
+        val root = if (context != null) getRootDirectory(context) else null
+        val p = activeProject
+        val targetFolder = p?.folder ?: if (root != null) File(root, "Proyek_Harvest_3D") else null
+        if (targetFolder == null) return null
+
+        val scriptsDir = File(targetFolder, "scripts").apply { if (!exists()) mkdirs() }
         return File(scriptsDir, "player_controller.lua")
     }
 
-    // Membaca isi script Lua langsung dari folder Documents
-    fun readActiveScript(): String {
-        val file = getActiveScriptFile()
+    fun readActiveScript(context: Context? = null): String {
+        val file = getActiveScriptFile(context)
         return if (file != null && file.exists()) {
             file.readText()
         } else {
-            """-- Controller Proyek (Documents)
+            """-- Controller Proyek Aktif
 function _ready()
-    print("[Engine] Proyek aktif dimuat dari Documents!")
-    player:set_position(0.0, 0.0, 0.0)
+    print("[Engine] Script proyek aktif dimulai!")
 end
 
 function _process(delta)
-    -- Putar karakter perlahan
-    player:rotate_y(15.0 * delta)
+    -- Logika frame loop 60 FPS
 end
 """.trimIndent()
         }
     }
 
-    // Menyimpan perubahan script langsung ke file fisik di Documents
-    fun saveActiveScript(code: String): Boolean {
-        val file = getActiveScriptFile() ?: return false
+    fun saveActiveScript(code: String, context: Context? = null): Boolean {
+        val file = getActiveScriptFile(context) ?: return false
         return try {
             file.writeText(code)
             true
@@ -72,19 +76,14 @@ end
         }
     }
 
-    // Mendapatkan daftar file model 3D di folder assets proyek
-    fun getActiveProjectModels(): List<File> {
-        val p = activeProject ?: return emptyList()
-        val assetsDir = File(p.folder, "assets")
-        if (!assetsDir.exists()) return emptyList()
-        return assetsDir.listFiles()?.filter {
-            it.name.endsWith(".glb", true) || it.name.endsWith(".obj", true)
-        } ?: emptyList()
-    }
-
     fun listProjects(context: Context): List<ProjectInfo> {
         val root = getRootDirectory(context)
         ensureDefaultProject(context, root)
+
+        // Baca file active_project.txt jika ada
+        val savedActiveName = try {
+            File(root, "active_project.txt").takeIf { it.exists() }?.readText()?.trim()
+        } catch (_: Exception) { null }
 
         val list = mutableListOf<ProjectInfo>()
         root.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
@@ -108,11 +107,15 @@ end
             val pInfo = ProjectInfo(projName, dir, dir.lastModified(), modelCount, scriptCount, desc)
             list.add(pInfo)
 
-            // Jadikan proyek pertama aktif jika belum ada yang aktif
-            if (activeProject == null && dir.name == "Proyek_Harvest_3D") {
+            if (savedActiveName != null && dir.name == savedActiveName) {
                 activeProject = pInfo
             }
         }
+
+        if (activeProject == null && list.isNotEmpty()) {
+            activeProject = list.first()
+        }
+
         return list.sortedByDescending { it.lastModified }
     }
 
@@ -138,22 +141,29 @@ end
             put("name", name)
             put("version", "1.0.0")
             put("description", description)
-            put("main_scene", "main.scene")
             put("engine", "Godot/Apex3D")
         }
         File(dir, "project.json").writeText(json.toString(2))
 
-        val sampleScript = """-- Controller Karakter Proyek: $name
+        val sampleScript = """-- Controller Karakter: $name
 -- Lokasi: Documents/Apex3D_Projects/$cleanName/scripts/player_controller.lua
 
+local timer = 0.0
+
 function _ready()
-    print("[$name] Karakter siap! Dimuat langsung dari folder Documents.")
-    player:set_position(0.0, 0.0, 0.0)
+    print("[$name] Siap! Dijalankan dalam frame loop 60 FPS.")
 end
 
 function _process(delta)
-    -- Pergerakan / rotasi per frame
-    player:rotate_y(20.0 * delta)
+    -- 1. Berputar otomatis perlahan
+    player:rotate_y(25.0 * delta)
+
+    -- 2. Lompat otomatis tiap 2 detik
+    timer = timer + delta
+    if timer >= 2.0 then
+        player:jump()
+        timer = 0.0
+    end
 end
 """.trimIndent()
         File(scriptsDir, "player_controller.lua").writeText(sampleScript)

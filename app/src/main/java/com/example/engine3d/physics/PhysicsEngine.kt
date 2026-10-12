@@ -10,6 +10,10 @@ class PhysicsEngine(
     val barrierManager: BarrierManager = BarrierManager()
 ) {
     init {
+        com.example.engine3d.script.Apex3DRealHook.onRealSpeedChange = { newSpeed ->
+            android.util.Log.d("Apex3D-Physics", "Kecepatan fisik diset ke: $newSpeed")
+        }
+
         com.example.engine3d.script.Apex3DRealHook.onRealJump = { this.jump() }
         com.example.engine3d.script.Apex3DRealHook.onRealReset = { this.resetCharacterPosition() }
     }

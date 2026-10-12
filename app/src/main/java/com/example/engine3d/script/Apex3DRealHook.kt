@@ -1,6 +1,9 @@
 package com.example.engine3d.script
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.setValue
 import org.luaj.vm2.LuaValue
 
 data class LuaCustomButton(val label: String, val callback: LuaValue)
@@ -18,6 +21,9 @@ object Apex3DRealHook {
     var onRealTimeScale: ((Float) -> Unit)? = null
     var onShowMessage: ((String) -> Unit)? = null
 
+    // Pengganda Kecepatan Fisik Nyata (Default 1.0x)
+    var currentSpeedMultiplier by mutableFloatStateOf(1.0f)
+
     val customButtons = mutableStateListOf<LuaCustomButton>()
     val customSliders = mutableStateListOf<LuaCustomSlider>()
 
@@ -26,7 +32,12 @@ object Apex3DRealHook {
     fun triggerSlash() = onRealSlash?.invoke()
     fun triggerSlam() = onRealSlam?.invoke()
     fun triggerDash() = onRealDash?.invoke()
-    fun setSpeed(speed: Float) = onRealSpeedChange?.invoke(speed)
+    
+    fun setSpeed(speed: Float) {
+        currentSpeedMultiplier = speed
+        onRealSpeedChange?.invoke(speed)
+    }
+    
     fun setTimeScale(scale: Float) = onRealTimeScale?.invoke(scale)
 
     fun triggerAction(action: String) {

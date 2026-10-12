@@ -1,5 +1,6 @@
 package com.example.engine3d.script
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,7 +28,12 @@ fun LuaEditorOverlay(
     modifier: Modifier = Modifier
 ) {
     MaterialTheme {
+        val configuration = LocalConfiguration.current
+        // Cek apakah sedang di dunia 3D game (Landscape / Miring) atau di Lobby (Portrait / Tegak)
+        val isInsideGameWorld = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
         var isOpen by remember { mutableStateOf(false) }
+        var isCustomHudVisible by remember { mutableStateOf(true) }
         var scriptText by remember { mutableStateOf(luaEngine.currentScript) }
         val logs = luaEngine.logs
 
@@ -43,73 +50,8 @@ fun LuaEditorOverlay(
             scriptText = ProjectManager.readActiveScript()
         }
 
-        // 4 TEMPLATE SAMPLE SCRIPT GODOT BERDASARKAN ARSITEKTUR RINGAN
         val templates = listOf(
-            "1. Player Selective" to """-- SAMPLE 1: PLAYER CONTROLLER (Selective Queue)
--- Hanya player yang aktif di frame loop, objek lain tidur!
-
-function _ready()
-    print("[Player] Node aktif! Mendaftarkan ke Active Queue.")
-    player:set_process(true)
-    
-    -- Tangkap sinyal lompat
-    player:connect("on_jump", function()
-        print("[Sinyal] Karakter melompat ke udara!")
-    end)
-end
-
-function _process(delta)
-    -- Translasi / rotasi halus
-    player:rotate_y(20.0 * delta)
-end""",
-
-            "2. Peti Interaktif (0% CPU)" to """-- SAMPLE 2: OBJEK EVENT-DRIVEN (0% CPU saat diam!)
--- Cocok untuk 100+ NPC, Peti, dan Pintu tanpa bikin lag.
-
-function _ready()
-    player:set_process(false) -- TIDAK memakan CPU per frame!
-    print("[Peti Harta] Siap di map, status: TIDUR (0% CPU).")
-    
-    -- Bangun HANYA saat ada kejadian (Signal)
-    player:connect("on_interact", function(item)
-        print("[Sinyal Event] Peti dibuka!")
-        UI:show_message("🎁 Anda mendapatkan 100 Koin Emas!")
-    end)
-end
-
--- Tombol uji coba untuk memicu sinyal
-UI:clear()
-UI:add_button("🎁 Buka Peti (Kirim Sinyal)", function()
-    player:emit_signal("on_interact", "Peti Emas")
-end)""",
-
-            "3. Siang Malam (Throttled)" to """-- SAMPLE 3: SIKLUS WAKTU HEMAT DAYA (Tick Throttled)
--- Update tiap 0.5 detik saja, bukan 60 FPS, hemat baterai!
-
-local jam = 12.0
-local interval = 0.5
-local elapsed = 0.0
-
-function _ready()
-    player:set_process(true)
-    print("[World] Siklus waktu aktif dengan Tick Throttling (0.5s).")
-end
-
-function _process(delta)
-    elapsed = elapsed + delta
-    if elapsed >= interval then
-        elapsed = 0.0
-        jam = (jam + 0.2) % 24.0
-        world:set_time(jam)
-        if jam >= 6.0 and jam < 18.0 then
-            world:set_sun_intensity(1.0)
-        else
-            world:set_sun_intensity(0.2)
-        end
-    end
-end""",
-
-            "4. Dynamic Controls" to """-- SAMPLE 4: KONTROL DINAMIS REAKTIF (HUD + Signals)
+            "1. Kontrol Cepat" to """-- Membuat tombol kontrol di layar game!
 UI:clear()
 
 UI:add_button("🚀 LOMPAT FISIK", function()
@@ -126,54 +68,85 @@ end)
 
 UI:add_slider("Kecepatan", 0.5, 4.0, 1.0, function(val)
     player:set_speed(val)
-end)"""
+end)""",
+
+            "2. Auto Jump Loop" to """local timer = 0.0
+
+function _ready()
+    print("Auto jump loop aktif!")
+    player:jump()
+end
+
+function _process(delta)
+    timer = timer + delta
+    if timer >= 1.5 then
+        player:jump()
+        timer = 0.0
+    end
+end""",
+
+            "3. Slow Motion" to """function _ready()
+    print("Mode slow motion 0.3x aktif!")
+    Engine:set_time_scale(0.3)
+end""",
+
+            "4. Siang Malam" to """local jam = 12.0
+
+function _process(delta)
+    jam = (jam + (0.5 * delta)) % 24.0
+    world:set_time(jam)
+end"""
         )
 
         Box(modifier = modifier.fillMaxSize().zIndex(9999f)) {
-            // A. TOMBOL DINAMIS DI LAYAR GAME
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 14.dp)
-                    .zIndex(9995f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Apex3DRealHook.customButtons.forEach { btn ->
-                    Button(
-                        onClick = {
-                            try { btn.callback.call() } catch (e: Throwable) {
-                                android.util.Log.e("Apex3D-Lua", "Error click: ${e.message}")
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xEEFF9800),
-                            contentColor = Color.White
-                        ),
-                        border = BorderStroke(1.5.dp, Color(0xFFFFD54F)),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(btn.label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            // A. TOMBOL & SLIDER KUSTOM: HANYA MUNCUL DI DUNIA 3D (LANDSCAPE), OTOMATIS HILANG DI LOBBY!
+            if (isInsideGameWorld && isCustomHudVisible) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 14.dp)
+                        .zIndex(9995f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Apex3DRealHook.customButtons.forEach { btn ->
+                        Button(
+                            onClick = {
+                                try { btn.callback.call() } catch (e: Throwable) {
+                                    android.util.Log.e("Apex3D-Lua", "Error click: ${e.message}")
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xEEFF9800),
+                                contentColor = Color.White
+                            ),
+                            border = BorderStroke(1.5.dp, Color(0xFFFFD54F)),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(btn.label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
-                }
 
-                Apex3DRealHook.customSliders.forEach { slider ->
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xDD1E293B)),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.width(160.dp).padding(vertical = 2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(6.dp)) {
-                            Text("${slider.label}: ${String.format("%.1f", slider.value)}", color = Color.White, fontSize = 9.sp)
-                            Slider(
-                                value = slider.value,
-                                onValueChange = { newVal ->
-                                    slider.value = newVal
-                                    try { slider.callback.call(org.luaj.vm2.LuaValue.valueOf(newVal.toDouble())) } catch (_: Throwable) {}
-                                },
-                                valueRange = slider.min..slider.max,
-                                modifier = Modifier.height(20.dp)
-                            )
+                    Apex3DRealHook.customSliders.forEach { slider ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xDD1E293B)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.width(160.dp).padding(vertical = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(6.dp)) {
+                                Text("🏃 ${slider.label}: ${String.format("%.1f", slider.value)}x", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Slider(
+                                    value = slider.value,
+                                    onValueChange = { newVal ->
+                                        slider.value = newVal
+                                        // Update kecepatan fisik karakter secara langsung
+                                        Apex3DRealHook.setSpeed(newVal)
+                                        try { slider.callback.call(org.luaj.vm2.LuaValue.valueOf(newVal.toDouble())) } catch (_: Throwable) {}
+                                    },
+                                    valueRange = slider.min..slider.max,
+                                    modifier = Modifier.height(20.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -185,7 +158,7 @@ end)"""
                     onClick = { isOpen = true },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 54.dp, end = 14.dp)
+                        .padding(top = if (isInsideGameWorld) 54.dp else 12.dp, end = 14.dp)
                         .zIndex(9999f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xEE1E293B),
@@ -198,7 +171,7 @@ end)"""
                     Text("⚡ LUA STUDIO", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             } else {
-                // C. MODAL STUDIO ACCORDION
+                // C. MODAL STUDIO ACCORDION GROUPED
                 Card(
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
@@ -216,7 +189,7 @@ end)"""
                         ) {
                             Column {
                                 Text("🎮 Godot Engine Inspector & Studio", color = Color(0xFF61AFEF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("📁 Proyek: ${ProjectManager.activeProject?.name ?: "Harvest 3D"} | ⚡ Active Queue: ${SceneTreeManager.tree.getActiveCount()} Node", color = Color(0xFF98C379), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("📁 Proyek: ${ProjectManager.activeProject?.name ?: "Harvest 3D"}", color = Color(0xFF98C379), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                             IconButton(onClick = { isOpen = false }, modifier = Modifier.size(28.dp)) {
                                 Text("✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -239,6 +212,8 @@ end)"""
 
                             // 1. Karakter & Fisika
                             AccordionGroup("🎮 Karakter & Fisika (Player & Physics)", expPlayer, { expPlayer = !expPlayer }) {
+                                Text("Kecepatan Berjalan Saat Ini: ${String.format("%.1f", Apex3DRealHook.currentSpeedMultiplier)}x", color = Color(0xFFE5C07B), fontSize = 11.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Button(onClick = { LuaScriptManager.player.jump() }, modifier = Modifier.weight(1f).height(34.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF478CBF))) {
                                         Text("Lompat Fisik", fontSize = 10.sp)
@@ -290,33 +265,36 @@ end)"""
 
                             // 5. Kontrol UI Dinamis
                             AccordionGroup("🕹️ Kontrol UI Kustom (Dynamic Controls)", expUI, { expUI = !expUI }) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Tampilkan Tombol di Layar 3D:", color = Color(0xFFABB2BF), fontSize = 11.sp)
+                                    Switch(
+                                        checked = isCustomHudVisible,
+                                        onCheckedChange = { isCustomHudVisible = it },
+                                        modifier = Modifier.height(24.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text("Tombol aktif di layar: ${Apex3DRealHook.customButtons.size} | Slider: ${Apex3DRealHook.customSliders.size}", color = Color(0xFFABB2BF), fontSize = 10.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Button(onClick = { Apex3DRealHook.clearCustomUI() }, modifier = Modifier.fillMaxWidth().height(32.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD9534F))) {
-                                    Text("Bersihkan Semua Tombol Kustom di Layar", fontSize = 10.sp)
+                                    Text("Bersihkan Semua Tombol Kustom", fontSize = 10.sp)
                                 }
                             }
 
-                            // 6. Script Editor & Presets (Daftar 4 Contoh Script Ringan)
-                            AccordionGroup("📜 Studio Script & Sample Presets (Godot Style)", expEditor, { expEditor = !expEditor }) {
-                                Text("Pilih salah satu dari 4 contoh arsitektur ringan:", color = Color(0xFFE5C07B), fontSize = 9.sp)
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                // Tombol 4 Template Sample
+                            // 6. Script Editor & Presets
+                            AccordionGroup("📜 Studio Script & Presets (Live Sync Documents)", expEditor, { expEditor = !expEditor }) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     templates.forEach { (nama, code) ->
-                                        OutlinedButton(
-                                            onClick = { scriptText = code },
-                                            modifier = Modifier.weight(1f).height(30.dp),
-                                            contentPadding = PaddingValues(1.dp)
-                                        ) {
+                                        OutlinedButton(onClick = { scriptText = code }, modifier = Modifier.weight(1f).height(28.dp), contentPadding = PaddingValues(2.dp)) {
                                             Text(nama, fontSize = 7.5.sp, color = Color(0xFF98C379), maxLines = 1)
                                         }
                                     }
                                 }
-
-                                Spacer(modifier = Modifier.height(6.dp))
-
+                                Spacer(modifier = Modifier.height(4.dp))
                                 OutlinedTextField(
                                     value = scriptText,
                                     onValueChange = { scriptText = it },
@@ -340,13 +318,13 @@ end)"""
                                 }
                             }
 
-                            // 7. Console Log & Efisiensi CPU
-                            AccordionGroup("💻 Live Console & CPU Monitor", expConsole, { expConsole = !expConsole }) {
+                            // 7. Console Log
+                            AccordionGroup("💻 Live Console & Debugger", expConsole, { expConsole = !expConsole }) {
                                 Box(
                                     modifier = Modifier.fillMaxWidth().height(90.dp).background(Color(0xFF16181D)).padding(6.dp).verticalScroll(rememberScrollState())
                                 ) {
                                     Text(
-                                        text = logs.ifEmpty { "[System] Arsitektur Selective Queue aktif. CPU 0% untuk objek diam." },
+                                        text = logs.ifEmpty { "[System] Siap menerima log dari print()." },
                                         color = Color(0xFF98C379),
                                         fontSize = 10.sp,
                                         fontFamily = FontFamily.Monospace
